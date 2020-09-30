@@ -1,15 +1,38 @@
 import numpy as np
-from numba import int32, float32
+from numba import int32, float32, njit, jit
+from numba.types import UniTuple
 from numba.experimental import jitclass
+
+@njit()
+def unravel_index(index, shape):
+    out = []
+    for dim in shape[::-1]:
+        out.append(index % dim)
+        index = index // dim
+    return out[::-1]
 
 spec = [("K", int32), ("q", float32[:]), ("J", int32[:])]
 
-
+@jit()
 def samplealias2d(a, n=1):
     a = np.asarray(a)
     aa = AliasSample(a.ravel())
-    index = aa.draw_n(n)
-    return np.unravel_index(index, dims=a.shape)
+    index = aa.sample(n)
+    # return np.unravel_index(index, dims=a.shape)
+    return unravel_index(index, np.array(a.shape, dtype=np.int32))
+
+@njit(int32[:](int32[:], float32[:], int32), parallel=True, nogil=True)
+def draw(J,q,n):
+    r1, r2 = np.random.rand(n), np.random.rand(n)
+    res = np.zeros(n, dtype=np.int32)
+    lj = len(J)
+    for i in range(n):
+        kk = int(np.floor(r1[i] * lj))
+        if r2[i] < q[kk]:
+            res[i] = kk
+        else:
+            res[i] = J[kk]
+    return res
 
 
 @jitclass(spec)
@@ -75,13 +98,14 @@ class AliasSample:
         Returns:
             array of random numbers
         """
-        r1, r2 = np.random.rand(n), np.random.rand(n)
-        res = np.zeros(n, dtype=np.int32)
-        lj = len(self.J)
-        for i in range(n):
-            kk = int(np.floor(r1[i] * lj))
-            if r2[i] < self.q[kk]:
-                res[i] = kk
-            else:
-                res[i] = self.J[kk]
-        return res
+        # r1, r2 = np.random.rand(n), np.random.rand(n)
+        # res = np.zeros(n, dtype=np.int32)
+        # lj = len(self.J)
+        # for i in range(n):
+        #     kk = int(np.floor(r1[i] * lj))
+        #     if r2[i] < self.q[kk]:
+        #         res[i] = kk
+        #     else:
+        #         res[i] = self.J[kk]
+        # return res
+        return draw(self.J, self.q, n)
