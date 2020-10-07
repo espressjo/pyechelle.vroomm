@@ -1,6 +1,5 @@
 import numpy as np
 from numba import int32, float32, njit, jit
-from numba.types import UniTuple
 from numba.experimental import jitclass
 
 @njit()
@@ -16,7 +15,7 @@ spec = [("K", int32), ("q", float32[:]), ("J", int32[:])]
 @jit()
 def samplealias2d(a, n=1):
     a = np.asarray(a)
-    aa = AliasSample(a.ravel())
+    aa = AliasSample(a.T.ravel())
     index = aa.sample(n)
     # return np.unravel_index(index, dims=a.shape)
     return unravel_index(index, np.array(a.shape, dtype=np.int32))

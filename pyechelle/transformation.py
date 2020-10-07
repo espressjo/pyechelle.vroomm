@@ -25,7 +25,7 @@ class AffineTransformation:
         self.sx = sx
         self.sy = sy
         self.rot = rot
-        self.shear = np.mod(shear, 2. * np.pi) - np.pi
+        self.shear = shear
         self.tx = tx
         self.ty = ty
         self.wl = wl
