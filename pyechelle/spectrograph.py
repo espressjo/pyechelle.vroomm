@@ -117,7 +117,7 @@ class Spectrograph:
     pass
 
 
-class PSF():
+class PSF:
     def __init__(self, wl, data):
         self.wl = wl
         self.data = data / np.sum(data)
@@ -220,8 +220,17 @@ class ZEMAX(Spectrograph):
         self.fibers = lambda: self.orders
         self.CCD = None
 
+        self.blaze = None
+        self.gpmm = None
+        self.name = None
+        self.modelpath = path
+
         with h5py.File(path, "r") as h5f:
-            # read in CCD information
+            # read in grating information
+            self.name = h5f[f"Spectrograph"].attrs['name']
+            self.blaze = h5f[f"Spectrograph"].attrs['blaze']
+            self.gpmm = h5f[f"Spectrograph"].attrs['gpmm']
+
             Nx = h5f[f"CCD"].attrs['Nx']
             Ny = h5f[f"CCD"].attrs['Ny']
             ps = h5f[f"CCD"].attrs['pixelsize']
@@ -250,7 +259,7 @@ class ZEMAX(Spectrograph):
         plt.show()
 
     def generate_slit(self, N):
-        return generate_slit_round(N)
+        return generate_slit_xy(N)
 
     def generate_2d_spectrum(self, wl_vector):
         n = len(wl_vector)
@@ -270,13 +279,13 @@ class ZEMAX(Spectrograph):
             # wltest = np.random.uniform(np.min(t.wl), np.max(t.wl), n)
             sx, sy, rot, shear, tx, ty = t.get_transformations_lookup(wltest)
             transformed = trace(xy[0], xy[1], sx, sy, rot, shear, tx, ty)
-            xx, yy = transformed
+            # xx, yy = transformed
             #     # transformed = np.array(transformed)[:, :2].T
-            # X, Y = self.psfs[f"psf_{o[:5]}"+"_"+f"{o[5:]}"].draw_xy(wltest)
+            X, Y = self.psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].draw_xy(wltest)
             # # transformed[0] = transformed[0] + X
             # # transformed[1] = transformed[1] + Y
-            # xx = transformed[0] + np.array(X) / self.CCD.pixelsize
-            # yy = transformed[1] + np.array(Y) / self.CCD.pixelsize
+            xx = transformed[0] + np.array(X) / self.CCD.pixelsize
+            yy = transformed[1] + np.array(Y) / self.CCD.pixelsize
             #     # transformed += self.generate_psf_distortion(N)
             img += bin_2d(xx, yy, ymin=self.CCD.ymin, ymax=self.CCD.ymax, xmax=self.CCD.xmax, xmin=self.CCD.xmin)
         # img = np.array(imgs).sum(axis=0)
@@ -291,11 +300,11 @@ if __name__ == "__main__":
 
     dir_path = Path(__file__).resolve().parent.parent
 
-    spec = ZEMAX(dir_path.joinpath("/home/stuermer/rdp_shared/marvel.hdf"), 1)
+    spec = ZEMAX(dir_path.joinpath("/home/stuermer/rdp_shared/cubespec2new.hdf"), 1)
 
     img = spec.generate_2d_spectrum(np.empty((int(1e5),)))
-    plt.figure()
-    plt.imshow(img, vmin=0, vmax=4)
-    plt.show()
+    # plt.figure()
+    # plt.imshow(img, origin='lower')
+    # plt.show()
     # print(np.max(img), np.min(img))
     # spec.plot_transformations()

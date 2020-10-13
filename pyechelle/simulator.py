@@ -5,6 +5,9 @@ import textwrap
 from pathlib import Path
 
 from pyechelle import spectrograph
+from pyechelle.CCD import read_ccd_from_hdf
+from pyechelle.efficiency import GratingEfficiency
+from pyechelle.sources import Phoenix
 from pyechelle.telescope import Telescope
 
 dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
@@ -27,14 +30,12 @@ _KEYWORDS = _KEYWORDS_ARGS + _KEYWORDS_OTHERS
 
 def _checker(keywords):
     """Generate a checker which tests a given value not starts with keywords."""
-
     def _(v):
         """Check a given value matches to keywords."""
         for k in keywords:
             if k in v:
                 return False
         return True
-
     return _
 
 
@@ -71,8 +72,12 @@ def _parse_doc(doc):
 
 def main(args):
     spec = spectrograph.ZEMAX(args.model, args.fiber, args.n_lookup)
-
+    ccd = read_ccd_from_hdf(args.model)
     telescope = Telescope(args.d_primary, args.d_secondary)
+    source = Phoenix()
+    efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+
+    print(ccd)
 
 
 if __name__ == "__main__":
@@ -89,12 +94,17 @@ if __name__ == "__main__":
     parser.add_argument('model', nargs='?', type=rel_to_full_path, default=sys.stdin,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. Options "
                              f"are {','.join(models)}")
-    parser.add_argument('n_lookup', type=int)
+    parser.add_argument('--fiber', type=int, default=1, required=True)
+    parser.add_argument('--n_lookup', type=int, default=10000, required=False)
+
+    parser.add_argument('--d_primary', type=float, required=False, default=1.0)
+    parser.add_argument('--d_secondary', type=float, required=False, default=0)
 
     # parser.add_argument('model', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
     #                     help="Filename of spectrograph model. Model file needs to be located in models/ folder.")
 
     args = parser.parse_args()
+    main(args)
     # spectrograph.ZEMAX(args.model)
     #
     # # print(args.accumulate(args.integers))

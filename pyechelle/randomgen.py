@@ -108,3 +108,20 @@ class AliasSample:
         #         res[i] = self.J[kk]
         # return res
         return draw(self.J, self.q, n)
+
+
+def piecewise_constant(x, y, N: int):
+    """
+    Piecewise constant
+    Args:
+        x:
+        y:
+        N: number of samples to draw
+
+    Returns:
+
+    """
+    diff = np.ediff1d(x)
+    x0 = np.random.choice(y, N, p=y)
+    dist = np.random.rand(N)
+    # x0 += dist*

@@ -41,19 +41,20 @@ def plot_psfs(spec: ZEMAX):
     """
     plt.figure()
     n_orders = len(spec.orders)
-    n_psfs = 50
+    n_psfs = max([len(spec.psfs[k].psfs) for k in spec.psfs.keys()])
     shape_psfs = spec.psfs[next(spec.psfs.keys().__iter__())].psfs[0].data.shape
     img = np.empty((n_psfs * shape_psfs[0], n_orders * shape_psfs[1]))
     for oo, o in enumerate(spec.orders):
         for i, p in enumerate(spec.psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].psfs):
-            img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
-            int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])
-            ] = p.data
+            if p.data.shape == shape_psfs:
+                img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
+                int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])
+                ] = p.data
     plt.imshow(img, vmin=0, vmax=np.mean(img) * 10.0)
     plt.show()
 
 
 if __name__ == "__main__":
-    spec = ZEMAX("/home/stuermer/rdp_shared/marvel.hdf", 3)
-    # plot_transformations(spec)
+    spec = ZEMAX("/home/stuermer/Nextcloud/work/tmp/rimas.hdf", 1)
+    plot_transformations(spec)
     plot_psfs(spec)

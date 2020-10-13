@@ -1,6 +1,7 @@
 import logging
 
 import autologging
+import h5py
 import numpy as np
 from numba import int32, float64, int64, njit
 
@@ -37,6 +38,15 @@ def bin_2d(x, y, xmin=0, xmax=4096, ymin=0, ymax=4096):
     for xx, yy in zip(x, y):
         grid[int(yy), int(xx)] += 1
     return grid
+
+
+def read_ccd_from_hdf(path):
+    with h5py.File(path, "r") as h5f:
+        # read in CCD information
+        Nx = h5f[f"CCD"].attrs['Nx']
+        Ny = h5f[f"CCD"].attrs['Ny']
+        ps = h5f[f"CCD"].attrs['pixelsize']
+        return CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
 
 
 @autologging.traced(logger)
