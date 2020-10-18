@@ -1,17 +1,26 @@
 import argparse
 import itertools
+import re
 import sys
 import textwrap
 from pathlib import Path
 
+import pyechelle
 from pyechelle import spectrograph
-from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency
-from pyechelle.sources import Phoenix
-from pyechelle.telescope import Telescope
 
 dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
 models = [x.stem for x in dir_path.glob('*.hdf')]
+
+
+def parseNumList(string):
+    m = re.match(r'(\d+)(?:-(\d+))?$', string)
+    # ^ (or use .split('-'). anyway you like.)
+    if not m:
+        raise argparse.ArgumentTypeError("'" + string + "' is not a range of number. Expected forms like '0-5' or '2'.")
+    start = m.group(1)
+    end = m.group(2) or start
+    return list(range(int(start, 10), int(end, 10) + 1))
 
 
 def rel_to_full_path(filename):
@@ -71,13 +80,31 @@ def _parse_doc(doc):
 
 
 def main(args):
-    spec = spectrograph.ZEMAX(args.model, args.fiber, args.n_lookup)
-    ccd = read_ccd_from_hdf(args.model)
-    telescope = Telescope(args.d_primary, args.d_secondary)
-    source = Phoenix()
-    efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+    # generate flat list for all fields to simulate
+    if any(isinstance(el, list) for el in args.fiber):
+        fibers = [item for sublist in args.fiber for item in sublist]
+    else:
+        fibers = args.fiber
 
-    print(ccd)
+    # generate flat list of all sources to simulate
+    sources = args.sources
+    if len(sources) == 1:
+        sources = [sources[0]] * len(fibers)  # generate list of same length than 'fields' if only one source given
+
+    assert len(fibers) == len(sources), 'Number of sources needs to match number of fields (or be 1).'
+    for fiber, source_name in zip(fibers, sources):
+        spec = spectrograph.ZEMAX(args.s, fiber, args.n_lookup)
+        # ccd = read_ccd_from_hdf(args.s)
+        # telescope = Telescope(args.d_primary, args.d_secondary)
+        source = getattr(pyechelle.sources, source_name)
+        if not args.no_blaze_efficiency:
+            efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+
+        if args.orders is None:
+            orders = spec.order_keys
+        else:
+            orders = [item for sublist in args.orders for item in sublist]
+            # TODO: Check that order exists
 
 
 if __name__ == "__main__":
@@ -91,15 +118,20 @@ if __name__ == "__main__":
 
     # clize.run(main, alt=spectrograph.Spectrograph)
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
-    parser.add_argument('model', nargs='?', type=rel_to_full_path, default=sys.stdin,
+    parser.add_argument('-s', nargs='?', type=rel_to_full_path, default=sys.stdin, required=True,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. Options "
                              f"are {','.join(models)}")
-    parser.add_argument('--fiber', type=int, default=1, required=True)
+    parser.add_argument('--fiber', type=parseNumList, default=1, required=True)
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
 
     parser.add_argument('--d_primary', type=float, required=False, default=1.0)
     parser.add_argument('--d_secondary', type=float, required=False, default=0)
 
+    parser.add_argument('--orders', type=parseNumList, nargs='+', required=False,
+                        help='Echelle order numbers to simulate... '
+                             'if not specified, all orders of the spectrograph are simulated')
+    parser.add_argument('--sources', nargs='+', choices=['Phoenix', 'Dark', 'Flat', 'Etalon'], required=True)
+    parser.add_argument('--no_blaze_efficiency', default=True, action='store_false')
     # parser.add_argument('model', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
     #                     help="Filename of spectrograph model. Model file needs to be located in models/ folder.")
 

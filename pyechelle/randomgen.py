@@ -1,6 +1,39 @@
 import numpy as np
-from numba import int32, float32, njit, jit
+from numba import int32, float32, njit, jit, float64
 from numba.experimental import jitclass
+
+
+@njit(float64[:, :](int32), parallel=True, nogil=True, cache=True)
+def generate_slit_xy(N):
+    """  Generate uniform distributed XY position within a unit box
+
+    Args:
+        N (int):  number of random numbers
+
+    Returns:
+        np.ndarray: random XY position
+    """
+    return np.random.random((N, 2))
+    # x = np.random.random(N)
+    # y = np.random.random(N)
+    # return np.vstack((x, y))
+
+
+@njit(float64[:, :](int32), parallel=True, nogil=True, cache=True)
+def generate_slit_round(N):
+    """  Generate uniform distributed XY position within a unit circle
+
+    Args:
+        N (int):  number of random numbers
+
+    Returns:
+        np.ndarray: random XY position
+    """
+    r = np.sqrt(np.random.random(N))
+    phi = np.random.random(N) * np.pi * 2
+
+    return np.vstack((r * np.cos(phi), r * np.sin(phi)))
+
 
 @njit()
 def unravel_index(index, shape):
@@ -9,6 +42,7 @@ def unravel_index(index, shape):
         out.append(index % dim)
         index = index // dim
     return out[::-1]
+
 
 spec = [("K", int32), ("q", float32[:]), ("J", int32[:])]
 

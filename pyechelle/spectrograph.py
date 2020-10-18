@@ -60,6 +60,39 @@ def trace(x_vec, y_vec, sx, sy, rot, shear, tx, ty):
     ypos = m3 * x_vec + m4 * y_vec + m5
     return xpos, ypos
 
+@njit(
+    UniTuple(float64[:], 2)(
+        float64[:],
+        float64[:],
+        float64[:],
+        float64[:],
+        float64[:],
+        float64[:],
+        float64[:],
+        float64[:],
+    ),
+    parallel=par,
+    nogil=nogil,
+    cache=True,
+)
+def trace(x_vec, y_vec, m0, m1, m2, m3, m4, m5):
+    """ Performs 'raytracing' for a given wavelength vector and XY input vectors
+
+    Args:
+        x_vec (np.ndarray): random X positions within the slit
+        y_vec (np.ndarray): random Y positions within the slit
+        sx (float): desired scaling in X direction
+        sy (float):  desired scalinig in Y direction
+        rot (float): desired slit rotation [rad]
+        shear (float): desired slit shear
+        tx (float): tx of affine matrix
+        ty (float): ty of affine matrix
+
+    Returns:
+        np.ndarray: transformed XY positions for given input
+    """
+    # do transformation
+    return m0 * x_vec + m1 * y_vec + m2, m3 * x_vec + m4 * y_vec + m5
 
 @njit(float64[:, :](int32), parallel=par, nogil=nogil, cache=True)
 def generate_slit_xy(N):
@@ -215,9 +248,9 @@ class ZEMAX(Spectrograph):
         """
         super().__init__()
         self.transformations = {}
-        self.orders = {}
+        self.order_keys = {}
         self.psfs = {}
-        self.fibers = lambda: self.orders
+        self.fibers = lambda: self.order_keys
         self.CCD = None
 
         self.blaze = None
@@ -250,7 +283,8 @@ class ZEMAX(Spectrograph):
                                              h5f[f"fiber_{fiber}/{g}/{wl}"][()],
                                              h5f[f"fiber_{fiber}/{g}/{wl}"].attrs['dataSpacing'])
                     self.psfs[g].prepare_lookup()
-        self.orders = list(self.transformations.keys())
+        self.order_keys = list(self.transformations.keys())
+        # self.orders = []
 
     def plot_transformations(self, order=None):
         plt.figure()
@@ -277,7 +311,7 @@ class ZEMAX(Spectrograph):
             spec = Etalon(d=3, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
             wltest = spec.draw_wavelength(n)
             # wltest = np.random.uniform(np.min(t.wl), np.max(t.wl), n)
-            sx, sy, rot, shear, tx, ty = t.get_transformations_lookup(wltest)
+            sx, sy, rot, shear, tx, ty = t.get_matrices_lookup(wltest)
             transformed = trace(xy[0], xy[1], sx, sy, rot, shear, tx, ty)
             # xx, yy = transformed
             #     # transformed = np.array(transformed)[:, :2].T
@@ -300,9 +334,9 @@ if __name__ == "__main__":
 
     dir_path = Path(__file__).resolve().parent.parent
 
-    spec = ZEMAX(dir_path.joinpath("/home/stuermer/rdp_shared/cubespec2new.hdf"), 1)
+    spec = ZEMAX(dir_path.joinpath("./models/MaroonX.hdf"), 1)
 
-    img = spec.generate_2d_spectrum(np.empty((int(1e5),)))
+    img = spec.generate_2d_spectrum(np.empty((int(1e6),)))
     # plt.figure()
     # plt.imshow(img, origin='lower')
     # plt.show()

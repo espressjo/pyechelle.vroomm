@@ -25,10 +25,33 @@ class AffineTransformation:
         self.sx = sx
         self.sy = sy
         self.rot = rot
+        dif_rot = np.ediff1d(rot)
+        # TODO: correct for jumps
         self.shear = shear
         self.tx = tx
         self.ty = ty
         self.wl = wl
+
+        self.m0 = sx * np.cos(rot)
+        self.m1 = -sy * np.sin(rot + shear)
+        self.m2 = tx
+        self.m3 = sx * np.sin(rot)
+        self.m4 = sy * np.cos(rot + shear)
+        self.m5 = ty
+
+        self.lookup_table_m0 = self.m0
+        self.lookup_table_m1 = self.m1
+        self.lookup_table_m2 = self.m2
+        self.lookup_table_m3 = self.m3
+        self.lookup_table_m4 = self.m4
+        self.lookup_table_m5 = self.m5
+
+        self.spline_m0 = CubicSpline(self.wl, self.m0)
+        self.spline_m1 = CubicSpline(self.wl, self.m1)
+        self.spline_m2 = CubicSpline(self.wl, self.m2)
+        self.spline_m3 = CubicSpline(self.wl, self.m3)
+        self.spline_m4 = CubicSpline(self.wl, self.m4)
+        self.spline_m5 = CubicSpline(self.wl, self.m5)
 
         self.lookup_table_sx = sx
         self.lookup_table_sy = sy
@@ -60,6 +83,15 @@ class AffineTransformation:
             self.__setattr__(
                 f"lookup_table_{f}", CubicSpline(self.wl, self.__getattribute__(f), )(self.lookup_table_wl)
             )
+        for i in range(6):
+            self.__setattr__(
+                f"lookup_table_m{i}", CubicSpline(self.wl, self.__getattribute__(f'm{i}'), )(self.lookup_table_wl)
+            )
+
+    def get_matrices_lookup(self, wl):
+        return calc_transformation(wl, self.lookup_table_wl, self.lookup_table_dwl, self.lookup_table_m0,
+                                   self.lookup_table_m1, self.lookup_table_m2, self.lookup_table_m3,
+                                   self.lookup_table_m4, self.lookup_table_m5)
 
     def get_transformations_lookup(self, wl):
         return calc_transformation(wl, self.lookup_table_wl, self.lookup_table_dwl, self.lookup_table_sx,
