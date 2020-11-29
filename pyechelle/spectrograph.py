@@ -8,8 +8,8 @@ from numba import njit, int32, float64
 from numba.types import UniTuple
 
 from pyechelle.CCD import bin_2d, CCD
-from pyechelle.randomgen import AliasSample, samplealias2d
-from pyechelle.sources import Etalon
+from pyechelle.randomgen import AliasSample, samplealias2d, generate_slit_polygon
+from pyechelle.sources import Etalon, Phoenix
 from pyechelle.transformation import AffineTransformation
 
 # import pandas as pd
@@ -295,7 +295,7 @@ class ZEMAX(Spectrograph):
     def generate_slit(self, N):
         return generate_slit_xy(N)
 
-    def generate_2d_spectrum(self, wl_vector):
+    def generate_2d_spectrum(self, wl_vector, t_eff):
         n = len(wl_vector)
 
         img = np.zeros((self.CCD.ymax - self.CCD.ymin, self.CCD.xmax - self.CCD.xmin))
@@ -303,12 +303,15 @@ class ZEMAX(Spectrograph):
         # imgs = parmap.map(trace_par, self.transformations.items(), (self.psfs, n))
         for o, t in self.transformations.items():
             print(o)
-
-            xy = self.generate_slit(n)
+            xy = generate_slit_polygon(8, n)
+            # xy = self.generate_slit(n)
             # xy = np.zeros((2,n), dtype=np.float64)
             # spec = Etalon(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-            # spec = Phoenix(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-            spec = Etalon(d=3, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
+            if t_eff == "e":
+                spec = Etalon(d=3, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
+            else:
+                spec = Phoenix(min_wl=t.min_wavelength(), max_wl=t.max_wavelength(), t_eff=t_eff)
+
             wltest = spec.draw_wavelength(n)
             # wltest = np.random.uniform(np.min(t.wl), np.max(t.wl), n)
             sx, sy, rot, shear, tx, ty = t.get_matrices_lookup(wltest)
@@ -334,11 +337,23 @@ if __name__ == "__main__":
 
     dir_path = Path(__file__).resolve().parent.parent
 
-    spec = ZEMAX(dir_path.joinpath("./models/MaroonX.hdf"), 1)
+    imgs = []
+    for i, teff in enumerate(['e', 3200, 4000, 5000, 6000]):
+        spec = ZEMAX(dir_path.joinpath("./models/marvel201020.hdf"), i + 1)
+        n = 5e6
+        if teff == 'e':
+            n = int(5e6 / 7)
+        img = spec.generate_2d_spectrum(np.empty((int(n))), teff)
+        imgs.append(img)
+    imgs = np.array(imgs)
+    img = np.sum(imgs, axis=0)
+    from astropy.io import fits
 
-    img = spec.generate_2d_spectrum(np.empty((int(1e6),)))
-    # plt.figure()
-    # plt.imshow(img, origin='lower')
-    # plt.show()
-    # print(np.max(img), np.min(img))
+    # spec.CCD.
+    plt.figure()
+    plt.imshow(img, origin='lower')
+    plt.show()
+    print(np.max(img), np.min(img))
     # spec.plot_transformations()
+    hdu = fits.PrimaryHDU(data=np.array(img, dtype=np.int16))
+    hdu.writeto('test_dask3.fits')

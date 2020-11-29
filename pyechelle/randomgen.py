@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from numba import int32, float32, njit, jit, float64
 from numba.experimental import jitclass
@@ -33,6 +35,31 @@ def generate_slit_round(N):
     phi = np.random.random(N) * np.pi * 2
 
     return np.vstack((r * np.cos(phi), r * np.sin(phi)))
+
+
+# @njit(float64[:, :](int32, int32, float32), parallel=True, nogil=True, cache=True)
+def generate_slit_polygon(npoly=5, N=1000, phi=0.):
+    """
+    Given three vertices A, B, C,
+    sample point uniformly in the triangle
+    """
+    phi = np.deg2rad(phi)
+    r1, r2 = np.random.random((2, N))
+    s1 = np.sqrt(r1)
+    phi_segment = 2. * np.pi / npoly
+
+    B = [1., 0.]
+    C = [math.cos(phi_segment), math.sin(phi_segment)]
+    x = B[0] * (1.0 - r2) * s1 + C[0] * r2 * s1
+    y = B[1] * (1.0 - r2) * s1 + C[1] * r2 * s1
+
+    segments = np.random.randint(0, npoly, N)
+    arg_values = phi_segment * segments + phi
+    cos_values = np.cos(arg_values)
+    sin_values = np.sin(arg_values)
+    xnew = x * cos_values - y * sin_values
+    ynew = x * sin_values + y * cos_values
+    return np.vstack((xnew / 2. + 0.5, ynew / 2. + 0.5))
 
 
 @njit()

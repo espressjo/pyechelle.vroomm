@@ -83,7 +83,7 @@ def plot_psfs(spec: ZEMAX):
 
 
 if __name__ == "__main__":
-    spec = ZEMAX("/home/stuermer/Nextcloud/work/tmp/rimas.hdf", 1)
+    spec = ZEMAX("../models/marvel201020.hdf", 3)
     plot_transformations(spec)
     plot_transformation_matrices(spec)
-    # plot_psfs(spec)
+    plot_psfs(spec)
