@@ -3,7 +3,7 @@ import os
 # disable jit, because it is not
 os.environ['NUMBA_DISABLE_JIT'] = '4'
 from hypothesis import given, strategies as st, settings
-from pyechelle.randomgen import AliasSample
+from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
 import numpy as np
 
 
@@ -32,3 +32,53 @@ def test_alias_sample_n(number_of_samples, probabilities):
     g = sampler.sample(number_of_samples)
     assert len(g) == number_of_samples
     assert g.dtype == np.int32
+
+
+@settings(deadline=None)
+@given(
+    st.integers(min_value=1, max_value=10000),
+)
+def test_slit_round(number_of_samples):
+    sx, sy = generate_slit_round(number_of_samples)
+    assert len(sx) == number_of_samples
+    assert len(sy) == number_of_samples
+
+    assert np.min(sx) >= 0.
+    assert np.min(sy) >= 0.
+
+    assert np.max(sx) <= 1.
+    assert np.max(sy) <= 1.
+
+
+@settings(deadline=None)
+@given(
+    st.integers(min_value=1, max_value=10000),
+)
+def test_slit_xy(number_of_samples):
+    sx, sy = generate_slit_xy(number_of_samples)
+    assert len(sx) == number_of_samples
+    assert len(sy) == number_of_samples
+
+    assert np.min(sx) >= 0.
+    assert np.min(sy) >= 0.
+
+    assert np.max(sx) <= 1.
+    assert np.max(sy) <= 1.
+
+
+@settings(deadline=None)
+@given(
+    st.integers(min_value=3, max_value=12),
+    st.integers(min_value=1, max_value=10000),
+    st.floats(min_value=0., max_value=360.),
+)
+def test_slit_polygon(n_poly, number_of_samples, phi):
+    sx, sy = generate_slit_polygon(n_poly, number_of_samples, phi)
+    assert len(sx) == number_of_samples
+    assert len(sy) == number_of_samples
+
+    assert np.min(sx) >= 0.
+    assert np.min(sy) >= 0.
+
+    assert np.max(sx) <= 1.
+    assert np.max(sy) <= 1.

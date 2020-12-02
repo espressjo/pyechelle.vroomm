@@ -12,8 +12,6 @@ from pyechelle.randomgen import AliasSample, samplealias2d, generate_slit_polygo
 from pyechelle.sources import Etalon, Phoenix
 from pyechelle.transformation import AffineTransformation
 
-# import pandas as pd
-
 par = True
 nogil = True
 
@@ -270,7 +268,6 @@ class ZEMAX(Spectrograph):
             self.CCD = CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
 
             for g in h5f[f"fiber_{fiber}"]:
-                print(g)
                 if not "psf" in g:
                     data = h5f[f"fiber_{fiber}/{g}"][()]
                     data = np.sort(data, order='wavelength')
@@ -284,7 +281,11 @@ class ZEMAX(Spectrograph):
                                              h5f[f"fiber_{fiber}/{g}/{wl}"].attrs['dataSpacing'])
                     self.psfs[g].prepare_lookup()
         self.order_keys = list(self.transformations.keys())
-        # self.orders = []
+        self.orders = [int(o[5:]) for o in self.order_keys]
+
+    def get_wavelength_range(self, order):
+        return self.transformations[f"order{order}"].min_wavelength(), self.transformations[
+            f"order{order}"].max_wavelength()
 
     def plot_transformations(self, order=None):
         plt.figure()
@@ -308,7 +309,7 @@ class ZEMAX(Spectrograph):
             # xy = np.zeros((2,n), dtype=np.float64)
             # spec = Etalon(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
             if t_eff == "e":
-                spec = Etalon(d=3, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
+                spec = Etalon(d=5, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
             else:
                 spec = Phoenix(min_wl=t.min_wavelength(), max_wl=t.max_wavelength(), t_eff=t_eff)
 

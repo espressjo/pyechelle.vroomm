@@ -7,13 +7,14 @@ import numpy as np
 from pyechelle.randomgen import AliasSample
 
 
-class Sources:
+class Source:
     """ A spectral source.
 
     This class should be subclassed to implement different spectral sources.
 
     Attributes:
-        wavelength (np.ndarray): randomly drawn wavelength constituting the spectrum
+        name (str): name of the source. This will end up in the .fits header.
+        wavelength (np.ndarray, None): wavelength grid of source if applicable
         min_wl (float): lower wavelength limit [nm] (for normalization purposes)
         max_wl (float): upper wavelength limit [nm] (for normalization purposes)
 
@@ -24,17 +25,21 @@ class Sources:
         self.wavelength = None
         self.min_wl = min_wl
         self.max_wl = max_wl
+        self.list_like_source = False
 
-    def draw_wavelength(self, N):
-        """
-        Overwrite this function in child class !
-        Args:
-            N (int): number of wavelength to randomly draw
-
-        Returns:
-
-        """
+    def get_spectral_density(self, wavelength):
         raise NotImplementedError()
+
+    # def draw_wavelength(self, N):
+    #     """
+    #     Overwrite this function in child class !
+    #     Args:
+    #         N (int): number of wavelength to randomly draw
+    #
+    #     Returns:
+    #
+    #     """
+    #     raise NotImplementedError()
 
     def apply_rv(self, rv):
         """ Apply radial velocity shift.
@@ -62,26 +67,36 @@ class Sources:
         return np.histogram(self.wavelength, wl_vector)
 
 
-class Flat(Sources):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs, name="Flat")
+class Constant(Source):
+    def __init__(self, intensity=0.001, **kwargs):
+        super().__init__(**kwargs, name="Constant")
+        self.intensity = intensity
+        self.list_like_source = False
 
-    def draw_wavelength(self, N):
-        return (self.max_wl - self.min_wl) * np.random.random(N) + self.min_wl
+    def get_spectral_density(self, wavelength):
+        return np.ones_like(wavelength) * self.intensity
 
 
-class Etalon(Sources):
-    def __init__(self, d=10.0, n=1.0, theta=0.0, **kwargs):
+class Etalon(Source):
+    def __init__(self, d=5.0, n=1.0, theta=0.0, **kwargs):
         super().__init__(**kwargs, name="Etalon")
         self.d = d
         self.n = n
         self.theta = theta
         self.min_m = np.ceil(2e3 * d * np.cos(theta) / self.max_wl)
         self.max_m = np.floor(2e3 * d * np.cos(theta) / self.min_wl)
+        self.list_like_source = True
 
     @staticmethod
     def peak_wavelength_etalon(m, d=10.0, n=1.0, theta=0.0):
         return 2e3 * d * n * np.cos(theta) / m
+
+    def get_spectral_density(self, wavelength):
+        self.min_m = np.ceil(2e3 * self.d * np.cos(self.theta) / np.max(wavelength))
+        self.max_m = np.floor(2e3 * self.d * np.cos(self.theta) / np.min(wavelength))
+        return self.peak_wavelength_etalon(
+            np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
+        ), np.ones_like(np.arange(self.min_m, self.max_m))
 
     def draw_wavelength(self, N):
         return np.random.choice(
@@ -92,7 +107,7 @@ class Etalon(Sources):
         )
 
 
-class Phoenix(Sources):
+class Phoenix(Source):
     """
     Phoenix M-dwarf spectra.
 
@@ -198,6 +213,9 @@ class Phoenix(Sources):
             print("alpha: ", *valid_a)
             raise ValueError("Invalid parameter for M-dwarf spectrum ")
 
+    def get_spectral_density(self, wavelength):
+        raise NotImplementedError
+
     def draw_wavelength(self, N):
         self.wavelength = self.wl_data[self.sampler.sample(N)]
         # self.wavelength = np.random.choice(
@@ -212,7 +230,7 @@ class EchelleSpectrum:
         """
 
         Args:
-            source(Sources):
+            source(Source):
             efficiency(Union[None, Spectrograph)]:
         """
         self.source = source

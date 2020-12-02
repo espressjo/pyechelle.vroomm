@@ -15,7 +15,7 @@ def generate_slit_xy(N):
     Returns:
         np.ndarray: random XY position
     """
-    return np.random.random((N, 2))
+    return np.random.random((2, N))
     # x = np.random.random(N)
     # y = np.random.random(N)
     # return np.vstack((x, y))
@@ -31,10 +31,10 @@ def generate_slit_round(N):
     Returns:
         np.ndarray: random XY position
     """
-    r = np.sqrt(np.random.random(N))
+    r = np.sqrt(np.random.random(N)) / 2.
     phi = np.random.random(N) * np.pi * 2
 
-    return np.vstack((r * np.cos(phi), r * np.sin(phi)))
+    return np.vstack((r * np.cos(phi) + 0.5, r * np.sin(phi) + 0.5))
 
 
 # @njit(float64[:, :](int32, int32, float32), parallel=True, nogil=True, cache=True)
