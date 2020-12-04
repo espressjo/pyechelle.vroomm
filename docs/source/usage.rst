@@ -10,7 +10,7 @@ Echelle++ is controlled via command line arguments.
 
 .. code-block:: bash
 
-    ./echellesimulator -h
+    ./simulator.py -h
 
 lists all available arguments.
 
@@ -23,16 +23,15 @@ The unit is µW/µm.
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --constant 0.0001
+    ./simulator.py --spectrograph MaroonX --constant 0.0001
 
 .. note:: Since we didn't specify the integration time manually, a default value of 1s is used.
 
 The output will look like this (partly shown):
 
-.. image:: plots/example1.jpg
+.. image:: _static/plots/example1.jpg
 
-.. note:: Due to the photon-wise generation of the spectrum, all generated spectra naturally show photon noise.
-For a high signal to noise (S/N) spectrum, increase the integration time or the spectral density.
+.. note:: Due to the photon-wise generation of the spectrum, all generated spectra naturally show photon noise. For a high signal to noise (S/N) spectrum, increase the integration time or the spectral density.
 
 Example 2: multiple fibers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -41,14 +40,14 @@ In the following example, we simulate a flat spectrum in the first two fibers of
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --constant 0.001 -o flat2.fit
-    ./echellesimulator --spectrograph MaroonX --constant 0.001 -f 2 -k 1 -o flat2.fit
+    ./simulator.py --spectrograph MaroonX --constant 0.001 -o flat2.fit
+    ./simulator.py --spectrograph MaroonX --constant 0.001 -f 2 -k 1 -o flat2.fit
 
 .. warning:: The -k 1 flag of the second command makes sure that the content of flat2.fit will not be overwritten, but rather added to the current simulation. If the flag was not given, the second command would overwrite the file.
 
 The output should look like this (partly shown):
 
-.. image:: plots/example2.jpg
+.. image:: _static/plots/example2.jpg
 
 
 Example 3: A stellar source + RV shift
@@ -60,11 +59,11 @@ We also set the radial velocity to 50 m/s.
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 2
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 3
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 2
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 3
 
-.. image:: plots/example3.jpg
+.. image:: _static/plots/example3.jpg
 
 
 Example 4: A line catalogue and readout noise
@@ -85,11 +84,11 @@ Consider the following excerpt of a Thorium line list
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --linelist thar.csv -t 10 --bias 1000 --readnoise 5
+    ./simulator.py --spectrograph MaroonX --linelist thar.csv -t 10 --bias 1000 --readnoise 5
 
 .. note:: Here, it is assumed that thar.csv is located in the same folder as the executable.
 
-.. image:: plots/example4.jpg
+.. image:: _static/plots/example4.jpg
 
 
 Example 5: instrument efficiency
@@ -113,9 +112,9 @@ Intermediate values will be linearly interpolated.
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --constant 0.001 --efficiency efficiency.csv
+    ./simulator.py --spectrograph MaroonX --constant 0.001 --efficiency efficiency.csv
 
-.. image:: plots/example5.jpg
+.. image:: _static/plots/example5.jpg
 
 
 Example 6: simultaneous calibration
@@ -130,12 +129,12 @@ We also add readout noise and a bias count.
 
 .. code-block:: none
 
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 2 -t 10 -r 50 -o example6.fit
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 3 -k 1 -t 10 -r 50 -o example6.fit
-    ./echellesimulator --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 4 -k 1 -t 10 -r 50 -o example6.fit
-    ./echellesimulator --spectrograph MaroonX --etalon 10,1.,0.,0.92,0.001 -f 5 -k 1 -t 10 -r -10.5 --readnoise 5 --bias 1000 -o example6.fit
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 2 -t 10 -r 50 -o example6.fit
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 3 -k 1 -t 10 -r 50 -o example6.fit
+    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 4 -k 1 -t 10 -r 50 -o example6.fit
+    ./simulator.py --spectrograph MaroonX --etalon 10,1.,0.,0.92,0.001 -f 5 -k 1 -t 10 -r -10.5 --readnoise 5 --bias 1000 -o example6.fit
 
-.. image:: plots/example6.jpg
+.. image:: _static/plots/example6.jpg
 
 Example 7: telluric contamination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -164,11 +163,11 @@ Simulating a blackbody spectrum and providing the atmospheric model as an effici
 
 .. code-block:: none
 
-    ./echellesimulator -s MaroonXred --blackbody 4500,13 --telescope 8.1,128.15 --efficiency LBLRTM_2009_12_01_03_LasCampanas_AM1.5_transmission.csv
+    ./simulator.py -s MaroonXred --blackbody 4500,13 --telescope 8.1,128.15 --efficiency LBLRTM_2009_12_01_03_LasCampanas_AM1.5_transmission.csv
 
 gives
 
-.. image:: plots/example7.jpg
+.. image:: _static/plots/example7.jpg
 
 
 Have fun !
