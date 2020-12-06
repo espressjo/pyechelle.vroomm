@@ -15,27 +15,27 @@ from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
 
 
-def parse_num_list(string):
-    m = re.match(r'(\d+)(?:-(\d+))?$', string)
+def parse_num_list(string_list: str) -> list:
+    m = re.match(r'(\d+)(?:-(\d+))?$', string_list)
     # ^ (or use .split('-'). anyway you like.)
     if not m:
-        raise argparse.ArgumentTypeError("'" + string + "' is not a range of number. Expected forms like '0-5' or '2'.")
+        raise argparse.ArgumentTypeError("'" + string_list + "' is not a range of number. Expected forms like '0-5' or '2'.")
     start = m.group(1)
     end = m.group(2) or start
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def model_name_to_path(modelname: str):
+def model_name_to_path(model_name: str) -> Path:
     """
     Converts a spectrograph model name into a full path to the corresponding .hdf file
     Args:
-        modelname (str): Name of the spectorgraph model e.g. 'MaroonX'
+        model_name (str): Name of the spectorgraph model e.g. 'MaroonX'
 
     Returns:
         full path to .hdf file
     """
     script_dir = Path(__file__).resolve().parent.parent.joinpath("models")
-    return script_dir.joinpath(f"{modelname}.hdf")
+    return script_dir.joinpath(f"{model_name}.hdf")
 
 
 def main(args):
@@ -53,9 +53,9 @@ def main(args):
 
     assert len(fibers) == len(source_names), 'Number of sources needs to match number of fields (or be 1).'
 
-    ccd = read_ccd_from_hdf(args.s)
+    ccd = read_ccd_from_hdf(args.spectrograph)
     for f, s in zip(fibers, source_names):
-        spec = spectrograph.ZEMAX(args.s, f, args.n_lookup)
+        spec = spectrograph.ZEMAX(args.spectrograph, f, args.n_lookup)
         telescope = Telescope(args.d_primary, args.d_secondary)
         source = getattr(sources, s)()
         if args.use_blaze_efficiency:
@@ -135,12 +135,12 @@ if __name__ == "__main__":
                          issubclass(m[1], pyechelle.sources.Source)]
 
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
-    parser.add_argument('-s', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
+    parser.add_argument('-s', '--spectrograph', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. "
                              f"Options are {','.join(models)}")
-    parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=True,
+    parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
                         help=f"Integration time for the simulation in seconds [s].")
-    parser.add_argument('--fiber', type=parse_num_list, default=1, required=True)
+    parser.add_argument('--fiber', type=parse_num_list, default='1', required=False)
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
 
     parser.add_argument('--d_primary', type=float, required=False, default=1.0)

@@ -282,6 +282,7 @@ class ZEMAX(Spectrograph):
                     self.psfs[g].prepare_lookup()
         self.order_keys = list(self.transformations.keys())
         self.orders = [int(o[5:]) for o in self.order_keys]
+        print(f"Available orders: {self.orders}")
 
     def get_wavelength_range(self, order):
         return self.transformations[f"order{order}"].min_wavelength(), self.transformations[
