@@ -3,8 +3,10 @@ import argparse
 import re
 import time
 from pathlib import Path
+import logging
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import pyechelle
 from pyechelle import spectrograph, sources
@@ -13,6 +15,8 @@ from pyechelle.efficiency import GratingEfficiency
 from pyechelle.randomgen import AliasSample, generate_slit_polygon
 from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
+
+logger = logging.getLogger('Simulator')
 
 
 def parse_num_list(string_list: str) -> list:
@@ -72,14 +76,21 @@ def main(args):
         if args.orders is None:
             orders = spec.orders
         else:
-            orders = [item for sublist in args.orders for item in sublist]
-            # TODO: Check that order exists
+            requested_orders = [item for sublist in args.orders for item in sublist]
+            orders = []
+            for o in requested_orders:
+                if o in spec.orders:
+                    orders.append(o)
+                else:
+                    logger.warning(f'Order {o} is requested, but it is not in the Spectrograph model.')
 
         for o in np.sort(orders):
-            wavelength = np.linspace(*spec.get_wavelength_range(o), num=10000)
+            # default wavelength 'grid' per order
+            wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
+
             # get spectral density per order
             spectral_density = source.get_spectral_density(wavelength)
-            # if source returns own wavelength vector, use that for further calculations
+            # if source returns own wavelength vector, use that for further calculations instead of default grid
             if isinstance(spectral_density, tuple):
                 wavelength, spectral_density = spectral_density
 
@@ -114,7 +125,6 @@ def main(args):
             sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
 
             wl_sample = wavelength[sampler.sample(n_photons)]
-            # wltest = (np.max(wavelength) - np.min(wavelength)) * np.random.random(n_photons) + np.min(wavelength)
 
             # trace
             sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wl_sample)
@@ -135,10 +145,10 @@ def main(args):
         ccd.add_readnoise(args.read_noise)
     t2 = time.time()
     print(t2 - t1)
-
-    # plt.figure()
-    # plt.imshow(ccd.data)
-    # plt.show()
+    if args.show:
+        plt.figure()
+        plt.imshow(ccd.data)
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -207,6 +217,8 @@ if __name__ == "__main__":
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
     ccd_group.add_argument('--read_noise', type=float, required=False, default=0)
+
+    parser.add_argument('--show', default=False, action='store_true')
 
     arguments = parser.parse_args()
     main(arguments)

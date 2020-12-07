@@ -8,7 +8,7 @@ from numba import njit, int32, float64
 from numba.types import UniTuple
 
 from pyechelle.CCD import bin_2d, CCD
-from pyechelle.randomgen import AliasSample, samplealias2d, generate_slit_polygon
+from pyechelle.randomgen import AliasSample, sample_alias_2d, generate_slit_polygon
 from pyechelle.sources import Etalon, Phoenix
 from pyechelle.transformation import AffineTransformation
 
@@ -139,7 +139,7 @@ class PSF:
         # plt.show()
 
     def draw_xy_alias(self, N):
-        return samplealias2d(self.data, N)
+        return sample_alias_2d(self.data, N)
 
     def draw_xy(self, N):
         return draw_from_2darray(self.data, N)
@@ -170,7 +170,7 @@ class PSFs:
         bins = np.hstack((self.wl - np.mean(np.ediff1d(self.wl) / 2.), self.wl[-1] + np.mean(np.ediff1d(self.wl)) / 2.))
         idx = np.digitize(wl, bins) - 1
         for i in np.unique(idx):
-            x, y = samplealias2d(self.psfs[i].data, np.count_nonzero(idx == i))
+            x, y = sample_alias_2d(self.psfs[i].data, np.count_nonzero(idx == i))
             Xlist[idx == i] = (x - self.psfs[i].data.shape[1] / 2.) * self.sampling[i]
             Ylist[idx == i] = (y - self.psfs[i].data.shape[0] / 2.) * self.sampling[i]
         return Xlist, Ylist

@@ -3,7 +3,7 @@ import os
 # disable jit, because it is not
 os.environ['NUMBA_DISABLE_JIT'] = '4'
 from hypothesis import given, strategies as st, settings
-from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
+from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round, unravel_index
 import numpy as np
 
 
@@ -82,3 +82,23 @@ def test_slit_polygon(n_poly, number_of_samples, phi):
 
     assert np.max(sx) <= 1.
     assert np.max(sy) <= 1.
+
+
+@settings(deadline=None)
+@given(
+    st.lists(st.integers(min_value=1, max_value=10000),
+             min_size=1, max_size=100),
+    st.lists(st.integers(min_value=1, max_value=1000),
+             min_size=2, max_size=3),
+
+)
+def test_unravel_index(indices, shape):
+    indices = np.array(indices)
+    try:
+        numpy_answer = np.array(np.unravel_index(indices, shape))
+    except:
+        numpy_answer = None
+
+    if isinstance(numpy_answer, np.ndarray):
+        randomgen_answer = np.array(unravel_index(indices, shape))
+        assert (numpy_answer == randomgen_answer).all()

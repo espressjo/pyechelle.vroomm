@@ -35,7 +35,7 @@ def generate_slit_round(n: int) -> np.ndarray:
 
 
 @njit(float64[:, :](int64, int64, float64), parallel=True, nogil=True, cache=True)
-def generate_slit_polygon(npoly: int, n: int, phi: float64 = 0.):
+def generate_slit_polygon(npoly: int, n: int, phi: float64 = 0.) -> np.ndarray:
     """
     Given three vertices A, B, C,
     sample point uniformly in the triangle
@@ -72,7 +72,7 @@ spec = [("K", int32), ("q", float32[:]), ("J", int32[:])]
 
 
 @jit()
-def samplealias2d(a, n=1):
+def sample_alias_2d(a, n: int = 1) -> np.ndarray:
     a = np.asarray(a)
     aa = AliasSample(a.T.ravel())
     index = aa.sample(n)
@@ -81,7 +81,7 @@ def samplealias2d(a, n=1):
 
 @njit(int32[:](int32[:], float32[:], int32), parallel=True, nogil=True)
 def draw(j, q, n):
-    r1, r2 = np.random.rand(n), np.random.rand(n)
+    r1, r2 = np.random.rand(2, n)
     res = np.zeros(n, dtype=np.int32)
     lj = len(j)
     for i in range(n):
