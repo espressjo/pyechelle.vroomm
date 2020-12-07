@@ -190,6 +190,7 @@ class ZEMAX(Spectrograph):
         self.transformations = {}
         self.order_keys = {}
         self.psfs = {}
+        self.field_shape = "round"
         self.fibers = lambda: self.order_keys
         self.CCD = None
 
@@ -208,7 +209,7 @@ class ZEMAX(Spectrograph):
             Ny = h5f[f"CCD"].attrs['Ny']
             ps = h5f[f"CCD"].attrs['pixelsize']
             self.CCD = CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
-
+            self.field_shape = h5f[f"fiber_{fiber}"].attrs["field_shape"]
             for g in h5f[f"fiber_{fiber}"]:
                 if not "psf" in g:
                     data = h5f[f"fiber_{fiber}/{g}"][()]

@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 import argparse
+import logging
 import re
 import time
 from pathlib import Path
-import logging
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency
-from pyechelle.randomgen import AliasSample, generate_slit_polygon
+from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
 from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
 
@@ -42,7 +42,7 @@ def model_name_to_path(model_name: str) -> Path:
     return script_dir.joinpath(f"{model_name}.hdf")
 
 
-def main(args):
+def simulate(args):
     # generate flat list for all fields to simulate
     if any(isinstance(el, list) for el in args.fiber):
         fibers = [item for sublist in args.fiber for item in sublist]
@@ -119,7 +119,16 @@ def main(args):
 
             # get XY list for field
             # x, y = generate_slit_round(n_photons)
-            x, y = generate_slit_polygon(8, n_photons, 0.)
+            if spec.field_shape == "rectangular":
+                x, y = generate_slit_xy(n_photons)
+            elif spec.field_shape == "octagonal":
+                x, y = generate_slit_polygon(8, n_photons, 0.)
+            elif spec.field_shape == "hexagonal":
+                x, y = generate_slit_polygon(6, n_photons, 0.)
+            elif spec.field_shape == "round":
+                x, y = generate_slit_round(n_photons)
+            else:
+                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
 
             # draw wavelength from effective spectrum
             sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
@@ -151,7 +160,7 @@ def main(args):
         plt.show()
 
 
-if __name__ == "__main__":
+def main():
     import sys
     import inspect
 
@@ -221,4 +230,8 @@ if __name__ == "__main__":
     parser.add_argument('--show', default=False, action='store_true')
 
     arguments = parser.parse_args()
-    main(arguments)
+    simulate(arguments)
+
+
+if __name__ == "__main__":
+    main()
