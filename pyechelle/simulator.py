@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 import argparse
 import re
+import time
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency
-from pyechelle.randomgen import generate_slit_round, AliasSample
+from pyechelle.randomgen import AliasSample, generate_slit_polygon
 from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
 
@@ -54,12 +54,20 @@ def main(args):
     assert len(fibers) == len(source_names), 'Number of sources needs to match number of fields (or be 1).'
 
     ccd = read_ccd_from_hdf(args.spectrograph)
+    t1 = time.time()
     for f, s in zip(fibers, source_names):
         spec = spectrograph.ZEMAX(args.spectrograph, f, args.n_lookup)
         telescope = Telescope(args.d_primary, args.d_secondary)
-        source = getattr(sources, s)()
+        # extract kwords specific to selected source
+        source_args = [ss for ss in vars(args) if s.lower() in ss]
+        # create dict consisting of kword arguments and values specific to selected source
+        source_kwargs = dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
+                                 [getattr(args, ss) for ss in source_args]))
+        source = getattr(sources, s)(**source_kwargs)
         if args.use_blaze_efficiency:
             efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+        else:
+            efficiency = None
 
         if args.orders is None:
             orders = spec.orders
@@ -67,24 +75,29 @@ def main(args):
             orders = [item for sublist in args.orders for item in sublist]
             # TODO: Check that order exists
 
-        for o in orders:
+        for o in np.sort(orders):
             wavelength = np.linspace(*spec.get_wavelength_range(o), num=10000)
             # get spectral density per order
-            if source.list_like_source:
-                wavelength, spectral_density = source.get_spectral_density(wavelength)
-            else:
-                spectral_density = source.get_spectral_density(wavelength)
+            spectral_density = source.get_spectral_density(wavelength)
+            # if source returns own wavelength vector, use that for further calculations
+            if isinstance(spectral_density, tuple):
+                wavelength, spectral_density = spectral_density
+
+            # for stellar targets calculate collected flux by telescope area
+            if source.stellar_target:
+                spectral_density *= telescope.get_area()
 
             # get efficiency per order
-            eff = efficiency.get_efficiency_per_order(wavelength=wavelength, order=o)
-
-            # calculate efficiency * spectral density
-            effective_density = eff * spectral_density
+            if efficiency is not None:
+                eff = efficiency.get_efficiency_per_order(wavelength=wavelength, order=o)
+                effective_density = eff * spectral_density
+            else:
+                effective_density = spectral_density
 
             # calculate photon flux
-            if not source.list_like_source:
+            if source.stellar_target:
                 ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength intervall
-                wl_diffs = np.ediff1d(wavelength, wavelength[-2] - wavelength[-1])
+                wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
                 flux = effective_density * wavelength * wl_diffs * ch_factor
             else:
                 flux = spectral_density
@@ -94,22 +107,23 @@ def main(args):
             print(f'Order {o}: Number of photons: {n_photons}')
 
             # get XY list for field
-            x, y = generate_slit_round(n_photons)
+            # x, y = generate_slit_round(n_photons)
+            x, y = generate_slit_polygon(8, n_photons, 0.)
 
             # draw wavelength from effective spectrum
             sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
 
-            wltest = wavelength[sampler.sample(n_photons)]
+            wl_sample = wavelength[sampler.sample(n_photons)]
             # wltest = (np.max(wavelength) - np.min(wavelength)) * np.random.random(n_photons) + np.min(wavelength)
 
             # trace
-            sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wltest)
+            sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wl_sample)
             xt, yt = trace(x, y, sx, sy, rot, shear, tx, ty)
 
-            X, Y = spec.psfs[f"psf_order_{o}"].draw_xy(wltest)
+            x_psf, y_psf = spec.psfs[f"psf_order_{o}"].draw_xy(wl_sample)
 
-            xt += X / ccd.pixelsize
-            yt += Y / ccd.pixelsize
+            xt += x_psf / ccd.pixelsize
+            yt += y_psf / ccd.pixelsize
 
             # add photons to ccd
             ccd.add_photons(xt, yt)
@@ -119,9 +133,12 @@ def main(args):
         ccd.add_bias(args.bias)
     if args.read_noise:
         ccd.add_readnoise(args.read_noise)
-    plt.figure()
-    plt.imshow(ccd.data)
-    plt.show()
+    t2 = time.time()
+    print(t2 - t1)
+
+    # plt.figure()
+    # plt.imshow(ccd.data)
+    # plt.show()
 
 
 if __name__ == "__main__":
@@ -143,16 +160,53 @@ if __name__ == "__main__":
     parser.add_argument('--fiber', type=parse_num_list, default='1', required=False)
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
 
-    parser.add_argument('--d_primary', type=float, required=False, default=1.0)
-    parser.add_argument('--d_secondary', type=float, required=False, default=0)
+    telescope_group = parser.add_argument_group('Telescope settings')
+    telescope_group.add_argument('--d_primary', type=float, required=False, default=1.0)
+    telescope_group.add_argument('--d_secondary', type=float, required=False, default=0)
 
     parser.add_argument('--orders', type=parse_num_list, nargs='+', required=False,
                         help='Echelle order numbers to simulate... '
                              'if not specified, all orders of the spectrograph are simulated')
+
     parser.add_argument('--sources', nargs='+', choices=available_sources, required=True)
+    const_source_group = parser.add_argument_group('Constant source')
+    const_source_group.add_argument('--constant_flux', type=float, default=1., required=False,
+                                    help="Flux in microWatts / nanometer for constant flux spectral source")
+
+    phoenix_group = parser.add_argument_group('Phoenix')
+    phoenix_group.add_argument('--phoenix_t_eff', default=3600,
+                               choices=[*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))],
+                               type=int, required=False,
+                               help="Effective temperature in Kelvins [K].")
+    phoenix_group.add_argument('--phoenix_log_g', default=5,
+                               choices=[*list(np.arange(0, 6, 0.5))],
+                               type=float, required=False,
+                               help="Surface gravity log g.")
+    phoenix_group.add_argument('--phoenix_z',
+                               choices=[*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))],
+                               type=float, required=False, default=0,
+                               help="Overall metallicity.")
+    phoenix_group.add_argument('--phoenix_alpha',
+                               choices=[-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4],
+                               type=float, required=False, default=0.,
+                               help="Alpha element abundance.")
+    phoenix_group.add_argument('--phoenix_magnitude', default=10., required=False, type=float,
+                               help='V Magnitude of stellar object.')
+
+    etalon_group = parser.add_argument_group('Etalon')
+    etalon_group.add_argument('--etalon_d', type=float, default=5., required=False,
+                              help='Mirror distance of Fabry Perot etalon in [mm]. Default: 5.0')
+    etalon_group.add_argument('--etalon_n', type=float, default=1.0, required=False,
+                              help='Refractive index of medium between etalon mirrors. Default: 1.0')
+    etalon_group.add_argument('--etalon_theta', type=float, default=0., required=False,
+                              help='angle of incidence of light in radians. Default: 0.')
+    etalon_group.add_argument('--etalon_n_photons', default=1000, required=False,
+                              help='Number of photons per seconds per peak of the etalon spectrum. Default: 1000')
+
     parser.add_argument('--use_blaze_efficiency', default=True, action='store_true')
-    parser.add_argument('--bias', type=int, required=False, default=1000)
-    parser.add_argument('--read_noise', type=float, required=False, default=3.0)
+    ccd_group = parser.add_argument_group('CCD')
+    ccd_group.add_argument('--bias', type=int, required=False, default=0)
+    ccd_group.add_argument('--read_noise', type=float, required=False, default=0)
 
     arguments = parser.parse_args()
     main(arguments)

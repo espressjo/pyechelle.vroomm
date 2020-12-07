@@ -1,59 +1,56 @@
 import math
 
 import numpy as np
-from numba import int32, float32, njit, jit, float64
+from numba import int32, float32, njit, jit, float64, int64
 from numba.experimental import jitclass
 
 
 @njit(float64[:, :](int32), parallel=True, nogil=True, cache=True)
-def generate_slit_xy(N):
+def generate_slit_xy(n: int) -> np.ndarray:
     """  Generate uniform distributed XY position within a unit box
 
     Args:
-        N (int):  number of random numbers
+        n (int):  number of random numbers
 
     Returns:
         np.ndarray: random XY position
     """
-    return np.random.random((2, N))
-    # x = np.random.random(N)
-    # y = np.random.random(N)
-    # return np.vstack((x, y))
+    return np.random.random((2, n))
 
 
 @njit(float64[:, :](int32), parallel=True, nogil=True, cache=True)
-def generate_slit_round(N):
+def generate_slit_round(n: int) -> np.ndarray:
     """  Generate uniform distributed XY position within a unit circle
 
     Args:
-        N (int):  number of random numbers
+        n (int):  number of random numbers
 
     Returns:
         np.ndarray: random XY position
     """
-    r = np.sqrt(np.random.random(N)) / 2.
-    phi = np.random.random(N) * np.pi * 2
+    r = np.sqrt(np.random.random(n)) / 2.
+    phi = np.random.random(n) * np.pi * 2
 
     return np.vstack((r * np.cos(phi) + 0.5, r * np.sin(phi) + 0.5))
 
 
-# @njit(float64[:, :](int32, int32, float32), parallel=True, nogil=True, cache=True)
-def generate_slit_polygon(npoly=5, N=1000, phi=0.):
+@njit(float64[:, :](int64, int64, float64), parallel=True, nogil=True, cache=True)
+def generate_slit_polygon(npoly: int, n: int, phi: float64 = 0.):
     """
     Given three vertices A, B, C,
     sample point uniformly in the triangle
     """
     phi = np.deg2rad(phi)
-    r1, r2 = np.random.random((2, N))
+    r1, r2 = np.random.random((2, n))
     s1 = np.sqrt(r1)
     phi_segment = 2. * np.pi / npoly
 
-    B = [1., 0.]
-    C = [math.cos(phi_segment), math.sin(phi_segment)]
-    x = B[0] * (1.0 - r2) * s1 + C[0] * r2 * s1
-    y = B[1] * (1.0 - r2) * s1 + C[1] * r2 * s1
+    b = [1., 0.]
+    c = [math.cos(phi_segment), math.sin(phi_segment)]
+    x = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
+    y = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
 
-    segments = np.random.randint(0, npoly, N)
+    segments = np.random.randint(0, npoly, n)
     arg_values = phi_segment * segments + phi
     cos_values = np.cos(arg_values)
     sin_values = np.sin(arg_values)
@@ -73,25 +70,26 @@ def unravel_index(index, shape):
 
 spec = [("K", int32), ("q", float32[:]), ("J", int32[:])]
 
+
 @jit()
 def samplealias2d(a, n=1):
     a = np.asarray(a)
     aa = AliasSample(a.T.ravel())
     index = aa.sample(n)
-    # return np.unravel_index(index, dims=a.shape)
     return unravel_index(index, np.array(a.shape, dtype=np.int32))
 
+
 @njit(int32[:](int32[:], float32[:], int32), parallel=True, nogil=True)
-def draw(J,q,n):
+def draw(j, q, n):
     r1, r2 = np.random.rand(n), np.random.rand(n)
     res = np.zeros(n, dtype=np.int32)
-    lj = len(J)
+    lj = len(j)
     for i in range(n):
         kk = int(np.floor(r1[i] * lj))
         if r2[i] < q[kk]:
             res[i] = kk
         else:
-            res[i] = J[kk]
+            res[i] = j[kk]
     return res
 
 
@@ -141,12 +139,12 @@ class AliasSample:
         Returns:
             random sample
         """
-        K, q, J = self.K, self.q, self.J
-        kk = int(np.floor(np.random.rand() * len(J)))
+        k, q, j = self.K, self.q, self.J
+        kk = int(np.floor(np.random.rand() * len(j)))
         if np.random.rand() < q[kk]:
             return kk
         else:
-            return J[kk]
+            return j[kk]
 
     def sample(self, n: int) -> np.ndarray:
         """
@@ -158,31 +156,21 @@ class AliasSample:
         Returns:
             array of random numbers
         """
-        # r1, r2 = np.random.rand(n), np.random.rand(n)
-        # res = np.zeros(n, dtype=np.int32)
-        # lj = len(self.J)
-        # for i in range(n):
-        #     kk = int(np.floor(r1[i] * lj))
-        #     if r2[i] < self.q[kk]:
-        #         res[i] = kk
-        #     else:
-        #         res[i] = self.J[kk]
-        # return res
         return draw(self.J, self.q, n)
 
 
-def piecewise_constant(x, y, N: int):
+def piecewise_constant(x, y, n: int):
     """
     Piecewise constant
     Args:
         x:
         y:
-        N: number of samples to draw
+        n: number of samples to draw
 
     Returns:
 
     """
     diff = np.ediff1d(x)
-    x0 = np.random.choice(y, N, p=y)
-    dist = np.random.rand(N)
+    x0 = np.random.choice(y, n, p=y)
+    dist = np.random.rand(n)
     # x0 += dist*

@@ -92,36 +92,6 @@ def trace(x_vec, y_vec, m0, m1, m2, m3, m4, m5):
     # do transformation
     return m0 * x_vec + m1 * y_vec + m2, m3 * x_vec + m4 * y_vec + m5
 
-@njit(float64[:, :](int32), parallel=par, nogil=nogil, cache=True)
-def generate_slit_xy(N):
-    """  Generate uniform distributed XY position within a unit box
-
-    Args:
-        N (int):  number of random numbers
-
-    Returns:
-        np.ndarray: random XY position
-    """
-    x = np.random.random(N)
-    y = np.random.random(N)
-    return np.vstack((x, y))
-
-
-@njit(float64[:, :](int32), parallel=par, nogil=nogil, cache=True)
-def generate_slit_round(N):
-    """  Generate uniform distributed XY position within a unit circle
-
-    Args:
-        N (int):  number of random numbers
-
-    Returns:
-        np.ndarray: random XY position
-    """
-    r = np.sqrt(np.random.random(N))
-    phi = np.random.random(N) * np.pi * 2
-
-    return np.vstack((r * np.cos(phi), r * np.sin(phi)))
-
 
 @njit(UniTuple(float64[:], 2)(float64[:, :], int32), parallel=True, nogil=True, cache=True)
 def draw_from_2darray(data, N):
@@ -203,35 +173,7 @@ class PSFs:
             x, y = samplealias2d(self.psfs[i].data, np.count_nonzero(idx == i))
             Xlist[idx == i] = (x - self.psfs[i].data.shape[1] / 2.) * self.sampling[i]
             Ylist[idx == i] = (y - self.psfs[i].data.shape[0] / 2.) * self.sampling[i]
-        # for w in wl:
-        # # np.digitize(wl, np.hstack((self.wl - np.mean(np.ediff1d(self.wl)), ))
-        #     idx = np.searchsorted(self.wl, w)
-        #     idx = max(0, idx)
-        #     idx = min(len(self.idx)-1, idx)
-        #     x, y = self.psfs[idx].draw_xy(1)
-        #     Xlist.append(x[0])
-        #     Ylist.append(y[0])
         return Xlist, Ylist
-
-
-# def trace_par(o,t,psfs,n):
-#     xy = generate_slit_xy(n)
-#     # xy = np.zeros((2,n), dtype=np.float64)
-#     # spec = Etalon(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-#     spec = Phoenix(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-#     wltest = spec.draw_wavelength(n)
-#     # wltest = np.random.uniform(np.min(t.wl), np.max(t.wl), n)
-#     sx, sy, rot, shear, tx, ty = t.get_transformations_lookup(wltest)
-#     transformed = trace(xy[0], xy[1], sx, sy, rot, shear, tx, ty)
-#     #     # transformed = np.array(transformed)[:, :2].T
-#     X, Y = psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].draw_xy(wltest)
-#     # transformed[0] = transformed[0] + X
-#     # transformed[1] = transformed[1] + Y
-#     xx = transformed[0] + np.array(X) * psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].sampling[0] / 9.5
-#     yy = transformed[1] + np.array(Y) * psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].sampling[0] / 9.5
-#     #     # transformed += self.generate_psf_distortion(N)
-#     return img
-#     # img += bin_2d(xx, yy, ymin=0, ymax=4096, xmax=4096, xmin=0)
 
 
 class ZEMAX(Spectrograph):

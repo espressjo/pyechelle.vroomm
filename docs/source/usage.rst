@@ -23,7 +23,7 @@ The unit is µW/µm.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --constant 0.0001
+    ./simulator.py --spectrograph MaroonX --sources Constant
 
 .. note:: Since we didn't specify the integration time manually, a default value of 1s is used.
 
