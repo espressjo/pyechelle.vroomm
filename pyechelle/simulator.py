@@ -189,7 +189,7 @@ def main():
 
     parser.add_argument('--sources', nargs='+', choices=available_sources, required=True)
     const_source_group = parser.add_argument_group('Constant source')
-    const_source_group.add_argument('--constant_flux', type=float, default=1., required=False,
+    const_source_group.add_argument('--constant_intensity', type=float, default=0.001, required=False,
                                     help="Flux in microWatts / nanometer for constant flux spectral source")
 
     phoenix_group = parser.add_argument_group('Phoenix')
