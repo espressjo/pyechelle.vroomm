@@ -13,18 +13,18 @@ before_script:
   - pip install virtualenv
   - virtualenv venv
   - source venv/bin/activate
+  - pip install poetry
+  - poetry install
 
-#test:
-#  script:
-#    - python setup.py test
-#    - pip install tox flake8  # you can also use tox
-#    - tox -e py36,flake8
+test:
+  script:
+    - pytest --cov
 
-#run:
-#  script:
-#    - python setup.py bdist_wheel
+    #run:
+    #  script:
+    #    - python setup.py bdist_wheel
     # an alternative approach is to install and run:
-#    - pip install dist/*
+    #    - pip install dist/*
     # run the command here
 #  artifacts:
 #    paths:

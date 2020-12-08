@@ -25,7 +25,8 @@ def parse_num_list(string_list: str) -> list:
     m = re.match(r'(\d+)(?:-(\d+))?$', string_list)
     # ^ (or use .split('-'). anyway you like.)
     if not m:
-        raise argparse.ArgumentTypeError("'" + string_list + "' is not a range of number. Expected forms like '0-5' or '2'.")
+        raise argparse.ArgumentTypeError(
+            "'" + string_list + "' is not a range of number. Expected forms like '0-5' or '2'.")
     start = m.group(1)
     end = m.group(2) or start
     return list(range(int(start, 10), int(end, 10) + 1))
@@ -174,8 +175,8 @@ def simulate(args):
 
     # save simulation to .fits file
     hdu = fits.PrimaryHDU(data=ccd.data)
-    hdul = fits.HDUList([hdu])
-    hdul.writeto(args.output, overwrite=args.overwrite)
+    hdu_list = fits.HDUList([hdu])
+    hdu_list.writeto(args.output, overwrite=args.overwrite)
 
     if args.html_export:
         export_to_html(ccd.data, args.html_export)

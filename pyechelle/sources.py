@@ -71,7 +71,6 @@ class Constant(Source):
         super().__init__(**kwargs, name="Constant")
         self.intensity = intensity
 
-
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
 
@@ -215,13 +214,3 @@ class Phoenix(Source):
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.ip_spectra(self.wl_data[idx])
-
-
-if __name__ == "__main__":
-    from pyechelle.spectrograph import ZEMAX
-
-    source = Phoenix()
-    spec = ZEMAX(
-        "/home/stuermer/Repos/cpp/EchelleSimulator/data/spectrographs/MaroonX.hdf"
-    )
-    EchelleSpectrum(Phoenix, spec)

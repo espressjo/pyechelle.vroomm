@@ -58,6 +58,7 @@ def trace(x_vec, y_vec, sx, sy, rot, shear, tx, ty):
     ypos = m3 * x_vec + m4 * y_vec + m5
     return xpos, ypos
 
+
 @njit(
     UniTuple(float64[:], 2)(
         float64[:],
