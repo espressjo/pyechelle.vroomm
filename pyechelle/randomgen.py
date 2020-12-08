@@ -157,20 +157,3 @@ class AliasSample:
             array of random numbers
         """
         return draw(self.J, self.q, n)
-
-
-def piecewise_constant(x, y, n: int):
-    """
-    Piecewise constant
-    Args:
-        x:
-        y:
-        n: number of samples to draw
-
-    Returns:
-
-    """
-    diff = np.ediff1d(x)
-    x0 = np.random.choice(y, n, p=y)
-    dist = np.random.rand(n)
-    # x0 += dist*
