@@ -49,6 +49,7 @@ class Source:
         self.min_wl = min_wl
         self.max_wl = max_wl
         self.stellar_target = False
+        self.flux_in_photons = False
 
     def get_spectral_density(self, wavelength):
         raise NotImplementedError()
@@ -69,7 +70,7 @@ class Constant(Source):
     def __init__(self, intensity=0.001, **kwargs):
         super().__init__(**kwargs, name="Constant")
         self.intensity = intensity
-        self.list_like_source = False
+
 
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
@@ -85,6 +86,7 @@ class Etalon(Source):
         self.max_m = np.floor(2e3 * d * np.cos(theta) / self.min_wl)
         self.n_photons = n_photons
         self.list_like_source = True
+        self.flux_in_photons = True
 
     @staticmethod
     def peak_wavelength_etalon(m, d=10.0, n=1.0, theta=0.0):
@@ -129,6 +131,10 @@ class Phoenix(Source):
     server.
 
     """
+    valid_t = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]
+    valid_g = [*list(np.arange(0, 6, 0.5))]
+    valid_z = [*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))]
+    valid_a = [-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
 
     def __init__(
             self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, data_folder="../data", **kwargs
@@ -139,13 +145,9 @@ class Phoenix(Source):
         self.alpha = alpha
         self.magnitude = magnitude
         super().__init__(**kwargs, name="phoenix")
-        valid_T = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]
-        valid_g = [*list(np.arange(0, 6, 0.5))]
-        valid_z = [*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))]
-        valid_a = [-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
         self.stellar_target = True
 
-        if t_eff in valid_T and log_g in valid_g and z in valid_z and alpha in valid_a:
+        if t_eff in self.valid_t and log_g in self.valid_g and z in self.valid_z and alpha in self.valid_a:
             if not os.path.exists(
                     data_folder + "/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits"
             ):
@@ -204,10 +206,10 @@ class Phoenix(Source):
             self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
         else:
             print("Valid values are:")
-            print("T: ", *valid_T)
-            print("log g: ", *valid_g)
-            print("Z: ", *valid_z)
-            print("alpha: ", *valid_a)
+            print("T: ", *self.valid_t)
+            print("log g: ", *self.valid_g)
+            print("Z: ", *self.valid_z)
+            print("alpha: ", *self.valid_a)
             raise ValueError("Invalid parameter for M-dwarf spectrum ")
 
     def get_spectral_density(self, wavelength):

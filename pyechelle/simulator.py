@@ -7,12 +7,14 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.io import fits
 
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency
 from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
+from pyechelle.sources import Phoenix
 from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
 
@@ -40,6 +42,21 @@ def model_name_to_path(model_name: str) -> Path:
     """
     script_dir = Path(__file__).resolve().parent.parent.joinpath("models")
     return script_dir.joinpath(f"{model_name}.hdf")
+
+
+def export_to_html(data, filename=''):
+    import plotly.express as px
+    fig = px.imshow(data, binary_string=True, aspect='equal')
+
+    fig.update_traces(
+        hovertemplate=None,
+        hoverinfo='skip'
+    )
+    w = 1000
+    h = 300
+    fig.update_layout(autosize=True, width=w, height=h, margin=dict(l=0, r=0, b=0, t=0))
+    fig.update_yaxes(range=[2000, 3000])
+    fig.write_html(filename, include_plotlyjs=False)
 
 
 def simulate(args):
@@ -106,12 +123,12 @@ def simulate(args):
                 effective_density = spectral_density
 
             # calculate photon flux
-            if source.stellar_target:
+            if source.flux_in_photons:
+                flux = spectral_density
+            else:
                 ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength intervall
                 wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
                 flux = effective_density * wavelength * wl_diffs * ch_factor
-            else:
-                flux = spectral_density
 
             flux_photons = flux * args.integration_time
             n_photons = int(np.sum(flux_photons))
@@ -153,7 +170,15 @@ def simulate(args):
     if args.read_noise:
         ccd.add_readnoise(args.read_noise)
     t2 = time.time()
-    print(t2 - t1)
+    logger.info(f"Total time for simulation: {t2 - t1}s.")
+
+    # save simulation to .fits file
+    hdu = fits.PrimaryHDU(data=ccd.data)
+    hdul = fits.HDUList([hdu])
+    hdul.writeto(args.output, overwrite=args.overwrite)
+
+    if args.html_export:
+        export_to_html(ccd.data, args.html_export)
     if args.show:
         plt.figure()
         plt.imshow(ccd.data)
@@ -189,24 +214,24 @@ def main():
 
     parser.add_argument('--sources', nargs='+', choices=available_sources, required=True)
     const_source_group = parser.add_argument_group('Constant source')
-    const_source_group.add_argument('--constant_intensity', type=float, default=0.001, required=False,
+    const_source_group.add_argument('--constant_intensity', type=float, default=0.0001, required=False,
                                     help="Flux in microWatts / nanometer for constant flux spectral source")
 
     phoenix_group = parser.add_argument_group('Phoenix')
     phoenix_group.add_argument('--phoenix_t_eff', default=3600,
-                               choices=[*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))],
+                               choices=Phoenix.valid_t,
                                type=int, required=False,
                                help="Effective temperature in Kelvins [K].")
     phoenix_group.add_argument('--phoenix_log_g', default=5,
-                               choices=[*list(np.arange(0, 6, 0.5))],
+                               choices=Phoenix.valid_g,
                                type=float, required=False,
                                help="Surface gravity log g.")
     phoenix_group.add_argument('--phoenix_z',
-                               choices=[*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))],
+                               choices=Phoenix.valid_z,
                                type=float, required=False, default=0,
                                help="Overall metallicity.")
     phoenix_group.add_argument('--phoenix_alpha',
-                               choices=[-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4],
+                               choices=Phoenix.valid_a,
                                type=float, required=False, default=0.,
                                help="Alpha element abundance.")
     phoenix_group.add_argument('--phoenix_magnitude', default=10., required=False, type=float,
@@ -228,7 +253,13 @@ def main():
     ccd_group.add_argument('--read_noise', type=float, required=False, default=0)
 
     parser.add_argument('--show', default=False, action='store_true')
+    parser.add_argument('-o', '--output', type=argparse.FileType('wb', 0), required=False, default='test.fits',
+                        help='A .fits file where the simulation is saved.')
+    parser.add_argument('--overwrite', default=False, action='store_true')
 
+    parser.add_argument('--html_export', type=str, default='',
+                        help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"
+                             "standalone html file, but requires plotly.js to be loaded.")
     arguments = parser.parse_args()
     simulate(arguments)
 
