@@ -1,1 +1,7 @@
-/pyechelle/data/
+/docs/build/
+.idea/
+data/*
+poetry.lock
+pyechelle.egg-info
+tests/.hypothesis
+pyechelle/__pycache__

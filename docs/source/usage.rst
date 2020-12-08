@@ -6,15 +6,15 @@ created from the ZEMAX file.
 
 Basics
 ^^^^^^
-Echelle++ is controlled via command line arguments.
+PyEchelle is controlled via command line arguments.
 
 .. code-block:: bash
 
-    ./simulator.py -h
+    pyechelle -h
 
 lists all available arguments.
 
-This makes it easy for Echelle++ to be scripted. Look at the examples folder to see how Echelle++ can be called within python.
+This makes it easy for PyEchelle to be scripted.
 
 Example 1: Flat
 ^^^^^^^^^^^^^^^
@@ -23,7 +23,7 @@ The unit is µW/µm.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --sources Constant
+    pyechelle --spectrograph MaroonX --sources Constant --constant_intensity 0.001
 
 .. note:: Since we didn't specify the integration time manually, a default value of 1s is used.
 
@@ -35,13 +35,13 @@ The output will look like this (partly shown):
 
 Example 2: multiple fibers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-For multiple fiber spectrographs, we need one call to Echelle++ for each fiber.
+For multiple fiber spectrographs, we need one call to PyEchelle for each fiber.
 In the following example, we simulate a flat spectrum in the first two fibers of the MaroonX spectrograph.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --constant 0.001 -o flat2.fit
-    ./simulator.py --spectrograph MaroonX --constant 0.001 -f 2 -k 1 -o flat2.fit
+    pyechelle --spectrograph MaroonX --constant 0.001 -o flat2.fit
+    pyechelle --spectrograph MaroonX --constant 0.001 -f 2 -k 1 -o flat2.fit
 
 .. warning:: The -k 1 flag of the second command makes sure that the content of flat2.fit will not be overwritten, but rather added to the current simulation. If the flag was not given, the second command would overwrite the file.
 
@@ -59,9 +59,9 @@ We also set the radial velocity to 50 m/s.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 2
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 3
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 2
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -t 60 -r 50 -k 1 -f 3
 
 .. image:: _static/plots/example3.jpg
 
@@ -84,7 +84,7 @@ Consider the following excerpt of a Thorium line list
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --linelist thar.csv -t 10 --bias 1000 --readnoise 5
+    pyechelle --spectrograph MaroonX --linelist thar.csv -t 10 --bias 1000 --readnoise 5
 
 .. note:: Here, it is assumed that thar.csv is located in the same folder as the executable.
 
@@ -112,7 +112,7 @@ Intermediate values will be linearly interpolated.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --constant 0.001 --efficiency efficiency.csv
+    pyechelle --spectrograph MaroonX --constant 0.001 --efficiency efficiency.csv
 
 .. image:: _static/plots/example5.jpg
 
@@ -129,10 +129,10 @@ We also add readout noise and a bias count.
 
 .. code-block:: none
 
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 2 -t 10 -r 50 -o example6.fit
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 3 -k 1 -t 10 -r 50 -o example6.fit
-    ./simulator.py --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 4 -k 1 -t 10 -r 50 -o example6.fit
-    ./simulator.py --spectrograph MaroonX --etalon 10,1.,0.,0.92,0.001 -f 5 -k 1 -t 10 -r -10.5 --readnoise 5 --bias 1000 -o example6.fit
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 2 -t 10 -r 50 -o example6.fit
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 3 -k 1 -t 10 -r 50 -o example6.fit
+    pyechelle --spectrograph MaroonX --telescope 8.1,128.12 --phoenix 3500,-1.,0.,5.5,14 -f 4 -k 1 -t 10 -r 50 -o example6.fit
+    pyechelle --spectrograph MaroonX --etalon 10,1.,0.,0.92,0.001 -f 5 -k 1 -t 10 -r -10.5 --readnoise 5 --bias 1000 -o example6.fit
 
 .. image:: _static/plots/example6.jpg
 
@@ -163,7 +163,7 @@ Simulating a blackbody spectrum and providing the atmospheric model as an effici
 
 .. code-block:: none
 
-    ./simulator.py -s MaroonXred --blackbody 4500,13 --telescope 8.1,128.15 --efficiency LBLRTM_2009_12_01_03_LasCampanas_AM1.5_transmission.csv
+    pyechelle -s MaroonXred --blackbody 4500,13 --telescope 8.1,128.15 --efficiency LBLRTM_2009_12_01_03_LasCampanas_AM1.5_transmission.csv
 
 gives
 
