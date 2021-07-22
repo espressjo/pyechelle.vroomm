@@ -8,7 +8,7 @@ from numba import njit, int32, float64
 from numba.types import UniTuple
 
 from pyechelle.CCD import bin_2d, CCD
-from pyechelle.randomgen import AliasSample, sample_alias_2d, generate_slit_polygon
+from pyechelle.randomgen import AliasSample, sample_alias_2d, generate_slit_polygon, generate_slit_xy
 from pyechelle.sources import Etalon, Phoenix
 from pyechelle.transformation import AffineTransformation
 
@@ -80,12 +80,12 @@ def trace(x_vec, y_vec, m0, m1, m2, m3, m4, m5):
     Args:
         x_vec (np.ndarray): random X positions within the slit
         y_vec (np.ndarray): random Y positions within the slit
-        sx (float): desired scaling in X direction
-        sy (float):  desired scalinig in Y direction
-        rot (float): desired slit rotation [rad]
-        shear (float): desired slit shear
-        tx (float): tx of affine matrix
-        ty (float): ty of affine matrix
+        m0 (float): matrix element 00
+        m1 (float):  matrix element 10
+        m2 (float): matrix element 20
+        m3 (float): matrix element 01
+        m4 (float): matrix element 11
+        m5 (float): matrix element 21
 
     Returns:
         np.ndarray: transformed XY positions for given input
@@ -96,8 +96,8 @@ def trace(x_vec, y_vec, m0, m1, m2, m3, m4, m5):
 
 @njit(UniTuple(float64[:], 2)(float64[:, :], int32), parallel=True, nogil=True, cache=True)
 def draw_from_2darray(data, N):
-    X = np.zeros(N, dtype=float64)
-    Y = np.zeros(N, dtype=float64)
+    x_cords = np.zeros(N, dtype=float64)
+    y_cords = np.zeros(N, dtype=float64)
     for i in range(N):
         x = randrange(0, data.shape[1])
         y = randrange(0, data.shape[0])
@@ -106,9 +106,9 @@ def draw_from_2darray(data, N):
             x = randrange(0, data.shape[1])
             y = randrange(0, data.shape[0])
             z = random()
-        X[i] = x
-        Y[i] = y
-    return X, Y
+        x_cords[i] = x
+        y_cords[i] = y
+    return x_cords, y_cords
 
 
 def draw_from_2darray_alias(sampler, N):

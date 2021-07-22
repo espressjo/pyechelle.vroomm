@@ -6,6 +6,7 @@ Welcome to PyEchelle's documentation!
    :caption: Contents:
 
    usage
+   new_model
 
 Indices and tables
 ==================

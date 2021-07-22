@@ -1,3 +1,4 @@
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -76,10 +77,21 @@ def plot_psfs(spectrograph: ZEMAX):
         for i, p in enumerate(spectrograph.psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].psfs):
             if p.data.shape == shape_psfs:
                 img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
-                int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])
-                ] = p.data
+                int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])] = p.data
     plt.imshow(img, vmin=0, vmax=np.mean(img) * 10.0)
     plt.show()
+
+
+def plot_fields(spec: ZEMAX):
+    plt.figure()
+    with h5py.File(spec.modelpath, 'r') as h5f:
+        for k in h5f.keys():
+            if 'fiber_' in k:
+                a = h5f[k].attrs['norm_field'].decode('utf-8').split('\n')
+
+                for b in a:
+                    if 'aF' in b:
+                        print(b[2:])
 
 
 if __name__ == "__main__":

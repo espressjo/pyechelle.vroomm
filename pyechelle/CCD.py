@@ -1,4 +1,6 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 import autologging
 import h5py
@@ -40,6 +42,18 @@ def bin_2d(x, y, xmin=0, xmax=4096, ymin=0, ymax=4096):
     return grid
 
 
+def _bin_2d(x, y, xmin=0, xmax=4096, ymin=0, ymax=4096):
+    splits = 24
+    with ThreadPoolExecutor(max_workers=splits) as pool:
+        chunk = x.shape[0] // splits
+        chunksx = [x[i * chunk:(i + 1) * chunk] for i in range(splits)]
+        chunksy = [y[i * chunk:(i + 1) * chunk] for i in range(splits)]
+        f = partial(_bin_2d, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        results = pool.map(f, chunksx, chunksy)
+        results = np.sum(results)
+    return results
+
+
 def read_ccd_from_hdf(path):
     with h5py.File(path, "r") as h5f:
         # read in CCD information
@@ -64,7 +78,7 @@ class CCD:
 
     def add_photons(self, x_positions, y_positions):
         self.data += bin_2d(x_positions, y_positions, self.xmin, self.xmax, self.ymin, self.ymax)
-        self._clip()
+        # self._clip()
 
     def add_readnoise(self, std=3.):
         self.data += np.asarray(np.random.normal(0., std, self.data.shape).round(0), dtype=np.int32)

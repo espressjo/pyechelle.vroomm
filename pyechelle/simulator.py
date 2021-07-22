@@ -86,10 +86,10 @@ def simulate(args):
         source_kwargs = dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
                                  [getattr(args, ss) for ss in source_args]))
         source = getattr(sources, s)(**source_kwargs)
-        if args.use_blaze_efficiency:
-            efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
-        else:
+        if args.no_blaze:
             efficiency = None
+        else:
+            efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
 
         if args.orders is None:
             orders = spec.orders
@@ -143,7 +143,7 @@ def simulate(args):
                 x, y = generate_slit_polygon(8, n_photons, 0.)
             elif spec.field_shape == "hexagonal":
                 x, y = generate_slit_polygon(6, n_photons, 0.)
-            elif spec.field_shape == "round":
+            elif spec.field_shape == "circular":
                 x, y = generate_slit_round(n_photons)
             else:
                 raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
@@ -164,6 +164,7 @@ def simulate(args):
 
             # add photons to ccd
             ccd.add_photons(xt, yt)
+    ccd._clip()
 
     # add bias / global ccd effects
     if args.bias:
@@ -248,7 +249,7 @@ def main():
     etalon_group.add_argument('--etalon_n_photons', default=1000, required=False,
                               help='Number of photons per seconds per peak of the etalon spectrum. Default: 1000')
 
-    parser.add_argument('--use_blaze_efficiency', default=True, action='store_true')
+    parser.add_argument('--no_blaze', action='store_true')
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
     ccd_group.add_argument('--read_noise', type=float, required=False, default=0)
