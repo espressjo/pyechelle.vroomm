@@ -132,38 +132,43 @@ def simulate(args):
                 flux = effective_density * wavelength * wl_diffs * ch_factor
 
             flux_photons = flux * args.integration_time
-            n_photons = int(np.sum(flux_photons))
-            print(f'Order {o}: Number of photons: {n_photons}')
+            n_photons2 = int(np.sum(flux_photons))
+            print(f'Order {o}: Number of photons: {n_photons2}')
 
-            # get XY list for field
-            # x, y = generate_slit_round(n_photons)
-            if spec.field_shape == "rectangular":
-                x, y = generate_slit_xy(n_photons)
-            elif spec.field_shape == "octagonal":
-                x, y = generate_slit_polygon(8, n_photons, 0.)
-            elif spec.field_shape == "hexagonal":
-                x, y = generate_slit_polygon(6, n_photons, 0.)
-            elif spec.field_shape == "circular":
-                x, y = generate_slit_round(n_photons)
-            else:
-                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
+            n_simulated = 0
+            while n_simulated < n_photons2:
+                print("step")
+                n_photons = min(n_photons2 - n_simulated, 100000000)
+                n_simulated += n_photons
+                # get XY list for field
+                # x, y = generate_slit_round(n_photons)
+                if spec.field_shape == "rectangular":
+                    x, y = generate_slit_xy(n_photons)
+                elif spec.field_shape == "octagonal":
+                    x, y = generate_slit_polygon(8, n_photons, 0.)
+                elif spec.field_shape == "hexagonal":
+                    x, y = generate_slit_polygon(6, n_photons, 0.)
+                elif spec.field_shape == "circular":
+                    x, y = generate_slit_round(n_photons)
+                else:
+                    raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
 
-            # draw wavelength from effective spectrum
-            sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
+                # draw wavelength from effective spectrum
+                sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
 
-            wl_sample = wavelength[sampler.sample(n_photons)]
+                wl_sample = wavelength[sampler.sample(n_photons)]
 
-            # trace
-            sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wl_sample)
-            xt, yt = trace(x, y, sx, sy, rot, shear, tx, ty)
+                # trace
+                sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wl_sample)
+                xt, yt = trace(x, y, sx, sy, rot, shear, tx, ty)
 
-            x_psf, y_psf = spec.psfs[f"psf_order_{o}"].draw_xy(wl_sample)
+                x_psf, y_psf = spec.psfs[f"psf_order_{o}"].draw_xy(wl_sample)
 
-            xt += x_psf / ccd.pixelsize
-            yt += y_psf / ccd.pixelsize
+                xt += x_psf / ccd.pixelsize
+                yt += y_psf / ccd.pixelsize
 
-            # add photons to ccd
-            ccd.add_photons(xt, yt)
+                # add photons to ccd
+                ccd.add_photons(xt, yt)
     ccd._clip()
 
     # add bias / global ccd effects
@@ -263,8 +268,10 @@ def main():
                         help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"
                              "standalone html file, but requires plotly.js to be loaded.")
     arguments = parser.parse_args()
+    t1 = time.time()
     simulate(arguments)
-
+    t2 = time.time()
+    print(f"Simulation took {t2 - t1} s")
 
 if __name__ == "__main__":
     main()
