@@ -26,6 +26,7 @@ hypothesis = "^5.36.1"
 pytest = "^6.0.2"
 coverage = {extras = ["toml"], version = "^5.3"}
 pytest-cov = "^2.10.1"
+pytest-benchmark = "^3.4.1"
 sphinx-rtd-theme = "^0.5.0"
 
 [tool.coverage.paths]

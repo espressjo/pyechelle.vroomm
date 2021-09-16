@@ -78,11 +78,9 @@ class CCD:
 
     def add_photons(self, x_positions, y_positions):
         self.data += bin_2d(x_positions, y_positions, self.xmin, self.xmax, self.ymin, self.ymax)
-        # self._clip()
 
     def add_readnoise(self, std=3.):
         self.data += np.asarray(np.random.normal(0., std, self.data.shape).round(0), dtype=np.int32)
-        self._clip()
 
     def add_bias(self, value: int = 1000):
         """Adds a bias value to the detector counts
@@ -94,9 +92,8 @@ class CCD:
             None
         """
         self.data += value
-        self._clip()
 
-    def _clip(self):
+    def clip(self):
         if np.any(self.data < 0):
             logger.warning('There is data <0 which will be clipped. Make sure you e.g. apply the bias before the '
                            'readnoise.')

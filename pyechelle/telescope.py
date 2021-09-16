@@ -13,7 +13,8 @@ class Telescope:
         self.d_primary = d_primary
         self.d_secondary = d_secondary
 
-    def get_area(self):
+    @property
+    def area(self) -> float:
         """ Effective collecting area
 
         Returns: effective collecting area of the telescope [m^2]

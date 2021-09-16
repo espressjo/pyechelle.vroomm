@@ -41,7 +41,7 @@ class SystemEfficiency(Efficiency):
     def get_efficiency_per_order(self, wavelength, order):
         e = np.ones_like(wavelength)
         for ef in self.efficiencies:
-            e *= ef.get_efficiency_per_order(wavelength, o)
+            e *= ef.get_efficiency_per_order(wavelength, order)
         return e
 
 
@@ -119,20 +119,3 @@ class CSVEfficiency(Efficiency):
             return self.ip_per_order[order](wavelength)
         else:
             return self.ip_per_order(wavelength)
-
-
-if __name__ == "__main__":
-    ge = GratingEfficiency(76.4, 76.4, 31.6)
-    wl = np.linspace(0.35, 0.9, 10000)
-    e = ge.get_efficiency(wl)
-    thar = CSVEfficiency(
-        "ThAr", "/home/stuermer/silver.csv", 'cubic'
-    )
-    se = SystemEfficiency([ge, thar], 'Total')
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.plot(wl, thar.get_efficiency(wl), "g--")
-    for o in range(50, 100):
-        plt.plot(wl, se.get_efficiency_per_order(wl, o))
-    plt.show()

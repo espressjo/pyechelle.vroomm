@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import argparse
+import inspect
 import logging
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -22,6 +24,15 @@ logger = logging.getLogger('Simulator')
 
 
 def parse_num_list(string_list: str) -> list:
+    """
+    Converts a string specifying a range of numbers (e.g. '1-3') into a list of these numbers ([1,2,3])
+    Args:
+        string_list: string like "[start value]-[end value]"
+
+    Returns:
+        List of integers
+    """
+
     m = re.match(r'(\d+)(?:-(\d+))?$', string_list)
     # ^ (or use .split('-'). anyway you like.)
     if not m:
@@ -36,7 +47,7 @@ def model_name_to_path(model_name: str) -> Path:
     """
     Converts a spectrograph model name into a full path to the corresponding .hdf file
     Args:
-        model_name (str): Name of the spectorgraph model e.g. 'MaroonX'
+        model_name: Name of the spectorgraph model e.g. 'MaroonX'
 
     Returns:
         full path to .hdf file
@@ -45,7 +56,16 @@ def model_name_to_path(model_name: str) -> Path:
     return script_dir.joinpath(f"{model_name}.hdf")
 
 
-def export_to_html(data, filename=''):
+def export_to_html(data, filename: str = 'test.html'):
+    """
+    Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some of the examples in the documentation.
+    Args:
+        data: 2d numpy array
+        filename: output filename
+
+    Returns:
+        None
+    """
     import plotly.express as px
     fig = px.imshow(data, binary_string=True, aspect='equal')
 
@@ -114,7 +134,7 @@ def simulate(args):
 
             # for stellar targets calculate collected flux by telescope area
             if source.stellar_target:
-                spectral_density *= telescope.get_area()
+                spectral_density *= telescope.area
 
             # get efficiency per order
             if efficiency is not None:
@@ -127,7 +147,7 @@ def simulate(args):
             if source.flux_in_photons:
                 flux = spectral_density
             else:
-                ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength intervall
+                ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength interval
                 wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
                 flux = effective_density * wavelength * wl_diffs * ch_factor
 
@@ -137,7 +157,6 @@ def simulate(args):
 
             n_simulated = 0
             while n_simulated < n_photons2:
-                print("step")
                 n_photons = min(n_photons2 - n_simulated, 100000000)
                 n_simulated += n_photons
                 # get XY list for field
@@ -169,7 +188,7 @@ def simulate(args):
 
                 # add photons to ccd
                 ccd.add_photons(xt, yt)
-    ccd._clip()
+    ccd.clip()
 
     # add bias / global ccd effects
     if args.bias:
@@ -192,15 +211,15 @@ def simulate(args):
         plt.show()
 
 
-def main():
-    import sys
-    import inspect
+def main(args=None):
+    if not args:
+        args = sys.argv[1:]
 
     dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
     models = [x.stem for x in dir_path.glob('*.hdf')]
 
     available_sources = [m[0] for m in inspect.getmembers(pyechelle.sources, inspect.isclass) if
-                         issubclass(m[1], pyechelle.sources.Source)]
+                         issubclass(m[1], pyechelle.sources.Source) and m[0] != "Source"]
 
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
     parser.add_argument('-s', '--spectrograph', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
@@ -267,11 +286,12 @@ def main():
     parser.add_argument('--html_export', type=str, default='',
                         help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"
                              "standalone html file, but requires plotly.js to be loaded.")
-    arguments = parser.parse_args()
+    args = parser.parse_args(args)
     t1 = time.time()
-    simulate(arguments)
+    simulate(args)
     t2 = time.time()
     print(f"Simulation took {t2 - t1} s")
+
 
 if __name__ == "__main__":
     main()

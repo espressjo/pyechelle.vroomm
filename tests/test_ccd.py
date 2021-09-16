@@ -25,6 +25,7 @@ def test_ccd(maxx, maxy, bias, readnoise):
     assert np.any(ccd.data >= 0)
     ccd.data += ccd.maxval
     ccd.add_readnoise(3)
+    ccd.clip()
     assert np.any(ccd.data <= ccd.maxval)
 
 

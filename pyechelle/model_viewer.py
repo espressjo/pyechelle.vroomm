@@ -1,7 +1,13 @@
+import argparse
+import inspect
+import sys
+from pathlib import Path
+
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
+from pyechelle.simulator import model_name_to_path
 from pyechelle.spectrograph import ZEMAX
 
 
@@ -73,8 +79,9 @@ def plot_psfs(spectrograph: ZEMAX):
     n_psfs = max([len(spectrograph.psfs[k].psfs) for k in spectrograph.psfs.keys()])
     shape_psfs = spectrograph.psfs[next(spectrograph.psfs.keys().__iter__())].psfs[0].data.shape
     img = np.empty((n_psfs * shape_psfs[0], n_orders * shape_psfs[1]))
-    for oo, o in enumerate(spectrograph.order_keys):
-        for i, p in enumerate(spectrograph.psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].psfs):
+
+    for oo, o in enumerate(np.sort(spectrograph.orders)):
+        for i, p in enumerate(spectrograph.psfs[f"psf_order_" + f"{o}"].psfs):
             if p.data.shape == shape_psfs:
                 img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
                 int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])] = p.data
@@ -94,8 +101,37 @@ def plot_fields(spec: ZEMAX):
                         print(b[2:])
 
 
-if __name__ == "__main__":
-    spec = ZEMAX("../models/marvel201020.hdf", 3)
+def main(args):
+    if not args:
+        args = sys.argv[1:]
+
+    dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
+    models = [x.stem for x in dir_path.glob('*.hdf')]
+
+    parser = argparse.ArgumentParser(description='PyEchelle Simulator Model Viewer')
+    parser.add_argument('-s', '--spectrograph', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
+                        help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. "
+                             f"Options are {','.join(models)}")
+
+    parser.add_argument('--fiber', type=int, default=1, required=False)
+
+    args = parser.parse_args(args)
+
+    spec = ZEMAX(args.spectrograph, args.fiber)
+    # if args.plot_transformations:
     plot_transformations(spec)
+    # if args.plot_transformation_matrices:
     plot_transformation_matrices(spec)
+    # if args.plot_field:
+    plot_fields(spec)
+    # if args.plot_psfs:
     plot_psfs(spec)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+    #
+    # spec = ZEMAX("../models/marvel201020.hdf", 3)
+    # plot_transformations(spec)
+    # plot_transformation_matrices(spec)
+    # plot_psfs(spec)

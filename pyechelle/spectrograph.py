@@ -31,7 +31,7 @@ nogil = True
     nogil=nogil,
     cache=True,
 )
-def trace(x_vec, y_vec, sx, sy, rot, shear, tx, ty):
+def trace_native(x_vec, y_vec, sx, sy, rot, shear, tx, ty):
     """ Performs 'raytracing' for a given wavelength vector and XY input vectors
 
     Args:
@@ -178,7 +178,7 @@ class PSFs:
 
 
 class ZEMAX(Spectrograph):
-    def __init__(self, path, fiber: int = 1, n_lookup_table=10000):
+    def __init__(self, path, fiber: int = 1, n_lookup_table: int = 10000):
         """
         Load spectrograph model from ZEMAX based .hdf model.
 
@@ -232,74 +232,3 @@ class ZEMAX(Spectrograph):
         return self.transformations[f"order{order}"].min_wavelength(), self.transformations[
             f"order{order}"].max_wavelength()
 
-    def plot_transformations(self, order=None):
-        plt.figure()
-        for t, k in self.transformations.items():
-            plt.plot(k.lookup_table_sx)
-        plt.show()
-
-    def generate_slit(self, N):
-        return generate_slit_xy(N)
-
-    def generate_2d_spectrum(self, wl_vector, t_eff):
-        n = len(wl_vector)
-
-        img = np.zeros((self.CCD.ymax - self.CCD.ymin, self.CCD.xmax - self.CCD.xmin))
-        t1 = time.time()
-        # imgs = parmap.map(trace_par, self.transformations.items(), (self.psfs, n))
-        for o, t in self.transformations.items():
-            print(o)
-            xy = generate_slit_polygon(8, n)
-            # xy = self.generate_slit(n)
-            # xy = np.zeros((2,n), dtype=np.float64)
-            # spec = Etalon(min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-            if t_eff == "e":
-                spec = Etalon(d=5, min_wl=t.min_wavelength(), max_wl=t.max_wavelength())
-            else:
-                spec = Phoenix(min_wl=t.min_wavelength(), max_wl=t.max_wavelength(), t_eff=t_eff)
-
-            wltest = spec.draw_wavelength(n)
-            # wltest = np.random.uniform(np.min(t.wl), np.max(t.wl), n)
-            sx, sy, rot, shear, tx, ty = t.get_matrices_lookup(wltest)
-            transformed = trace(xy[0], xy[1], sx, sy, rot, shear, tx, ty)
-            # xx, yy = transformed
-            #     # transformed = np.array(transformed)[:, :2].T
-            X, Y = self.psfs[f"psf_{o[:5]}" + "_" + f"{o[5:]}"].draw_xy(wltest)
-            # # transformed[0] = transformed[0] + X
-            # # transformed[1] = transformed[1] + Y
-            xx = transformed[0] + np.array(X) / self.CCD.pixelsize
-            yy = transformed[1] + np.array(Y) / self.CCD.pixelsize
-            #     # transformed += self.generate_psf_distortion(N)
-            img += bin_2d(xx, yy, ymin=self.CCD.ymin, ymax=self.CCD.ymax, xmax=self.CCD.xmax, xmin=self.CCD.xmin)
-        # img = np.array(imgs).sum(axis=0)
-        # img = bin_2d(**imgs, ymin=0, ymax=4096, xmax=4096, xmin=0)
-        t2 = time.time()
-        print(t2 - t1)
-        return img
-
-
-if __name__ == "__main__":
-    from pathlib import Path
-
-    dir_path = Path(__file__).resolve().parent.parent
-
-    imgs = []
-    for i, teff in enumerate(['e', 3200, 4000, 5000, 6000]):
-        spec = ZEMAX(dir_path.joinpath("./models/marvel201020.hdf"), i + 1)
-        n = 5e6
-        if teff == 'e':
-            n = int(5e6 / 7)
-        img = spec.generate_2d_spectrum(np.empty((int(n))), teff)
-        imgs.append(img)
-    imgs = np.array(imgs)
-    img = np.sum(imgs, axis=0)
-    from astropy.io import fits
-
-    # spec.CCD.
-    plt.figure()
-    plt.imshow(img, origin='lower')
-    plt.show()
-    print(np.max(img), np.min(img))
-    # spec.plot_transformations()
-    hdu = fits.PrimaryHDU(data=np.array(img, dtype=np.int16))
-    hdu.writeto('test_dask3.fits')
