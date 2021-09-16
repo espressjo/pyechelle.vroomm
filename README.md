@@ -10,7 +10,27 @@ smoother cross-plattform development.
 
 Installation
 ============
-The simplest way for installing pyechelle is using *pip*:
+There are multiple ways of installing PyEchelle.
+The recommended way for now is to clone the repository:
+
+Install from source
+-------------------
+```bash
+git clone https://gitlab.com/Stuermer/pyechelle.git
+```
+After that you can either install [Poetry](https://python-poetry.org/) and
+use it inside the pyechelle directoryto automatically install the dependencies 
+of PyEchelle:
+```bash
+poetry install
+```
+or you can use pip/conda and install the required python packages that are listed in pyproject.toml under **[tool.poetry.dependencies]** directly:
+
+
+
+Install via pip
+---------------
+The simplest way for installing pyechelle is using *pip* (NOT WORKING YET):
 
 ```bash
 pip install pyechelle
@@ -18,3 +38,11 @@ pip install pyechelle
 
 Usage
 =====
+See
+```bash
+python simulator.py -h
+```
+for all available command line options.
+
+See [Documentation](https://stuermer.gitlab.io/pyechelle/) for examples.
+
