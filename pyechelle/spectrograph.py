@@ -1,15 +1,13 @@
-import time
+import logging
 from random import randrange, random
 
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 from numba import njit, int32, float64
 from numba.types import UniTuple
 
-from pyechelle.CCD import bin_2d, CCD
-from pyechelle.randomgen import AliasSample, sample_alias_2d, generate_slit_polygon, generate_slit_xy
-from pyechelle.sources import Etalon, Phoenix
+from pyechelle.CCD import CCD
+from pyechelle.randomgen import AliasSample, sample_alias_2d
 from pyechelle.transformation import AffineTransformation
 
 par = True
@@ -194,6 +192,7 @@ class ZEMAX(Spectrograph):
         self.field_shape = "round"
         self.fibers = lambda: self.order_keys
         self.CCD = None
+        self.efficiency = None
 
         self.blaze = None
         self.gpmm = None
@@ -211,6 +210,11 @@ class ZEMAX(Spectrograph):
             ps = h5f[f"CCD"].attrs['pixelsize']
             self.CCD = CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
             self.field_shape = h5f[f"fiber_{fiber}"].attrs["field_shape"]
+            try:
+                self.efficiency = h5f[f"fiber_{fiber}"].attrs["efficiency"]
+            except KeyError:
+                logging.warning(f'No spectrograph efficiency data found for fiber {fiber}.')
+                self.efficiency = None
             for g in h5f[f"fiber_{fiber}"]:
                 if not "psf" in g:
                     data = h5f[f"fiber_{fiber}/{g}"][()]

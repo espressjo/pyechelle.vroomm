@@ -1,5 +1,4 @@
 import argparse
-import inspect
 import sys
 from pathlib import Path
 
@@ -123,7 +122,7 @@ def main(args):
     # if args.plot_transformation_matrices:
     plot_transformation_matrices(spec)
     # if args.plot_field:
-    plot_fields(spec)
+    # plot_fields(spec)
     # if args.plot_psfs:
     plot_psfs(spec)
 

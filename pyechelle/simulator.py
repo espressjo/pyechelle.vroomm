@@ -14,7 +14,7 @@ from astropy.io import fits
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
-from pyechelle.efficiency import GratingEfficiency
+from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency
 from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
 from pyechelle.sources import Phoenix
 from pyechelle.spectrograph import trace
@@ -107,9 +107,24 @@ def simulate(args):
                                  [getattr(args, ss) for ss in source_args]))
         source = getattr(sources, s)(**source_kwargs)
         if args.no_blaze:
-            efficiency = None
+            grating_efficiency = None
         else:
-            efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+            grating_efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
+
+        if args.no_efficiency:
+            spectrograph_efficiency = None
+        else:
+            if spec.efficiency is not None:
+                spectrograph_efficiency = TabulatedEfficiency("Spectrograph efficiency", *spec.efficiency)
+            else:
+                spectrograph_efficiency = None
+
+        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency] if e is not None]
+
+        if all_efficiencies:
+            efficiency = SystemEfficiency(all_efficiencies, "Total efficiency")
+        else:
+            efficiency = None
 
         if args.orders is None:
             orders = spec.orders
@@ -145,7 +160,7 @@ def simulate(args):
 
             # calculate photon flux
             if source.flux_in_photons:
-                flux = spectral_density
+                flux = effective_density
             else:
                 ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength interval
                 wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
@@ -229,6 +244,8 @@ def main(args=None):
                         help=f"Integration time for the simulation in seconds [s].")
     parser.add_argument('--fiber', type=parse_num_list, default='1', required=False)
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
+    parser.add_argument('--no_blaze', action='store_true')
+    parser.add_argument('--no_efficiency', action='store_true')
 
     telescope_group = parser.add_argument_group('Telescope settings')
     telescope_group.add_argument('--d_primary', type=float, required=False, default=1.0)
@@ -248,13 +265,13 @@ def main(args=None):
                                choices=Phoenix.valid_t,
                                type=int, required=False,
                                help="Effective temperature in Kelvins [K].")
-    phoenix_group.add_argument('--phoenix_log_g', default=5,
+    phoenix_group.add_argument('--phoenix_log_g', default=5.,
                                choices=Phoenix.valid_g,
                                type=float, required=False,
                                help="Surface gravity log g.")
     phoenix_group.add_argument('--phoenix_z',
                                choices=Phoenix.valid_z,
-                               type=float, required=False, default=0,
+                               type=float, required=False, default=0.,
                                help="Overall metallicity.")
     phoenix_group.add_argument('--phoenix_alpha',
                                choices=Phoenix.valid_a,
@@ -273,7 +290,6 @@ def main(args=None):
     etalon_group.add_argument('--etalon_n_photons', default=1000, required=False,
                               help='Number of photons per seconds per peak of the etalon spectrum. Default: 1000')
 
-    parser.add_argument('--no_blaze', action='store_true')
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
     ccd_group.add_argument('--read_noise', type=float, required=False, default=0)

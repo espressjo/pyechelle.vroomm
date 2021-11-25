@@ -79,37 +79,25 @@ class GratingEfficiency(Efficiency):
         return self.calc_efficiency(order, wavelength)
 
 
-class CSVEfficiency(Efficiency):
-    def __init__(self, name, path, interpolation="cubic", delimiter=","):
+class TabulatedEfficiency(Efficiency):
+    def __init__(self, name, wavelength, efficiency, orders=None):
         super().__init__(name)
-        self.path = path
-        self.ip = None
-        self.ip_per_order = None
-
-        data = np.genfromtxt(path, delimiter=delimiter)
-        # file contains wavelength, efficiency
-        if data.shape[1] == 2:
-            self.ip = interp1d(
-                data[:, 0], data[:, 1], kind=interpolation, fill_value=0.0, bounds_error=False
-            )
+        if orders is None:
+            self.ip = interp1d(wavelength, efficiency, kind="cubic", fill_value=0., bounds_error=False)
             self.ip_per_order = self.ip
-
-        # file contains order, wavelength, efficiency
-        if data.shape[1] == 3:
+        else:
             self.ip_per_order = {}
-            orders = data[:, 0]
 
             for o in np.unique(orders):
                 idx = orders == o
-                self.ip_per_order[o] = interp1d(
-                    data[:, 1][idx], data[:, 2][idx], fill_value=0.0, bounds_error=False
-                )
+                self.ip_per_order[o] = interp1d(wavelength[idx], efficiency[idx], kind="cubic", fill_value=0.0,
+                                                bounds_error=False)
 
-            y = np.zeros_like(data[:, 1])
+            y = np.zeros_like(wavelength)
             for o in np.unique(orders):
-                y += self.ip_per_order[o](data[:, 1])
+                y += self.ip_per_order[o](wavelength)
 
-            self.ip = interp1d(data[:, 1], y)
+            self.ip = interp1d(wavelength, y)
 
     def get_efficiency(self, wavelength):
         return self.ip(wavelength)
@@ -119,3 +107,12 @@ class CSVEfficiency(Efficiency):
             return self.ip_per_order[order](wavelength)
         else:
             return self.ip_per_order(wavelength)
+
+
+class CSVEfficiency(TabulatedEfficiency):
+    def __init__(self, name, path, delimiter=","):
+        data = np.genfromtxt(path, delimiter=delimiter)
+        if data.shape[1] == 2:  # file contains wavelength, efficiency
+            super().__init__(name, data[:, 0], data[:, 1])
+        if data.shape[1] == 3:  # file contains order, wavelength, efficiency
+            super().__init__(name, data[:, 1], data[:, 2], data[:, 0])

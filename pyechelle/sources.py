@@ -133,10 +133,10 @@ class Phoenix(Source):
     valid_t = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]
     valid_g = [*list(np.arange(0, 6, 0.5))]
     valid_z = [*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))]
-    valid_a = [-0.2, 0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
+    valid_a = [-0.2, 0., 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
 
     def __init__(
-            self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, data_folder="../data", **kwargs
+            self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, data_folder="data", **kwargs
     ):
         self.t_eff = t_eff
         self.log_g = log_g
