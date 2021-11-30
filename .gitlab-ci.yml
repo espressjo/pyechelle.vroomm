@@ -14,7 +14,7 @@ before_script:
   - virtualenv venv
   - source venv/bin/activate
   - pip install poetry
-  - poetry install
+  - poetry install -E optional_dep
 
 test:
   script:

@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.5]
+
+- added atmosphere/tellurics via optional dependency skycal-ipy
+
 ## [0.1.0] - 2020-12-07
 
 ### Added
