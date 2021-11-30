@@ -40,6 +40,10 @@ source = ["pyechelle"]
 [tool.coverage.report]
 show_missing = true
 
+# this is needed to make the optional dependencies installable via poetry
+[tool.poetry.extras]
+optional_dep = ["skycalc-ipy"]
+
 [tool.poetry.scripts]
 pyechelle = "pyechelle.simulator:main"
 
