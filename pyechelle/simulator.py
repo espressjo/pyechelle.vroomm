@@ -14,7 +14,7 @@ from astropy.io import fits
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
-from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency
+from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
 from pyechelle.sources import Phoenix
 from pyechelle.spectrograph import trace
@@ -91,13 +91,22 @@ def simulate(args):
     source_names = args.sources
     if len(source_names) == 1:
         source_names = [source_names[0]] * len(
-            fibers)  # generate list of same length than 'fields' if only one source given
+            fibers)  # generate list of same length as 'fields' if only one source given
 
     assert len(fibers) == len(source_names), 'Number of sources needs to match number of fields (or be 1).'
 
+    # generate flat list of whether atmosphere is added
+    atmosphere = args.atmosphere
+    if len(atmosphere) == 1:
+        atmosphere = [atmosphere[0]] * len(
+            fibers)  # generate list of same length as 'fields' if only one flag is given
+
+    assert len(fibers) == len(
+        atmosphere), f'You specified {len(atmosphere)} atmosphere flags, but we have {len(fibers)} fields/fibers.'
+
     ccd = read_ccd_from_hdf(args.spectrograph)
     t1 = time.time()
-    for f, s in zip(fibers, source_names):
+    for f, s, atmo in zip(fibers, source_names, atmosphere):
         spec = spectrograph.ZEMAX(args.spectrograph, f, args.n_lookup)
         telescope = Telescope(args.d_primary, args.d_secondary)
         # extract kwords specific to selected source
@@ -118,8 +127,11 @@ def simulate(args):
                 spectrograph_efficiency = TabulatedEfficiency("Spectrograph efficiency", *spec.efficiency)
             else:
                 spectrograph_efficiency = None
-
-        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency] if e is not None]
+        if atmo:
+            atmosphere = Atmosphere("Atmosphere", sky_calc_kwargs={'airmass': args.airmass})
+        else:
+            atmosphere = None
+        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency, atmosphere] if e is not None]
 
         if all_efficiencies:
             efficiency = SystemEfficiency(all_efficiencies, "Total efficiency")
@@ -246,6 +258,11 @@ def main(args=None):
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
     parser.add_argument('--no_blaze', action='store_true')
     parser.add_argument('--no_efficiency', action='store_true')
+
+    atmosphere_group = parser.add_argument_group('Atmosphere')
+    atmosphere_group.add_argument('--atmosphere', nargs='+', required=False, help='Add telluric lines to spectrum.',
+                                  type=bool)
+    atmosphere_group.add_argument('--airmass', default=1.0, required=False, help='airmass for atmospheric model')
 
     telescope_group = parser.add_argument_group('Telescope settings')
     telescope_group.add_argument('--d_primary', type=float, required=False, default=1.0)

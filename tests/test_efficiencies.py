@@ -1,3 +1,4 @@
+import numpy as np
 from hypothesis import given, strategies as st
 
 import pyechelle.efficiency as eff
@@ -33,3 +34,17 @@ def test_grating(alpha, beta, gpmm, peak_efficiency, name, wl, order):
     e = eff.GratingEfficiency(alpha, beta, gpmm, peak_efficiency, name)
     assert e.get_efficiency(wl) >= 0.0
     assert e.get_efficiency_per_order(wl, order) >= 0.0
+
+
+def test_atmosphere():
+    min_wavelength = 0.38
+    bandpass = 10. / 1000.
+    wl = np.linspace(min_wavelength, min_wavelength + bandpass, 1000)
+    e = eff.Atmosphere("Testatmosphere")
+    eff1 = e.get_efficiency(wl)
+    assert np.all(eff1 >= 0.0)
+    assert np.all(e.get_efficiency_per_order(wl, 20) >= 0.0)
+
+    # test with higher airmass
+    e2 = eff.Atmosphere("Testatmosphere", {'airmass': 1.4})
+    assert np.all(e2.get_efficiency(wl) <= eff1)

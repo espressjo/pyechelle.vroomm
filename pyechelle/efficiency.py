@@ -3,6 +3,11 @@ from numpy import deg2rad
 from numpy import sin, cos, tan, arcsin
 from scipy.interpolate import interp1d
 
+try:
+    import skycalc_ipy
+except ImportError:
+    skycalc_ipy = None
+
 
 class Efficiency:
     def __init__(self, name):
@@ -116,3 +121,39 @@ class CSVEfficiency(TabulatedEfficiency):
             super().__init__(name, data[:, 0], data[:, 1])
         if data.shape[1] == 3:  # file contains order, wavelength, efficiency
             super().__init__(name, data[:, 1], data[:, 2], data[:, 0])
+
+
+class Atmosphere(Efficiency):
+    def __init__(self, name, sky_calc_kwargs=None):
+        super().__init__(name)
+        # set default atmosphere arguments to high-resolution
+        kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
+        if sky_calc_kwargs is not None:
+            kwargs.update(sky_calc_kwargs)
+
+        if skycalc_ipy is None:
+            raise SystemError(
+                "You have to install pyechelle's optional dependency skycalc. "
+                "Please refer to the documentation how to do this.")
+        else:
+            self.sky = skycalc_ipy.SkyCalc()
+            self.sky.update(kwargs)  # set sky arguments
+
+    def get_efficiency(self, wavelength):
+        wmin = np.min(wavelength) * 1000.
+        wmax = np.max(wavelength) * 1000.
+        self.sky.update({'wmin': wmin, 'wmax': wmax})
+        tbl = self.sky.get_sky_spectrum()
+        # extrapolate is needed because tbl['lam'].data might not contain exact wavelength limits,
+        # since we are in constant resolution mode ("wgrid_mode": "fixed_spectral_resolution")
+        ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
+        print(tbl['lam'].data, )
+        return ip(wavelength)
+
+    def get_efficiency_per_order(self, wavelength, order):
+        wmin = np.min(wavelength) * 1000.
+        wmax = np.max(wavelength) * 1000.
+        self.sky.update({'wmin': wmin, 'wmax': wmax})
+        tbl = self.sky.get_sky_spectrum()
+        ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
+        return ip(wavelength)
