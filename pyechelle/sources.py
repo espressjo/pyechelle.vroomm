@@ -1,9 +1,49 @@
+import math
 import os
 import urllib
 
 import astropy.io.fits as fits
+import astropy.units as u
 import numpy as np
 import scipy.interpolate
+
+try:
+    from astroquery.nist import Nist
+except ImportError:
+    Nist = None
+
+
+def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum'):
+    """
+    Reads NIST catalogue lines between min_wl and max_wl of catalogue.
+
+
+    :param min_wl: minimum wavelength bound [micron]
+    :type min_wl: float
+    :param max_wl: maximum wavelength bound [micron]
+    :type max_wl: float
+    :param catalogue: catalogue appreciation label, e.g. Th, Ar, etc.
+    :type catalogue: str
+    :param wavelength_type: wavelength type, eiter 'vac+air' or 'vacuum'
+    :type wavelength_type: str
+    :return: lines catalogue wavelength and relative intensities
+    :rtype: np.ndarray
+    """
+    table_lines = Nist.query(min_wl * u.micron, max_wl * u.micron, linename=catalogue, output_order='wavelength',
+                             wavelength_type=wavelength_type)
+    intensity_lines = [table_lines['Rel.']]
+    for _position, _value in enumerate(intensity_lines[0]):
+        try:
+            _new_value = float(_value)
+        except ValueError:
+            _new_value = 0.0
+        if not (math.isnan(_new_value) or math.isinf(_new_value)):
+            intensity_lines[0][_position] = _new_value
+
+    intensity_lines = np.array(intensity_lines[0], dtype=float)
+    idx_th = intensity_lines > 0
+    arc = np.array(table_lines['Ritz'])
+    return arc[idx_th], intensity_lines[idx_th]
 
 
 def calc_flux_scale(source_wavelength, source_spectral_density, mag):
@@ -73,6 +113,48 @@ class Constant(Source):
 
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
+
+
+class ThAr(Source):
+    def __init__(self, argon_to_thorium_factor=10):
+        super().__init__(name='ThAr')
+        if Nist is None:
+            raise SystemError(
+                "You have to install pyechelle's optional dependency astroquery. "
+                "Please refer to the documentation how to do this.")
+        self.list_like_source = True
+        self.flux_in_photons = True
+        self.scale = argon_to_thorium_factor
+
+    def get_spectral_density(self, wavelength):
+        minwl = np.min(wavelength)
+        maxwl = np.max(wavelength)
+        thwl, thint = pull_catalogue_lines(minwl, maxwl, 'Th')
+        arwl, arint = pull_catalogue_lines(minwl, maxwl, 'Ar')
+        arint *= self.scale
+
+        return np.hstack((thwl / 10000., arwl / 10000.)), np.hstack((thint, arint))
+
+
+class ThNe(Source):
+    def __init__(self, neon_to_thorium_factor=10):
+        super().__init__(name='ThNe')
+        if Nist is None:
+            raise SystemError(
+                "You have to install pyechelle's optional dependency astroquery. "
+                "Please refer to the documentation how to do this.")
+        self.list_like_source = True
+        self.flux_in_photons = True
+        self.scale = neon_to_thorium_factor
+
+    def get_spectral_density(self, wavelength):
+        minwl = np.min(wavelength)
+        maxwl = np.max(wavelength)
+        thwl, thint = pull_catalogue_lines(minwl, maxwl, 'Th')
+        newl, neint = pull_catalogue_lines(minwl, maxwl, 'Ne')
+        neint *= self.scale
+
+        return np.hstack((thwl / 10000., newl)), np.hstack((thint / 10000., neint))
 
 
 class Etalon(Source):
