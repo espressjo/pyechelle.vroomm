@@ -261,7 +261,7 @@ def main(args=None):
 
     atmosphere_group = parser.add_argument_group('Atmosphere')
     atmosphere_group.add_argument('--atmosphere', nargs='+', required=False, help='Add telluric lines to spectrum.',
-                                  type=bool)
+                                  type=bool, default=[False])
     atmosphere_group.add_argument('--airmass', default=1.0, type=float, required=False,
                                   help='airmass for atmospheric model')
 
