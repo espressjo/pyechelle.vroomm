@@ -19,8 +19,8 @@ numba = "^0.54.1"
 Autologging = "^1.3.2"
 plotly = "^5.4.0"
 pandas = "^1.3.4"
-skycalc-ipy = { version = "^0.1.2", optional = true }
-astroquery = {version = "^0.4.4", optional = true}
+skycalc-ipy = { version = "^0.1.3", optional = true }
+astroquery = { version = "^0.4.4", optional = true }
 
 [tool.poetry.dev-dependencies]
 Sphinx = "^3.2.1"

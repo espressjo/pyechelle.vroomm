@@ -179,12 +179,13 @@ def simulate(args):
                 flux = effective_density * wavelength * wl_diffs * ch_factor
 
             flux_photons = flux * args.integration_time
-            n_photons2 = int(np.sum(flux_photons))
-            print(f'Order {o}: Number of photons: {n_photons2}')
+            total_photons = int(np.sum(flux_photons))
+            print(f'Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     '
+                  f'Number of photons: {total_photons}')
 
             n_simulated = 0
-            while n_simulated < n_photons2:
-                n_photons = min(n_photons2 - n_simulated, 100000000)
+            while n_simulated < total_photons:
+                n_photons = min(total_photons - n_simulated, 100000000)
                 n_simulated += n_photons
                 # get XY list for field
                 # x, y = generate_slit_round(n_photons)
@@ -277,7 +278,9 @@ def main(args=None):
     const_source_group = parser.add_argument_group('Constant source')
     const_source_group.add_argument('--constant_intensity', type=float, default=0.0001, required=False,
                                     help="Flux in microWatts / nanometer for constant flux spectral source")
-
+    arclamps_group = parser.add_argument_group('Arc Lamps')
+    arclamps_group.add_argument('--scale', default=10.0, required=False,
+                                help='Intensity scale of gas lines (e.g. Ag or Ne) vs metal (Th)')
     phoenix_group = parser.add_argument_group('Phoenix')
     phoenix_group.add_argument('--phoenix_t_eff', default=3600,
                                choices=Phoenix.valid_t,

@@ -1,10 +1,10 @@
-import math
 import os
 import urllib
 
 import astropy.io.fits as fits
 import astropy.units as u
 import numpy as np
+import pandas as pd
 import scipy.interpolate
 
 try:
@@ -17,33 +17,23 @@ def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum
     """
     Reads NIST catalogue lines between min_wl and max_wl of catalogue.
 
+    Args:
+        min_wl (float): minimum wavelength bound [micron]
+        max_wl (float): maximum wavelength bound [micron]
+        catalogue (str): catalogue appreciation label, e.g. 'Th', 'Ar', etc.
+        wavelength_type (str): either 'var+air' or 'vacuum'
 
-    :param min_wl: minimum wavelength bound [micron]
-    :type min_wl: float
-    :param max_wl: maximum wavelength bound [micron]
-    :type max_wl: float
-    :param catalogue: catalogue appreciation label, e.g. Th, Ar, etc.
-    :type catalogue: str
-    :param wavelength_type: wavelength type, eiter 'vac+air' or 'vacuum'
-    :type wavelength_type: str
-    :return: lines catalogue wavelength and relative intensities
-    :rtype: np.ndarray
+    Returns:
+        (tuple) line catalogue wavelength and relative intensities
     """
     table_lines = Nist.query(min_wl * u.micron, max_wl * u.micron, linename=catalogue, output_order='wavelength',
-                             wavelength_type=wavelength_type)
-    intensity_lines = [table_lines['Rel.']]
-    for _position, _value in enumerate(intensity_lines[0]):
-        try:
-            _new_value = float(_value)
-        except ValueError:
-            _new_value = 0.0
-        if not (math.isnan(_new_value) or math.isinf(_new_value)):
-            intensity_lines[0][_position] = _new_value
-
-    intensity_lines = np.array(intensity_lines[0], dtype=float)
-    idx_th = intensity_lines > 0
-    arc = np.array(table_lines['Ritz'])
-    return arc[idx_th], intensity_lines[idx_th]
+                             wavelength_type=wavelength_type)[['Ritz', 'Rel.']]
+    df = table_lines.filled(0).to_pandas()
+    df['Rel.'] = pd.to_numeric(df['Rel.'], downcast='float', errors='coerce')
+    df['Ritz'] = pd.to_numeric(df['Ritz'], downcast='float', errors='coerce')
+    df.dropna(inplace=True)
+    idx = np.logical_and(df['Rel.'] > 0, df['Ritz'] > 0)
+    return df['Ritz'].values[idx], df['Rel.'].values[idx]
 
 
 def calc_flux_scale(source_wavelength, source_spectral_density, mag):
