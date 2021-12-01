@@ -104,9 +104,18 @@ def simulate(args):
     assert len(fibers) == len(
         atmosphere), f'You specified {len(atmosphere)} atmosphere flags, but we have {len(fibers)} fields/fibers.'
 
+    # generate flat list of whether atmosphere is added
+    rvs = args.rv
+    if len(rvs) == 1:
+        rvs = [rvs[0]] * len(
+            fibers)  # generate list of same length as 'fields' if only one flag is given
+
+    assert len(fibers) == len(
+        rvs), f'You specified {len(rvs)} radial velocity flags, but we have {len(rvs)} fields/fibers.'
+
     ccd = read_ccd_from_hdf(args.spectrograph)
     t1 = time.time()
-    for f, s, atmo in zip(fibers, source_names, atmosphere):
+    for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
         spec = spectrograph.ZEMAX(args.spectrograph, f, args.n_lookup)
         telescope = Telescope(args.d_primary, args.d_secondary)
         # extract kwords specific to selected source
@@ -154,7 +163,7 @@ def simulate(args):
             wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
 
             # get spectral density per order
-            spectral_density = source.get_spectral_density(wavelength)
+            spectral_density = source.get_spectral_density_rv(wavelength, rv)
             # if source returns own wavelength vector, use that for further calculations instead of default grid
             if isinstance(spectral_density, tuple):
                 wavelength, spectral_density = spectral_density
@@ -275,6 +284,8 @@ def main(args=None):
                              'if not specified, all orders of the spectrograph are simulated')
 
     parser.add_argument('--sources', nargs='+', choices=available_sources, required=True)
+    parser.add_argument('--rv', nargs='+', type=float, required=False, default=[0.],
+                        help="radial velocity shift of source")
     const_source_group = parser.add_argument_group('Constant source')
     const_source_group.add_argument('--constant_intensity', type=float, default=0.0001, required=False,
                                     help="Flux in microWatts / nanometer for constant flux spectral source")

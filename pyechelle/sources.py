@@ -1,4 +1,4 @@
-import os
+import pathlib
 import urllib
 
 import astropy.io.fits as fits
@@ -24,16 +24,21 @@ def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum
         wavelength_type (str): either 'var+air' or 'vacuum'
 
     Returns:
-        (tuple) line catalogue wavelength and relative intensities
+        (tuple) line catalogue wavelength and relative intensities. wavelength is in [angstrom]
     """
-    table_lines = Nist.query(min_wl * u.micron, max_wl * u.micron, linename=catalogue, output_order='wavelength',
-                             wavelength_type=wavelength_type)[['Ritz', 'Rel.']]
-    df = table_lines.filled(0).to_pandas()
-    df['Rel.'] = pd.to_numeric(df['Rel.'], downcast='float', errors='coerce')
-    df['Ritz'] = pd.to_numeric(df['Ritz'], downcast='float', errors='coerce')
-    df.dropna(inplace=True)
-    idx = np.logical_and(df['Rel.'] > 0, df['Ritz'] > 0)
-    return df['Ritz'].values[idx], df['Rel.'].values[idx]
+    try:
+        table_lines = Nist.query(min_wl * u.micron, max_wl * u.micron, linename=catalogue, output_order='wavelength',
+                                 wavelength_type=wavelength_type)[['Ritz', 'Rel.']]
+        df = table_lines.filled(0).to_pandas()
+        df['Rel.'] = pd.to_numeric(df['Rel.'], downcast='float', errors='coerce')
+        df['Ritz'] = pd.to_numeric(df['Ritz'], downcast='float', errors='coerce')
+        df.dropna(inplace=True)
+        idx = np.logical_and(df['Rel.'] > 0, df['Ritz'] > 0)
+        return df['Ritz'].values[idx], df['Rel.'].values[idx]
+    except Exception as e:
+        print(e)
+        print(f"Warning: Couldn't retrieve {catalogue} catalogue data between {min_wl} and {max_wl} micron")
+        return np.array([]), np.array([])
 
 
 def calc_flux_scale(source_wavelength, source_spectral_density, mag):
@@ -67,7 +72,6 @@ class Source:
 
     Attributes:
         name (str): name of the source. This will end up in the .fits header.
-        wavelength (np.ndarray, None): wavelength grid of source if applicable
         min_wl (float): lower wavelength limit [nm] (for normalization purposes)
         max_wl (float): upper wavelength limit [nm] (for normalization purposes)
 
@@ -75,7 +79,6 @@ class Source:
 
     def __init__(self, min_wl=599.8, max_wl=600.42, name=""):
         self.name = name
-        self.wavelength = None
         self.min_wl = min_wl
         self.max_wl = max_wl
         self.stellar_target = False
@@ -84,16 +87,17 @@ class Source:
     def get_spectral_density(self, wavelength):
         raise NotImplementedError()
 
-    def bin_to_wavelength(self, wl_vector):
-        """ Bins random wavelength into wavelength vector.
+    def get_spectral_density_rv(self, wavelength, rv=0.):
+        c = 299792458.  # m/s
+        rv_shifted = wavelength * ((c - rv) / c)
 
-        Args:
-            wl_vector (np.ndarray): wavelength bin edges
-
-        Returns:
-            see np.histogram for details
-        """
-        return np.histogram(self.wavelength, wl_vector)
+        spec_density = self.get_spectral_density(rv_shifted)
+        # first case: source returns own wavelength vector:
+        if isinstance(spec_density, tuple):
+            wl, sd = spec_density
+            return wl * ((c - rv) / c), sd
+        else:
+            return spec_density
 
 
 class Constant(Source):
@@ -122,7 +126,6 @@ class ThAr(Source):
         thwl, thint = pull_catalogue_lines(minwl, maxwl, 'Th')
         arwl, arint = pull_catalogue_lines(minwl, maxwl, 'Ar')
         arint *= self.scale
-
         return np.hstack((thwl / 10000., arwl / 10000.)), np.hstack((thint, arint))
 
 
@@ -208,7 +211,7 @@ class Phoenix(Source):
     valid_a = [-0.2, 0., 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
 
     def __init__(
-            self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, data_folder="data", **kwargs
+            self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, **kwargs
     ):
         self.t_eff = t_eff
         self.log_g = log_g
@@ -218,24 +221,22 @@ class Phoenix(Source):
         super().__init__(**kwargs, name="phoenix")
         self.stellar_target = True
 
+        path = pathlib.Path(__file__).parent.parent.resolve()
+
+        # create data directory if it doesn't exist:
+        pathlib.Path(path.joinpath('data')).mkdir(parents=False, exist_ok=True)
+
+        wavelength_path = path.joinpath('data').joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
+
         if t_eff in self.valid_t and log_g in self.valid_g and z in self.valid_z and alpha in self.valid_a:
-            if not os.path.exists(
-                    data_folder + "/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits"
-            ):
+            if not wavelength_path.is_file():
                 print("Download Phoenix wavelength file...")
                 url = "ftp://phoenix.astro.physik.uni-goettingen.de/HiResFITS/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits"
-                with urllib.request.urlopen(url) as response, open(
-                        data_folder + "/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits", "wb"
-                ) as out_file:
+                with urllib.request.urlopen(url) as response, open(wavelength_path, "wb") as out_file:
                     data = response.read()
                     out_file.write(data)
 
-            self.wl_data = (
-                    fits.getdata(
-                        str(data_folder + "/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits")
-                    )
-                    / 10000.0
-            )
+            self.wl_data = fits.getdata(wavelength_path) / 10000.0
 
             baseurl = (
                 "ftp://phoenix.astro.physik.uni-goettingen.de/"
@@ -258,21 +259,19 @@ class Phoenix(Source):
                 "" if alpha == 0 else "{:+2.2f}".format(alpha),
             )
             )
-            url = url.replace("--",
-                              "-")  # TODO: this fix is needed to avoid double --, so something in the above statement is
+            # TODO: this fix is needed to avoid double --, so something in the above statement is
             # not quite right
-            filename = data_folder + "/" + url.split("/")[-1]
+            url = url.replace("--", "-")
+            spectrum_path = path.joinpath('data').joinpath(url.split("/")[-1])
 
-            if not os.path.exists(filename):
+            if not spectrum_path.is_file():
                 print(f"Download Phoenix spectrum from {url}...")
-                with urllib.request.urlopen(url) as response, open(
-                        filename, "wb"
-                ) as out_file:
+                with urllib.request.urlopen(url) as response, open(spectrum_path, "wb") as out_file:
                     print("Trying to download:" + url)
                     data = response.read()
                     out_file.write(data)
 
-            self.spectrum_data = 0.1 * fits.getdata(filename)  # convert ergs/s/cm^2/cm to uW/m^2/um
+            self.spectrum_data = 0.1 * fits.getdata(spectrum_path)  # convert ergs/s/cm^2/cm to uW/m^2/um
             self.spectrum_data *= calc_flux_scale(self.wl_data, self.spectrum_data, self.magnitude)
             self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
         else:
