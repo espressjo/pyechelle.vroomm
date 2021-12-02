@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 # disable jit, because it is not
 os.environ['NUMBA_DISABLE_JIT'] = '4'
@@ -13,3 +14,6 @@ def test_simulation(capsys, benchmark):
     captured = capsys.readouterr()
     result = captured.out
     assert "Simulation took" in result
+    # cleanup files
+    pathlib.Path.cwd().joinpath('models').joinpath('MaroonX.hdf').unlink(missing_ok=True)
+    pathlib.Path.cwd().joinpath('test.fits').unlink(missing_ok=True)

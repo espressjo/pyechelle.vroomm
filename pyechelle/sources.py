@@ -1,5 +1,5 @@
 import pathlib
-import urllib
+import urllib.request
 
 import astropy.io.fits as fits
 import astropy.units as u
