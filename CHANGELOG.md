@@ -8,14 +8,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ## [0.1.6] - 2021-12-01
+### Added
+- arclamps (ThAr and ThNe) sources.
+- support for radial velocity shift option for all sources
 
-- added arclamps (ThAr and ThNe) to sources.
-- added radial velocity shift option to all sources
+### Changed
+- removed .hdf files from repository and added downloader for model files instead
 - minor improvements / added tests
+
 
 ## [0.1.5]
 
-- added atmosphere/tellurics via optional dependency skycal-ipy
+### Added
+
+- atmosphere/tellurics via optional dependency skycal-ipy
 
 ## [0.1.0] - 2020-12-07
 

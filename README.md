@@ -12,9 +12,11 @@ pyechelle --spectrograph MaroonX --fiber 2-4 --sources Phoenix --phoenix_t_eff 3
 ```
 
 simulates a PHOENIX M-dwarf spectrum with the given stellar parameters, and a RV shift of 100m/s for the MAROON-X
-spectrograph. The output is a 2D raw frame (.fits) and will look similar to:
+spectrograph.
+ 
+The output is a 2D raw frame (.fits) and will look similar to:
 
-![mdwarf spectrum](https://gitlab.com/Stuermer/pyechelle/-/blob/master/docs/source/_static/plots/mdwarf.jpg "")
+![mdwarf spectrum](docs/source/_static/plots/mdwarf.jpg "")
 
 Check out the [Documentation](https://stuermer.gitlab.io/pyechelle/usage.html) for more examples.
 
@@ -33,7 +35,7 @@ pip install pyechelle[optional_dep]
 Here, adding *[optional_dep]* will also install optional dependencies (e.g. astroquery, skycalc-ipy) for supporting all
 features such as atmosphere tellurics.
 
-Check out the [Documentation](https://stuermer.gitlab.io/pyechelle/) for alternative installation instruction.
+Check out the [Documentation](https://stuermer.gitlab.io/pyechelle/installation.html) for alternative installation instruction.
 
 # Usage
 
@@ -45,7 +47,7 @@ pyechelle -h
 
 for all available command line options.
 
-See [Documentation](https://stuermer.gitlab.io/pyechelle/) for more examples.
+See [Documentation](https://stuermer.gitlab.io/pyechelle/usage.html) for more examples.
 
 # Citation
 
