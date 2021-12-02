@@ -8,7 +8,7 @@ photon and read-out noise.
 ### Example usage
 
 ```bash
-pyechelle --spectrograph MaroonX --fiber 2-4 --sources Phoenix --phoenix_t_eff 3500 -t 10 --rv 100 -o mdwarf.fits
+pyechelle --spectrograph MaroonX --fiber 2-4 --sources Phoenix --phoenix_t_eff 3500 -t 10 --rv 100 -o mdwarf.fit
 ```
 
 simulates a PHOENIX M-dwarf spectrum with the given stellar parameters, and a RV shift of 100m/s for the MAROON-X
@@ -16,7 +16,7 @@ spectrograph.
  
 The output is a 2D raw frame (.fits) and will look similar to:
 
-![mdwarf spectrum](docs/source/_static/plots/mdwarf.jpg "")
+![](https://gitlab.com/Stuermer/pyechelle/-/raw/master/docs/source/_static/plots/mdwarf.jpg "")
 
 Check out the [Documentation](https://stuermer.gitlab.io/pyechelle/usage.html) for more examples.
 
