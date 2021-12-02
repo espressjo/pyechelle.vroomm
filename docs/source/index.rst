@@ -5,6 +5,7 @@ Welcome to PyEchelle's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    usage
    new_model
 

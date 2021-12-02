@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -43,19 +44,6 @@ def parse_num_list(string_list: str) -> list:
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def model_name_to_path(model_name: str) -> Path:
-    """
-    Converts a spectrograph model name into a full path to the corresponding .hdf file
-    Args:
-        model_name: Name of the spectorgraph model e.g. 'MaroonX'
-
-    Returns:
-        full path to .hdf file
-    """
-    script_dir = Path(__file__).resolve().parent.parent.joinpath("models")
-    return script_dir.joinpath(f"{model_name}.hdf")
-
-
 def export_to_html(data, filename: str = 'test.html'):
     """
     Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some of the examples in the documentation.
@@ -80,7 +68,23 @@ def export_to_html(data, filename: str = 'test.html'):
     fig.write_html(filename, include_plotlyjs=False)
 
 
+def check_for_spectrogrpah_model(modelname):
+    file_path = Path.cwd().joinpath("models").joinpath(f"{modelname}.hdf")
+    if not file_path.is_file():
+        # download file
+        print(f"Spectrograph model {modelname} not found locally. Trying to download...")
+        Path(Path.cwd().joinpath('models')).mkdir(parents=False, exist_ok=True)
+        url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={modelname}.hdf"
+        print(f"Spectrograph model {modelname} not found locally. Trying to download from {url}...")
+        with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
+            data = response.read()
+            out_file.write(data)
+    return file_path
+
+
 def simulate(args):
+    spec_path = check_for_spectrogrpah_model(args.spectrograph)
+
     # generate flat list for all fields to simulate
     if any(isinstance(el, list) for el in args.fiber):
         fibers = [item for sublist in args.fiber for item in sublist]
@@ -113,10 +117,10 @@ def simulate(args):
     assert len(fibers) == len(
         rvs), f'You specified {len(rvs)} radial velocity flags, but we have {len(rvs)} fields/fibers.'
 
-    ccd = read_ccd_from_hdf(args.spectrograph)
+    ccd = read_ccd_from_hdf(spec_path)
     t1 = time.time()
     for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
-        spec = spectrograph.ZEMAX(args.spectrograph, f, args.n_lookup)
+        spec = spectrograph.ZEMAX(spec_path, f, args.n_lookup)
         telescope = Telescope(args.d_primary, args.d_secondary)
         # extract kwords specific to selected source
         source_args = [ss for ss in vars(args) if s.lower() in ss]
@@ -252,16 +256,16 @@ def main(args=None):
     if not args:
         args = sys.argv[1:]
 
-    dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
-    models = [x.stem for x in dir_path.glob('*.hdf')]
+    dir_path = Path(__file__).resolve().parent.parent.joinpath("models").joinpath("available_models.txt")
+    with open(dir_path, 'r') as am:
+        models = [line.strip() for line in am.readlines() if line.strip() != '']
 
     available_sources = [m[0] for m in inspect.getmembers(pyechelle.sources, inspect.isclass) if
                          issubclass(m[1], pyechelle.sources.Source) and m[0] != "Source"]
 
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
-    parser.add_argument('-s', '--spectrograph', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
-                        help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. "
-                             f"Options are {','.join(models)}")
+    parser.add_argument('-s', '--spectrograph', choices=models, type=str, default="MaroonX", required=True,
+                        help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. ")
     parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
                         help=f"Integration time for the simulation in seconds [s].")
     parser.add_argument('--fiber', type=parse_num_list, default='1', required=False)

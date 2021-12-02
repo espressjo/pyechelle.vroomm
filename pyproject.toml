@@ -1,11 +1,14 @@
 [tool.poetry]
 name = "pyechelle"
-version = "0.1.5"
+version = "0.1.6"
 description = "A fast generic spectrum simulator"
 authors = ["Julian Stuermer <julian@stuermer.science>"]
 license = "MIT"
 readme = "README.md"
-include = ["models/*.hdf"]
+homepage = "https://gitlab.com/Stuermer/pyechelle"
+repository = "https://gitlab.com/Stuermer/pyechelle"
+documentation = "https://stuermer.gitlab.io/pyechelle/"
+include = ["models/available_models.txt"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.9"
