@@ -12,6 +12,13 @@ try:
 except ImportError:
     Nist = None
 
+cache_path = pathlib.Path
+
+path = pathlib.Path(__file__).parent.parent.resolve()
+
+# create data directory if it doesn't exist:
+pathlib.Path(path.joinpath('data')).mkdir(parents=False, exist_ok=True)
+
 
 def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum'):
     """
