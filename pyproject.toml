@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyechelle"
-version = "0.1.6"
+version = "0.1.7"
 description = "A fast generic spectrum simulator"
 authors = ["Julian Stuermer <julian@stuermer.science>"]
 license = "MIT"
