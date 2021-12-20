@@ -1,5 +1,4 @@
-import simulator
-import spectrograph
+from pyechelle import simulator, spectrograph
 
 
 def test_zemax_spectrograph():
