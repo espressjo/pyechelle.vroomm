@@ -1,6 +1,4 @@
-import model_viewer
-import simulator
-import spectrograph
+from pyechelle import model_viewer, simulator, spectrograph
 
 
 def test_model_viewer():

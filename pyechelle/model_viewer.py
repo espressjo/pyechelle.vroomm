@@ -4,9 +4,8 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-import simulator
+from pyechelle.simulator import available_models, check_for_spectrogrpah_model
 from pyechelle.spectrograph import ZEMAX
-from simulator import available_models
 
 
 def plot_transformations(spectrograph: ZEMAX):
@@ -110,7 +109,7 @@ def main(args):
     parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-    spec = ZEMAX(simulator.check_for_spectrogrpah_model(args.spectrograph), args.fiber)
+    spec = ZEMAX(check_for_spectrogrpah_model(args.spectrograph), args.fiber)
     # if args.plot_transformations:
     plot_transformations(spec)
     # if args.plot_transformation_matrices:

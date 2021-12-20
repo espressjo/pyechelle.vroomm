@@ -3,7 +3,7 @@ import numpy as np
 from hypothesis import given, strategies as st
 
 import pyechelle.sources as sources
-from simulator import available_sources
+from pyechelle.simulator import available_sources
 
 
 @given(

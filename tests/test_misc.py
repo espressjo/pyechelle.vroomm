@@ -2,8 +2,8 @@ import pathlib
 
 import numpy as np
 
-import simulator
-from simulator import export_to_html, check_url_exists, check_for_spectrogrpah_model, parse_num_list, available_models
+from pyechelle.simulator import export_to_html, check_url_exists, check_for_spectrogrpah_model, parse_num_list, \
+    available_models
 
 
 def test_parse_num_list():
