@@ -1,10 +1,21 @@
 import inspect
+import urllib.request
+from urllib.error import URLError
 
 import hypothesis
 import numpy as np
 from hypothesis import given, strategies as st
 
 import pyechelle.sources as sources
+
+
+def check_url_exists(url: str):
+    print(url)
+    try:
+        with urllib.request.urlopen(url) as response:
+            return float(response.headers['Content-length']) > 0
+    except URLError:
+        return False
 
 
 @given(
@@ -37,3 +48,20 @@ def test_rv_shift(rv):
     # TODO: fix this test. Right now the problem is that some edge lines are in sd0 which are not in sd1
     # if len(sd0[0]) == len(sd1[0]):
     #    assert np.allclose(sd0[0], sd1[0] * ((c+rv)/c))
+
+# @given(
+#     st.sampled_from(sources.Phoenix.valid_t),
+#     st.sampled_from(sources.Phoenix.valid_a),
+#     st.sampled_from(sources.Phoenix.valid_g),
+#     st.sampled_from(sources.Phoenix.valid_z),
+# )
+# @hypothesis.settings(deadline=1000)
+# TODO: this test needs fixing. The get_spectrum_url() seems correct, but the PHOENIX grid might not be as complete as
+# described in the paper
+# def test_phoenix(t, a, g, z):
+#     if np.isclose(a, 0.) and z < 4:
+#         assert check_url_exists(sources.Phoenix.get_spectrum_url(t, a, g, z))
+#     elif 3500. <= t <= 8000. and -3. < z <= 0. and g > 0.:
+#         assert check_url_exists(sources.Phoenix.get_spectrum_url(t, a, g, z))
+#     else:
+#         print(f"Skip {t}, {a}, {g}, {z}")

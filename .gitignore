@@ -1,6 +1,5 @@
 /docs/build/
 .idea/
-data/*
 poetry.lock
 pyechelle.egg-info
 tests/.hypothesis
@@ -9,3 +8,4 @@ pyechelle/__pycache__
 tests/.pytest_cache
 *.fits
 models/*.hdf
+/.cache/

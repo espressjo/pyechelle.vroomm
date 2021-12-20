@@ -29,11 +29,8 @@ distribution and for smoother cross-platform development.
 As simple as
 
 ```bash
-pip install pyechelle[optional_dep]
+pip install pyechelle
 ```
-
-Here, adding *[optional_dep]* will also install optional dependencies (e.g. astroquery, skycalc-ipy) for supporting all
-features such as atmosphere tellurics.
 
 Check out the [Documentation](https://stuermer.gitlab.io/pyechelle/installation.html) for alternative installation instruction.
 

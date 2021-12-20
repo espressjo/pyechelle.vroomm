@@ -13,12 +13,6 @@ The simplest way for installing pyechelle is using *pip*:
     pip install pyechelle
 
 
-It is recommended that you install all optional dependencies, since some feature of PyEchelle depend on it.
-
-.. code-block:: bash
-
-    pip install pyechelle[optional_dep]
-
 
 Install from source
 -------------------
@@ -38,9 +32,3 @@ automatically install the dependencies of PyEchelle:
 
 or you can use pip/conda and install the required python packages that are listed in pyproject.toml
 under **[tool.poetry.dependencies]** directly:
-
-If you want to install the optional dependencies (e.g. for including atmospheric conditions) you need to run
-
-.. code-block:: bash
-
-    poetry install -E optional_dep

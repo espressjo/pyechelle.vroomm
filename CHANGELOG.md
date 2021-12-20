@@ -7,15 +7,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.6] - 2021-12-01
 ### Added
+
+- caching to local files for atmosphere and nist queries to minimize web/download requests
+
+### Changed
+
+- added skycalc and astroquery as dependencies rather than optional dependencies
+- cleaner implementation of PHOENIX request url
+- cached data (PHOENIX spectra, atmosphere data etc.) now gets saved in a *.cache* folder
+
+## [0.1.6] - 2021-12-01
+
+### Added
+
 - arclamps (ThAr and ThNe) sources.
 - support for radial velocity shift option for all sources
 
 ### Changed
+
 - removed .hdf files from repository and added downloader for model files instead
 - minor improvements / added tests
-
 
 ## [0.1.5]
 

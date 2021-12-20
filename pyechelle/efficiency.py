@@ -1,7 +1,16 @@
+import pathlib
+
 import numpy as np
+from joblib import Memory
 from numpy import deg2rad
 from numpy import sin, cos, tan, arcsin
 from scipy.interpolate import interp1d
+
+path = pathlib.Path(__file__).parent.parent.resolve()
+cache_path = path.joinpath('.cache')
+# create data directory if it doesn't exist:
+pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
+memory = Memory(cache_path, verbose=0)
 
 try:
     import skycalc_ipy
@@ -127,33 +136,36 @@ class Atmosphere(Efficiency):
     def __init__(self, name, sky_calc_kwargs=None):
         super().__init__(name)
         # set default atmosphere arguments to high-resolution
-        kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
+        self.kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
         if sky_calc_kwargs is not None:
-            kwargs.update(sky_calc_kwargs)
+            self.kwargs.update(sky_calc_kwargs)
 
         if skycalc_ipy is None:
             raise SystemError(
                 "You have to install pyechelle's optional dependency skycalc. "
                 "Please refer to the documentation how to do this.")
-        else:
-            self.sky = skycalc_ipy.SkyCalc()
-            self.sky.update(kwargs)  # set sky arguments
 
     def get_efficiency(self, wavelength):
+        return self.get_atmosphere_data(wavelength, self.kwargs)
+
+    def get_efficiency_per_order(self, wavelength, order):
+        return self.get_atmosphere_data(wavelength, self.kwargs)
+
+    @staticmethod
+    @memory.cache
+    def get_atmosphere_data(wavelength, sky_calc_kwargs=None):
+        kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
+        if sky_calc_kwargs is not None:
+            kwargs.update(sky_calc_kwargs)
+        sky = skycalc_ipy.SkyCalc()
+        sky.update(kwargs)  # set sky arguments
         wmin = np.min(wavelength) * 1000.
         wmax = np.max(wavelength) * 1000.
-        self.sky.update({'wmin': wmin, 'wmax': wmax})
-        tbl = self.sky.get_sky_spectrum()
+        sky.update({'wmin': wmin, 'wmax': wmax})
+
+        tbl = sky.get_sky_spectrum()
         # extrapolate is needed because tbl['lam'].data might not contain exact wavelength limits,
         # since we are in constant resolution mode ("wgrid_mode": "fixed_spectral_resolution")
         ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
-        print(tbl['lam'].data, )
-        return ip(wavelength)
 
-    def get_efficiency_per_order(self, wavelength, order):
-        wmin = np.min(wavelength) * 1000.
-        wmax = np.max(wavelength) * 1000.
-        self.sky.update({'wmin': wmin, 'wmax': wmax})
-        tbl = self.sky.get_sky_spectrum()
-        ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
         return ip(wavelength)

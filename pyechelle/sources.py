@@ -6,20 +6,21 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 import scipy.interpolate
+from joblib import Memory
 
 try:
     from astroquery.nist import Nist
 except ImportError:
     Nist = None
 
-cache_path = pathlib.Path
-
 path = pathlib.Path(__file__).parent.parent.resolve()
-
+cache_path = path.joinpath('.cache')
 # create data directory if it doesn't exist:
-pathlib.Path(path.joinpath('data')).mkdir(parents=False, exist_ok=True)
+pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
+memory = Memory(cache_path, verbose=0)
 
 
+@memory.cache
 def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum'):
     """
     Reads NIST catalogue lines between min_wl and max_wl of catalogue.
@@ -220,6 +221,13 @@ class Phoenix(Source):
     def __init__(
             self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, **kwargs
     ):
+        assert t_eff in self.valid_t, f'Not a valid effective Temperature {t_eff}'
+        assert log_g in self.valid_g, f'Not a valid log g value {log_g}'
+        assert alpha in self.valid_a, f'Not a valid alpha value {alpha}'
+        assert z in self.valid_z, f'Not a valid metalicity value {z}'
+        if not np.isclose(alpha, 0.):
+            assert 3500. <= t_eff <= 8000. and -3. <= z <= 0., 'PHOENIX parameters are not valid. Please check them ' \
+                                                               'again. '
         self.t_eff = t_eff
         self.log_g = log_g
         self.z = z
@@ -231,45 +239,21 @@ class Phoenix(Source):
         path = pathlib.Path(__file__).parent.parent.resolve()
 
         # create data directory if it doesn't exist:
-        pathlib.Path(path.joinpath('data')).mkdir(parents=False, exist_ok=True)
+        pathlib.Path(path.joinpath('.cache')).mkdir(parents=False, exist_ok=True)
 
-        wavelength_path = path.joinpath('data').joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
+        wavelength_path = path.joinpath('.cache').joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
 
         if t_eff in self.valid_t and log_g in self.valid_g and z in self.valid_z and alpha in self.valid_a:
             if not wavelength_path.is_file():
                 print("Download Phoenix wavelength file...")
-                url = "ftp://phoenix.astro.physik.uni-goettingen.de/HiResFITS/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits"
-                with urllib.request.urlopen(url) as response, open(wavelength_path, "wb") as out_file:
+                with urllib.request.urlopen(self.get_wavelength_url()) as response, open(wavelength_path,
+                                                                                         "wb") as out_file:
                     data = response.read()
                     out_file.write(data)
 
             self.wl_data = fits.getdata(wavelength_path) / 10000.0
-
-            baseurl = (
-                "ftp://phoenix.astro.physik.uni-goettingen.de/"
-                "HiResFITS/PHOENIX-ACES-AGSS-COND-2011/"
-                "Z-{0:{1}2.1f}{2}{3}/".format(
-                    z,
-                    "+" if z > 0 else "-",
-                    "" if alpha == 0 else ".Alpha=",
-                    "" if alpha == 0 else "{:+2.2f}".format(alpha),
-                )
-            )
-            url = (
-                    baseurl + "lte{0:05}-{1:2.2f}-{2:{3}2.1f}{4}{5}."
-                              "PHOENIX-ACES-AGSS-COND-2011-HiRes.fits".format(
-                t_eff,
-                log_g,
-                z,
-                "+" if z > 0 else "-",
-                "" if alpha == 0 else ".Alpha=",
-                "" if alpha == 0 else "{:+2.2f}".format(alpha),
-            )
-            )
-            # TODO: this fix is needed to avoid double --, so something in the above statement is
-            # not quite right
-            url = url.replace("--", "-")
-            spectrum_path = path.joinpath('data').joinpath(url.split("/")[-1])
+            url = self.get_spectrum_url(t_eff, alpha, log_g, z)
+            spectrum_path = path.joinpath('.cache').joinpath(url.split("/")[-1])
 
             if not spectrum_path.is_file():
                 print(f"Download Phoenix spectrum from {url}...")
@@ -288,6 +272,22 @@ class Phoenix(Source):
             print("Z: ", *self.valid_z)
             print("alpha: ", *self.valid_a)
             raise ValueError("Invalid parameter for M-dwarf spectrum ")
+
+    @staticmethod
+    def get_wavelength_url():
+        return "ftp://phoenix.astro.physik.uni-goettingen.de/HiResFITS/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits"
+
+    @staticmethod
+    def get_spectrum_url(t_eff, alpha, log_g, z):
+        zstring = f"{'+' if z > 0 else '-'}{abs(z):2.1f}"
+        alphastring = f"" if np.isclose(alpha, 0.) else f".Alpha={alpha:+2.2f}"
+
+        url = (
+            f"ftp://phoenix.astro.physik.uni-goettingen.de/"
+            f"HiResFITS/PHOENIX-ACES-AGSS-COND-2011/Z{zstring}{alphastring}/lte{t_eff:05}-{log_g:2.2f}{zstring}"
+            f"{alphastring}.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits"
+        )
+        return url
 
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
