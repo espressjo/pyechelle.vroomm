@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - cached data (PHOENIX spectra, atmosphere data etc.) now gets saved in a *.cache* folder
 - moved *.cache* folder and *models* folder into pyechelle folder so it doesn't mess up the site-packages folder
 
+### Fixed
+
+- atmosphere argparse arguments where not handled correctly. Now fiber/field specific keywords work as expected.
+
 ## [0.1.6] - 2021-12-01
 
 ### Added

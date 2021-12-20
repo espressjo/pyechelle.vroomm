@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import distutils.util
 import inspect
 import logging
 import re
@@ -35,7 +36,6 @@ def parse_num_list(string_list: str) -> list:
     """
 
     m = re.match(r'(\d+)(?:-(\d+))?$', string_list)
-    # ^ (or use .split('-'). anyway you like.)
     if not m:
         raise argparse.ArgumentTypeError(
             "'" + string_list + "' is not a range of number. Expected forms like '0-5' or '2'.")
@@ -69,11 +69,11 @@ def export_to_html(data, filename: str = 'test.html'):
 
 
 def check_for_spectrogrpah_model(modelname):
-    file_path = Path.cwd().joinpath("models").joinpath(f"{modelname}.hdf")
+    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{modelname}.hdf")
     if not file_path.is_file():
         # download file
         print(f"Spectrograph model {modelname} not found locally. Trying to download...")
-        Path(Path.cwd().joinpath('models')).mkdir(parents=False, exist_ok=True)
+        Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
         url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={modelname}.hdf"
         print(f"Spectrograph model {modelname} not found locally. Trying to download from {url}...")
         with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
@@ -274,8 +274,11 @@ def main(args=None):
     parser.add_argument('--no_efficiency', action='store_true')
 
     atmosphere_group = parser.add_argument_group('Atmosphere')
-    atmosphere_group.add_argument('--atmosphere', nargs='+', required=False, help='Add telluric lines to spectrum.',
-                                  type=bool, default=[False])
+    atmosphere_group.add_argument('--atmosphere', nargs='+', required=False,
+                                  help='Add telluric lines to spectrum. For adding tellurics to all spectra just use'
+                                       '--atmosphere Y, for specifying per fiber user e.g. --atmosphere Y N Y',
+                                  type=lambda x: bool(distutils.util.strtobool(x)), default=[False])
+
     atmosphere_group.add_argument('--airmass', default=1.0, type=float, required=False,
                                   help='airmass for atmospheric model')
 

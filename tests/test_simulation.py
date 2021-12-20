@@ -15,5 +15,4 @@ def test_simulation(capsys, benchmark):
     result = captured.out
     assert "Simulation took" in result
     # cleanup files
-    pathlib.Path.cwd().joinpath('models').joinpath('MaroonX.hdf').unlink(missing_ok=True)
     pathlib.Path.cwd().joinpath('test.fits').unlink(missing_ok=True)

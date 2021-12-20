@@ -183,21 +183,13 @@ class Etalon(Source):
             np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
         ), np.asarray(intensity, dtype=int)
 
-    def draw_wavelength(self, N):
-        return np.random.choice(
-            self.peak_wavelength_etalon(
-                np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
-            ),
-            N,
-        )
-
 
 class Phoenix(Source):
     """
     Phoenix M-dwarf spectra.
 
              .-'  |
-            / M <\|
+            / M < |
            /dwarf\'
            |_.- o-o
            / C  -._)\
