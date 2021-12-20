@@ -8,6 +8,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from urllib.error import URLError
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +24,15 @@ from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
 
 logger = logging.getLogger('Simulator')
+
+# get list of available spectrograph models
+dir_path = Path(__file__).resolve().parent.joinpath("models").joinpath("available_models.txt")
+with open(dir_path, 'r') as am:
+    available_models = [line.strip() for line in am.readlines() if line.strip() != '']
+
+# get list of available sources
+available_sources = [m[0] for m in inspect.getmembers(pyechelle.sources, inspect.isclass) if
+                     issubclass(m[1], pyechelle.sources.Source) and m[0] != "Source"]
 
 
 def parse_num_list(string_list: str) -> list:
@@ -44,12 +54,21 @@ def parse_num_list(string_list: str) -> list:
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def export_to_html(data, filename: str = 'test.html'):
+def check_url_exists(url: str):
+    try:
+        with urllib.request.urlopen(url) as response:
+            return float(response.headers['Content-length']) > 0
+    except URLError:
+        return False
+
+
+def export_to_html(data, filename, include_plotlyjs=False):
     """
-    Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some of the examples in the documentation.
+    Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some examples in the documentation.
     Args:
         data: 2d numpy array
         filename: output filename
+        include_plotlyjs: whether plotlyjs is included in html file or not
 
     Returns:
         None
@@ -65,20 +84,21 @@ def export_to_html(data, filename: str = 'test.html'):
     h = 300
     fig.update_layout(autosize=True, width=w, height=h, margin=dict(l=0, r=0, b=0, t=0))
     fig.update_yaxes(range=[2000, 3000])
-    fig.write_html(filename, include_plotlyjs=False)
+    fig.write_html(filename, include_plotlyjs=include_plotlyjs)
 
 
-def check_for_spectrogrpah_model(modelname):
+def check_for_spectrogrpah_model(modelname, download=True):
     file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{modelname}.hdf")
     if not file_path.is_file():
-        # download file
-        print(f"Spectrograph model {modelname} not found locally. Trying to download...")
-        Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
         url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={modelname}.hdf"
-        print(f"Spectrograph model {modelname} not found locally. Trying to download from {url}...")
-        with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
-            data = response.read()
-            out_file.write(data)
+        if download:
+            print(f"Spectrograph model {modelname} not found locally. Trying to download from {url}...")
+            Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
+            with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
+                data = response.read()
+                out_file.write(data)
+        else:
+            check_url_exists(url)
     return file_path
 
 
@@ -256,15 +276,8 @@ def main(args=None):
     if not args:
         args = sys.argv[1:]
 
-    dir_path = Path(__file__).resolve().parent.joinpath("models").joinpath("available_models.txt")
-    with open(dir_path, 'r') as am:
-        models = [line.strip() for line in am.readlines() if line.strip() != '']
-
-    available_sources = [m[0] for m in inspect.getmembers(pyechelle.sources, inspect.isclass) if
-                         issubclass(m[1], pyechelle.sources.Source) and m[0] != "Source"]
-
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
-    parser.add_argument('-s', '--spectrograph', choices=models, type=str, default="MaroonX", required=True,
+    parser.add_argument('-s', '--spectrograph', choices=available_models, type=str, default="MaroonX", required=True,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. ")
     parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
                         help=f"Integration time for the simulation in seconds [s].")

@@ -1,28 +1,15 @@
-import inspect
-import urllib.request
-from urllib.error import URLError
-
 import hypothesis
 import numpy as np
 from hypothesis import given, strategies as st
 
 import pyechelle.sources as sources
-
-
-def check_url_exists(url: str):
-    print(url)
-    try:
-        with urllib.request.urlopen(url) as response:
-            return float(response.headers['Content-length']) > 0
-    except URLError:
-        return False
+from simulator import available_sources
 
 
 @given(
     st.floats(min_value=0.3, max_value=1.5, allow_nan=False, allow_infinity=False),
     st.floats(min_value=0.0001, max_value=0.005, allow_nan=False, allow_infinity=False),
-    st.sampled_from([m[0] for m in inspect.getmembers(sources, inspect.isclass) if
-                     issubclass(m[1], sources.Source) and m[0] != "Source"])
+    st.sampled_from(available_sources)
 )
 @hypothesis.settings(deadline=None)
 def test_sources(wl, bw, source_name):

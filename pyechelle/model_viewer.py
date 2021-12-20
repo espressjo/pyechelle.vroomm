@@ -1,13 +1,12 @@
 import argparse
 import sys
-from pathlib import Path
 
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pyechelle.simulator import model_name_to_path
+import simulator
 from pyechelle.spectrograph import ZEMAX
+from simulator import available_models
 
 
 def plot_transformations(spectrograph: ZEMAX):
@@ -19,7 +18,7 @@ def plot_transformations(spectrograph: ZEMAX):
     Returns:
 
     """
-    fig, ax = plt.subplots(2, 3, 'all')
+    fig, ax = plt.subplots(2, 3, sharex=True)
     fig.suptitle(f"Affine transformations of {spectrograph.name}")
     for o in spectrograph.order_keys:
         ax[0, 0].set_title("sx")
@@ -34,7 +33,7 @@ def plot_transformations(spectrograph: ZEMAX):
         ax[1, 1].plot(spectrograph.transformations[o].tx)
         ax[1, 2].set_title("ty")
         ax[1, 2].plot(spectrograph.transformations[o].ty)
-    plt.show()
+    return fig
 
 
 def plot_transformation_matrices(spectrograph: ZEMAX):
@@ -46,7 +45,7 @@ def plot_transformation_matrices(spectrograph: ZEMAX):
     Returns:
 
     """
-    fig, ax = plt.subplots(2, 3, 'all')
+    fig, ax = plt.subplots(2, 3, sharex=True)
     fig.suptitle(f"Affine transformation matrices of {spectrograph.name}")
     for o in spectrograph.order_keys:
         ax[0, 0].set_title("m0")
@@ -61,7 +60,7 @@ def plot_transformation_matrices(spectrograph: ZEMAX):
         ax[1, 1].plot(spectrograph.transformations[o].m4)
         ax[1, 2].set_title("m5")
         ax[1, 2].plot(spectrograph.transformations[o].m5)
-    plt.show()
+    return fig
 
 
 def plot_psfs(spectrograph: ZEMAX):
@@ -73,7 +72,7 @@ def plot_psfs(spectrograph: ZEMAX):
     Returns:
 
     """
-    plt.figure()
+    fig, ax = plt.subplots()
     n_orders = len(spectrograph.order_keys)
     n_psfs = max([len(spectrograph.psfs[k].psfs) for k in spectrograph.psfs.keys()])
     shape_psfs = spectrograph.psfs[next(spectrograph.psfs.keys().__iter__())].psfs[0].data.shape
@@ -84,39 +83,34 @@ def plot_psfs(spectrograph: ZEMAX):
             if p.data.shape == shape_psfs:
                 img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
                 int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])] = p.data
-    plt.imshow(img, vmin=0, vmax=np.mean(img) * 10.0)
-    plt.show()
+    ax.imshow(img, vmin=0, vmax=np.mean(img) * 10.0)
+    return fig
 
 
-def plot_fields(spec: ZEMAX):
-    plt.figure()
-    with h5py.File(spec.modelpath, 'r') as h5f:
-        for k in h5f.keys():
-            if 'fiber_' in k:
-                a = h5f[k].attrs['norm_field'].decode('utf-8').split('\n')
-
-                for b in a:
-                    if 'aF' in b:
-                        print(b[2:])
+# def plot_fields(spec: ZEMAX, show=True):
+#     plt.figure()
+#     with h5py.File(spec.modelpath, 'r') as h5f:
+#         for k in h5f.keys():
+#             if 'fiber_' in k:
+#                 a = h5f[k].attrs['norm_field'].decode('utf-8').split('\n')
+#
+#                 for b in a:
+#                     if 'aF' in b:
+#                         print(b[2:])
 
 
 def main(args):
     if not args:
         args = sys.argv[1:]
 
-    dir_path = Path(__file__).resolve().parent.joinpath("models")
-    models = [x.stem for x in dir_path.glob('*.hdf')]
-
     parser = argparse.ArgumentParser(description='PyEchelle Simulator Model Viewer')
-    parser.add_argument('-s', '--spectrograph', nargs='?', type=model_name_to_path, default=sys.stdin, required=True,
-                        help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. "
-                             f"Options are {','.join(models)}")
-
+    parser.add_argument('-s', '--spectrograph', choices=available_models, type=str, default="MaroonX", required=True,
+                        help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. ")
     parser.add_argument('--fiber', type=int, default=1, required=False)
+    parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-
-    spec = ZEMAX(args.spectrograph, args.fiber)
+    spec = ZEMAX(simulator.check_for_spectrogrpah_model(args.spectrograph), args.fiber)
     # if args.plot_transformations:
     plot_transformations(spec)
     # if args.plot_transformation_matrices:
@@ -125,12 +119,9 @@ def main(args):
     # plot_fields(spec)
     # if args.plot_psfs:
     plot_psfs(spec)
+    if args.show:
+        plt.show()
 
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-    #
-    # spec = ZEMAX("../models/marvel201020.hdf", 3)
-    # plot_transformations(spec)
-    # plot_transformation_matrices(spec)
-    # plot_psfs(spec)

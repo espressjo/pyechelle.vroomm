@@ -120,10 +120,6 @@ class Constant(Source):
 class ThAr(Source):
     def __init__(self, argon_to_thorium_factor=10):
         super().__init__(name='ThAr')
-        if Nist is None:
-            raise SystemError(
-                "You have to install pyechelle's optional dependency astroquery. "
-                "Please refer to the documentation how to do this.")
         self.list_like_source = True
         self.flux_in_photons = True
         self.scale = argon_to_thorium_factor
@@ -140,10 +136,6 @@ class ThAr(Source):
 class ThNe(Source):
     def __init__(self, neon_to_thorium_factor=10):
         super().__init__(name='ThNe')
-        if Nist is None:
-            raise SystemError(
-                "You have to install pyechelle's optional dependency astroquery. "
-                "Please refer to the documentation how to do this.")
         self.list_like_source = True
         self.flux_in_photons = True
         self.scale = neon_to_thorium_factor
@@ -177,8 +169,7 @@ class Etalon(Source):
     def get_spectral_density(self, wavelength):
         self.min_m = np.ceil(2e3 * self.d * np.cos(self.theta) / np.max(wavelength))
         self.max_m = np.floor(2e3 * self.d * np.cos(self.theta) / np.min(wavelength))
-        intensity = np.ones_like(np.arange(self.min_m, self.max_m), dtype=float)
-        intensity = intensity * float(self.n_photons)
+        intensity = np.ones_like(np.arange(self.min_m, self.max_m), dtype=float) * float(self.n_photons)
         return self.peak_wavelength_etalon(
             np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
         ), np.asarray(intensity, dtype=int)
