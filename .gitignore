@@ -7,5 +7,5 @@ pyechelle/__pycache__
 /tests/.benchmarks/
 tests/.pytest_cache
 *.fits
-models/*.hdf
-/.cache/
+/pyechelle/models/*.hdf
+/pyechelle/.cache/

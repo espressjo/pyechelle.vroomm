@@ -16,6 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - added skycalc and astroquery as dependencies rather than optional dependencies
 - cleaner implementation of PHOENIX request url
 - cached data (PHOENIX spectra, atmosphere data etc.) now gets saved in a *.cache* folder
+- moved *.cache* folder and *models* folder into pyechelle folder so it doesn't mess up the site-packages folder
 
 ## [0.1.6] - 2021-12-01
 

@@ -22,7 +22,7 @@ Install from source
     git clone https://gitlab.com/Stuermer/pyechelle.git
 
 
-After that you can either install [Poetry](https://python-poetry.org/) and use it inside the pyechelle directory to
+After that you can either install `Poetry <https://python-poetry.org/>`_ and use it inside the pyechelle directory to
 automatically install the dependencies of PyEchelle:
 
 .. code-block:: bash

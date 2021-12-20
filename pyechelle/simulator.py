@@ -256,7 +256,7 @@ def main(args=None):
     if not args:
         args = sys.argv[1:]
 
-    dir_path = Path(__file__).resolve().parent.parent.joinpath("models").joinpath("available_models.txt")
+    dir_path = Path(__file__).resolve().parent.joinpath("models").joinpath("available_models.txt")
     with open(dir_path, 'r') as am:
         models = [line.strip() for line in am.readlines() if line.strip() != '']
 

@@ -6,7 +6,7 @@ from numpy import deg2rad
 from numpy import sin, cos, tan, arcsin
 from scipy.interpolate import interp1d
 
-path = pathlib.Path(__file__).parent.parent.resolve()
+path = pathlib.Path(__file__).parent.resolve()
 cache_path = path.joinpath('.cache')
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)

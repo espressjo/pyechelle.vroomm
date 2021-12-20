@@ -104,7 +104,7 @@ def main(args):
     if not args:
         args = sys.argv[1:]
 
-    dir_path = Path(__file__).resolve().parent.parent.joinpath("models")
+    dir_path = Path(__file__).resolve().parent.joinpath("models")
     models = [x.stem for x in dir_path.glob('*.hdf')]
 
     parser = argparse.ArgumentParser(description='PyEchelle Simulator Model Viewer')

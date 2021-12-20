@@ -13,7 +13,7 @@ try:
 except ImportError:
     Nist = None
 
-path = pathlib.Path(__file__).parent.parent.resolve()
+path = pathlib.Path(__file__).parent.resolve()
 cache_path = path.joinpath('.cache')
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
@@ -236,12 +236,7 @@ class Phoenix(Source):
         super().__init__(**kwargs, name="phoenix")
         self.stellar_target = True
 
-        path = pathlib.Path(__file__).parent.parent.resolve()
-
-        # create data directory if it doesn't exist:
-        pathlib.Path(path.joinpath('.cache')).mkdir(parents=False, exist_ok=True)
-
-        wavelength_path = path.joinpath('.cache').joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
+        wavelength_path = cache_path.joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
 
         if t_eff in self.valid_t and log_g in self.valid_g and z in self.valid_z and alpha in self.valid_a:
             if not wavelength_path.is_file():
@@ -253,7 +248,7 @@ class Phoenix(Source):
 
             self.wl_data = fits.getdata(wavelength_path) / 10000.0
             url = self.get_spectrum_url(t_eff, alpha, log_g, z)
-            spectrum_path = path.joinpath('.cache').joinpath(url.split("/")[-1])
+            spectrum_path = cache_path.joinpath(url.split("/")[-1])
 
             if not spectrum_path.is_file():
                 print(f"Download Phoenix spectrum from {url}...")
