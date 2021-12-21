@@ -2,7 +2,6 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
-import autologging
 import h5py
 import numpy as np
 from numba import int32, float64, int64, njit
@@ -63,8 +62,6 @@ def read_ccd_from_hdf(path):
         return CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
 
 
-@autologging.traced(logger)
-@autologging.logged(logger)
 class CCD:
     def __init__(self, name='detector', xmin=0, xmax=4096, ymin=0, ymax=4096, maxval=65536, pixelsize=9):
         self.data = np.zeros(((ymax - ymin), (xmax - xmin)), dtype=np.int32)

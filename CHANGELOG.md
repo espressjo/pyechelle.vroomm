@@ -11,6 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - more tests to improve code reliability and increase coverage
 
+### Removed
+
+- dependency on autologging package
+
 ### Fixed
 
 - model_viewer is working again
