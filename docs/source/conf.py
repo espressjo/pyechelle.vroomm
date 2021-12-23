@@ -17,11 +17,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'PyEchelle'
-copyright = '2020, Julian Stuermer'
+copyright = '2021, Julian Stuermer'
 author = 'Julian Stuermer'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '0.1.7'
 
 # -- General configuration ---------------------------------------------------
 

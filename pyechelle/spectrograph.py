@@ -1,147 +1,14 @@
 import logging
-from random import randrange, random
 
 import h5py
 import numpy as np
-from numba import njit, int32, float64
-from numba.types import UniTuple
 
 from pyechelle.CCD import CCD
-from pyechelle.randomgen import AliasSample, sample_alias_2d
 from pyechelle.transformation import AffineTransformation
-
-par = True
-nogil = True
-
-
-@njit(
-    UniTuple(float64[:], 2)(
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-    ),
-    parallel=par,
-    nogil=nogil,
-    cache=True,
-)
-def trace_native(x_vec, y_vec, sx, sy, rot, shear, tx, ty):
-    """ Performs 'raytracing' for a given wavelength vector and XY input vectors
-
-    Args:
-        x_vec (np.ndarray): random X positions within the slit
-        y_vec (np.ndarray): random Y positions within the slit
-        sx (float): desired scaling in X direction
-        sy (float):  desired scalinig in Y direction
-        rot (float): desired slit rotation [rad]
-        shear (float): desired slit shear
-        tx (float): tx of affine matrix
-        ty (float): ty of affine matrix
-
-    Returns:
-        np.ndarray: transformed XY positions for given input
-    """
-    m0 = sx * np.cos(rot)
-    m1 = -sy * np.sin(rot + shear)
-    m2 = tx
-    m3 = sx * np.sin(rot)
-    m4 = sy * np.cos(rot + shear)
-    m5 = ty
-    # do transformation
-    xpos = m0 * x_vec + m1 * y_vec + m2
-    ypos = m3 * x_vec + m4 * y_vec + m5
-    return xpos, ypos
-
-
-@njit(
-    UniTuple(float64[:], 2)(
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-        float64[:],
-    ),
-    parallel=par,
-    nogil=nogil,
-    cache=True,
-)
-def trace(x_vec, y_vec, m0, m1, m2, m3, m4, m5):
-    """ Performs 'raytracing' for a given wavelength vector and XY input vectors
-
-    Args:
-        x_vec (np.ndarray): random X positions within the slit
-        y_vec (np.ndarray): random Y positions within the slit
-        m0 (float): matrix element 00
-        m1 (float):  matrix element 10
-        m2 (float): matrix element 20
-        m3 (float): matrix element 01
-        m4 (float): matrix element 11
-        m5 (float): matrix element 21
-
-    Returns:
-        np.ndarray: transformed XY positions for given input
-    """
-    # do transformation
-    return m0 * x_vec + m1 * y_vec + m2, m3 * x_vec + m4 * y_vec + m5
-
-
-@njit(UniTuple(float64[:], 2)(float64[:, :], int32), parallel=True, nogil=True, cache=True)
-def draw_from_2darray(data, N):
-    x_cords = np.zeros(N, dtype=float64)
-    y_cords = np.zeros(N, dtype=float64)
-    for i in range(N):
-        x = randrange(0, data.shape[1])
-        y = randrange(0, data.shape[0])
-        z = random()
-        while z > data[y, x]:
-            x = randrange(0, data.shape[1])
-            y = randrange(0, data.shape[0])
-            z = random()
-        x_cords[i] = x
-        y_cords[i] = y
-    return x_cords, y_cords
-
-
-def draw_from_2darray_alias(sampler, N):
-    return sampler.sample(N)
 
 
 class Spectrograph:
     pass
-
-
-class PSF:
-    def __init__(self, wl, data):
-        self.wl = wl
-        self.data = data / np.sum(data)
-        self.sampler = AliasSample(np.ravel(data) / data.sum())
-
-        # #
-        # plt.figure()
-        # plt.imshow(self.data,origin='lower')
-        # # plt.show()
-        # x = []
-        # y = []
-        # for i in range(1000):
-        #     xx , yy = self.draw_xy_alias(1)
-        #     x.append(xx)
-        #     y.append(yy)
-        # # plt.figure()
-        # plt.scatter(x,y,s=1,alpha=0.5)
-        # plt.show()
-
-    def draw_xy_alias(self, N):
-        return sample_alias_2d(self.data, N)
-
-    def draw_xy(self, N):
-        return draw_from_2darray(self.data, N)
 
 
 class PSFs:
@@ -153,7 +20,7 @@ class PSFs:
 
     def add_psf(self, wl, data, sampling):
         self.wl.append(wl)
-        self.psfs.append(PSF(wl, data))
+        self.psfs.append(data)
         self.sampling.append(sampling)
         self.idx = None
 
@@ -162,17 +29,6 @@ class PSFs:
         self.wl = np.array(self.wl)[self.idx]
         self.psfs = np.array(self.psfs)[self.idx]
         self.sampling = np.array(self.sampling)[self.idx]
-
-    def draw_xy(self, wl):
-        Xlist = np.empty(len(wl))
-        Ylist = np.empty(len(wl))
-        bins = np.hstack((self.wl - np.mean(np.ediff1d(self.wl) / 2.), self.wl[-1] + np.mean(np.ediff1d(self.wl)) / 2.))
-        idx = np.digitize(wl, bins) - 1
-        for i in np.unique(idx):
-            x, y = sample_alias_2d(self.psfs[i].data, np.count_nonzero(idx == i))
-            Xlist[idx == i] = (x - self.psfs[i].data.shape[1] / 2.) * self.sampling[i]
-            Ylist[idx == i] = (y - self.psfs[i].data.shape[0] / 2.) * self.sampling[i]
-        return Xlist, Ylist
 
 
 class ZEMAX(Spectrograph):

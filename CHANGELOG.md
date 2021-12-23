@@ -11,6 +11,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - more tests to improve code reliability and increase coverage
 
+### Changed
+
+- restructured core algorithm, code now properly parallelized by order
+- better scaling with number of CPUs for multi-order simulations
+- speed improvements
+- more precise simulation by interpolating transformation matrices
+
 ### Removed
 
 - dependency on autologging package

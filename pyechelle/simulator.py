@@ -13,16 +13,17 @@ from urllib.error import URLError
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
+from joblib import Parallel, delayed
 
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
-from pyechelle.randomgen import AliasSample, generate_slit_polygon, generate_slit_xy, generate_slit_round
 from pyechelle.sources import Phoenix
-from pyechelle.spectrograph import trace
 from pyechelle.telescope import Telescope
+from raytracing import raytrace_order
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Simulator')
 
 # get list of available spectrograph models
@@ -55,6 +56,14 @@ def parse_num_list(string_list: str) -> list:
 
 
 def check_url_exists(url: str):
+    """
+    Check if URL exists.
+    Args:
+        url: url to be tested
+
+    Returns:
+        (bool): URL exists
+    """
     try:
         with urllib.request.urlopen(url) as response:
             return float(response.headers['Content-length']) > 0
@@ -87,12 +96,23 @@ def export_to_html(data, filename, include_plotlyjs=False):
     fig.write_html(filename, include_plotlyjs=include_plotlyjs)
 
 
-def check_for_spectrogrpah_model(modelname, download=True):
-    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{modelname}.hdf")
+def check_for_spectrogrpah_model(model_name: str, download=True):
+    """
+    Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
+    spectrograph model is valid (this is mainly for testing purpose).
+
+    Args:
+        model_name: name of spectrograph model. See models/available_models.txt for valid names
+        download: download flag
+
+    Returns:
+
+    """
+    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
     if not file_path.is_file():
-        url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={modelname}.hdf"
+        url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={model_name}.hdf"
         if download:
-            print(f"Spectrograph model {modelname} not found locally. Trying to download from {url}...")
+            print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
             Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
             with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
                 data = response.read()
@@ -102,9 +122,19 @@ def check_for_spectrogrpah_model(modelname, download=True):
     return file_path
 
 
-def simulate(args):
-    spec_path = check_for_spectrogrpah_model(args.spectrograph)
+def log_elapsed_time(msg: str, t0: float):
+    t1 = time.time()
+    logger.info(msg + f' (took {t1 - t0:2f} s )')
+    return t1
 
+
+def simulate(args):
+    t0 = time.time()
+    logger.info(f'Check/download spectrograph model...')
+    spec_path = check_for_spectrogrpah_model(args.spectrograph)
+    t0 = log_elapsed_time('done.', t0)
+
+    logger.info(f'Prepare simulation arguments...')
     # generate flat list for all fields to simulate
     if any(isinstance(el, list) for el in args.fiber):
         fibers = [item for sublist in args.fiber for item in sublist]
@@ -128,7 +158,7 @@ def simulate(args):
     assert len(fibers) == len(
         atmosphere), f'You specified {len(atmosphere)} atmosphere flags, but we have {len(fibers)} fields/fibers.'
 
-    # generate flat list of whether atmosphere is added
+    # generate flat list for RV values
     rvs = args.rv
     if len(rvs) == 1:
         rvs = [rvs[0]] * len(
@@ -138,9 +168,13 @@ def simulate(args):
         rvs), f'You specified {len(rvs)} radial velocity flags, but we have {len(rvs)} fields/fibers.'
 
     ccd = read_ccd_from_hdf(spec_path)
+    t0 = log_elapsed_time('done.', t0)
     t1 = time.time()
     for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
+        logger.info('Read in spectrograph model')
         spec = spectrograph.ZEMAX(spec_path, f, args.n_lookup)
+        t0 = log_elapsed_time('done.', t0)
+        logger.info('Prepare simulation...')
         telescope = Telescope(args.d_primary, args.d_secondary)
         # extract kwords specific to selected source
         source_args = [ss for ss in vars(args) if s.lower() in ss]
@@ -182,73 +216,21 @@ def simulate(args):
                 else:
                     logger.warning(f'Order {o} is requested, but it is not in the Spectrograph model.')
 
-        for o in np.sort(orders):
-            # default wavelength 'grid' per order
-            wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
+        t0 = log_elapsed_time('done.', t0)
+        logger.info('Do raytracing...')
+        results = Parallel(n_jobs=min(24, len(orders)))(
+            delayed(raytrace_order)(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency) for o in
+            np.sort(orders))
+        #
+        # results = [raytrace_order(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency) for o in
+        #            np.sort(orders)]
+        t0 = log_elapsed_time('done.', t0)
+        # logger.info(f'raytracing took {tt2 - tt1}s')
+        logger.info('Add up orders...')
+        ccd.data = np.sum(results, axis=0)
+        t0 = log_elapsed_time('done.', t0)
 
-            # get spectral density per order
-            spectral_density = source.get_spectral_density_rv(wavelength, rv)
-            # if source returns own wavelength vector, use that for further calculations instead of default grid
-            if isinstance(spectral_density, tuple):
-                wavelength, spectral_density = spectral_density
-
-            # for stellar targets calculate collected flux by telescope area
-            if source.stellar_target:
-                spectral_density *= telescope.area
-
-            # get efficiency per order
-            if efficiency is not None:
-                eff = efficiency.get_efficiency_per_order(wavelength=wavelength, order=o)
-                effective_density = eff * spectral_density
-            else:
-                effective_density = spectral_density
-
-            # calculate photon flux
-            if source.flux_in_photons:
-                flux = effective_density
-            else:
-                ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength interval
-                wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
-                flux = effective_density * wavelength * wl_diffs * ch_factor
-
-            flux_photons = flux * args.integration_time
-            total_photons = int(np.sum(flux_photons))
-            print(f'Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     '
-                  f'Number of photons: {total_photons}')
-
-            n_simulated = 0
-            while n_simulated < total_photons:
-                n_photons = min(total_photons - n_simulated, 100000000)
-                n_simulated += n_photons
-                # get XY list for field
-                # x, y = generate_slit_round(n_photons)
-                if spec.field_shape == "rectangular":
-                    x, y = generate_slit_xy(n_photons)
-                elif spec.field_shape == "octagonal":
-                    x, y = generate_slit_polygon(8, n_photons, 0.)
-                elif spec.field_shape == "hexagonal":
-                    x, y = generate_slit_polygon(6, n_photons, 0.)
-                elif spec.field_shape == "circular":
-                    x, y = generate_slit_round(n_photons)
-                else:
-                    raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
-
-                # draw wavelength from effective spectrum
-                sampler = AliasSample(np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32))
-
-                wl_sample = wavelength[sampler.sample(n_photons)]
-
-                # trace
-                sx, sy, rot, shear, tx, ty = spec.transformations[f'order{o}'].get_matrices_lookup(wl_sample)
-                xt, yt = trace(x, y, sx, sy, rot, shear, tx, ty)
-
-                x_psf, y_psf = spec.psfs[f"psf_order_{o}"].draw_xy(wl_sample)
-
-                xt += x_psf / ccd.pixelsize
-                yt += y_psf / ccd.pixelsize
-
-                # add photons to ccd
-                ccd.add_photons(xt, yt)
+    logger.info('Finish up simulation and save...')
     ccd.clip()
 
     # add bias / global ccd effects
@@ -257,7 +239,6 @@ def simulate(args):
     if args.read_noise:
         ccd.add_readnoise(args.read_noise)
     t2 = time.time()
-    logger.info(f"Total time for simulation: {t2 - t1}s.")
 
     # save simulation to .fits file
     hdu = fits.PrimaryHDU(data=ccd.data)
@@ -270,6 +251,8 @@ def simulate(args):
         plt.figure()
         plt.imshow(ccd.data)
         plt.show()
+    t0 = log_elapsed_time('done.', t0)
+    logger.info(f"Total time for simulation: {t2 - t1}s.")
 
 
 def main(args=None):

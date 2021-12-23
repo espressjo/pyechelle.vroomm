@@ -1,6 +1,7 @@
 import pathlib
 
 import numpy as np
+import skycalc_ipy
 from joblib import Memory
 from numpy import deg2rad
 from numpy import sin, cos, tan, arcsin
@@ -11,11 +12,6 @@ cache_path = path.joinpath('.cache')
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
-
-try:
-    import skycalc_ipy
-except ImportError:
-    skycalc_ipy = None
 
 
 class Efficiency:

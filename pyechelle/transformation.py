@@ -103,6 +103,9 @@ class AffineTransformation:
     def get_transformations_spline(self, wl):
         return [self.__getattribute__(f'spline_{f}')(wl) for f in ["sx", "sy", "rot", "shear", "tx", "ty"]]
 
+    def get_matrices_spline(self, wl):
+        return [self.__getattribute__(f'spline_{f}')(wl) for f in ["m0", "m1", "m2", "m3", "m4", "m5"]]
+
     def min_wavelength(self):
         return self.wl[0]
 
