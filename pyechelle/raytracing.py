@@ -1,7 +1,7 @@
 import math
 import random
 
-import numba
+import numba.cuda
 import numpy as np
 
 from CCD import CCD
@@ -32,7 +32,6 @@ def raytrace(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, tra
 
         # random start points in slit
         x, y = slitfun(random.random(), random.random())
-
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
@@ -117,7 +116,7 @@ def raytrace_order(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: flo
                                                                                    dtype=np.float32))
 
     psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
-    ccd_new = np.zeros_like(ccd.data, dtype=int)
+    ccd_new = np.ascontiguousarray(np.zeros_like(ccd.data, dtype=np.uint32))
     ccd_new = raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                        transformations, trans_wl, trans_wld, trans_deriv,
                        psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],

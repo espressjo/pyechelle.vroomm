@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 from joblib import Parallel, delayed
+from numba import cuda
 
 import pyechelle
 from pyechelle import spectrograph, sources
@@ -21,6 +22,7 @@ from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.sources import Phoenix
 from pyechelle.telescope import Telescope
+from raytrace_cuda import raytrace_order_cuda
 from raytracing import raytrace_order
 
 logging.basicConfig(level=logging.INFO)
@@ -170,6 +172,9 @@ def simulate(args):
     ccd = read_ccd_from_hdf(spec_path)
     t0 = log_elapsed_time('done.', t0)
     t1 = time.time()
+    if args.cuda:
+        dccd = cuda.to_device(np.zeros_like(ccd.data, dtype=np.uint32))
+
     for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
         logger.info('Read in spectrograph model')
         spec = spectrograph.ZEMAX(spec_path, f, args.n_lookup)
@@ -218,18 +223,21 @@ def simulate(args):
 
         t0 = log_elapsed_time('done.', t0)
         logger.info('Do raytracing...')
-        results = Parallel(n_jobs=min(24, len(orders)))(
-            delayed(raytrace_order)(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency) for o in
-            np.sort(orders))
-        #
-        # results = [raytrace_order(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency) for o in
-        #            np.sort(orders)]
-        t0 = log_elapsed_time('done.', t0)
-        # logger.info(f'raytracing took {tt2 - tt1}s')
-        logger.info('Add up orders...')
-        ccd.data = np.sum(results, axis=0)
+        if not args.cuda:
+            results = Parallel(n_jobs=min(24, len(orders)))(
+                delayed(raytrace_order)(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency) for o in
+                np.sort(orders))
+            logger.info('Add up orders...')
+            ccd.data = np.sum(results, axis=0)
+            t0 = log_elapsed_time('done.', t0)
+        else:
+            for o in np.sort(orders):
+                raytrace_order_cuda(o, spec, source, telescope, rv, args.integration_time, dccd,
+                                    float(ccd.pixelsize), efficiency)
         t0 = log_elapsed_time('done.', t0)
 
+    if args.cuda:
+        dccd.copy_to_host(ccd.data)
     logger.info('Finish up simulation and save...')
     ccd.clip()
 
@@ -241,7 +249,7 @@ def simulate(args):
     t2 = time.time()
 
     # save simulation to .fits file
-    hdu = fits.PrimaryHDU(data=ccd.data)
+    hdu = fits.PrimaryHDU(data=np.array(ccd.data, dtype=int))
     hdu_list = fits.HDUList([hdu])
     hdu_list.writeto(args.output, overwrite=args.overwrite)
 
@@ -252,7 +260,7 @@ def simulate(args):
         plt.imshow(ccd.data)
         plt.show()
     t0 = log_elapsed_time('done.', t0)
-    logger.info(f"Total time for simulation: {t2 - t1}s.")
+    logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
 
 
 def main(args=None):
@@ -268,6 +276,8 @@ def main(args=None):
     parser.add_argument('--n_lookup', type=int, default=10000, required=False)
     parser.add_argument('--no_blaze', action='store_true')
     parser.add_argument('--no_efficiency', action='store_true')
+
+    parser.add_argument('--cuda', action='store_true')
 
     atmosphere_group = parser.add_argument_group('Atmosphere')
     atmosphere_group.add_argument('--atmosphere', nargs='+', required=False,
@@ -341,7 +351,7 @@ def main(args=None):
     t1 = time.time()
     simulate(args)
     t2 = time.time()
-    print(f"Simulation took {t2 - t1} s")
+    print(f"Simulation took {t2 - t1:.3f} s")
 
 
 if __name__ == "__main__":

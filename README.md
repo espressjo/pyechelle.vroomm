@@ -5,6 +5,9 @@ However, it is not limited to echelle spectrographs, but allows simulating arbit
 spectrograph, where a model file is available. Optical aberrations are treated accurately, the simulated spectra include
 photon and read-out noise.
 
+PyEchelle uses numba for implementing fast python-based simulation code. It also comes with **CUDA support** for major
+speed improvements.
+
 ### Example usage
 
 ```bash
@@ -13,7 +16,7 @@ pyechelle --spectrograph MaroonX --fiber 2-4 --sources Phoenix --phoenix_t_eff 3
 
 simulates a PHOENIX M-dwarf spectrum with the given stellar parameters, and a RV shift of 100m/s for the MAROON-X
 spectrograph.
- 
+
 The output is a 2D raw frame (.fits) and will look similar to:
 
 ![](https://gitlab.com/Stuermer/pyechelle/-/raw/master/docs/source/_static/plots/mdwarf.jpg "")
@@ -45,6 +48,24 @@ pyechelle -h
 for all available command line options.
 
 See [Documentation](https://stuermer.gitlab.io/pyechelle/usage.html) for more examples.
+
+# Concept:
+
+The basic idea is that any spectrograph can be modelled with a set of wavelength-dependent transformation matrices and
+point spread functions which describe the spectrographs optics:
+
+First, wavelength-dependent **affine transformation matrices** are extracted from the ZEMAX model of the spectrograph.
+As the underlying geometric transformations (scaling, rotation, shearing, translation) vary smoothly across an echelle
+order, these matrices can be interpolated for any intermediate wavelength.
+
+Second, a wavelength-dependent **point spread functions (PSFs)** is applied on the transformed slit images to properly
+account for optical aberrations. Again, the PSF is only slowly varying across an echelle order, allowing for
+interpolation at intermediate wavelength.
+
+![Echelle simulation](https://gitlab.com/Stuermer/pyechelle/-/raw/master/docs/source/_static/plots/intro.jpg "Echelle simulation")
+
+**Both, the matrices and the PSFs have to be extracted from ZEMAX only once. It is therefore possible to simulate
+spectra without access to ZEMAX**
 
 # Citation
 

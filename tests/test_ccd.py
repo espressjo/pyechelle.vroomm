@@ -28,12 +28,3 @@ def test_ccd(maxx, maxy, bias, readnoise):
     ccd.clip()
     assert np.any(ccd.data <= ccd.maxval)
 
-
-@given(
-    st.floats(min_value=0, max_value=4096, allow_nan=False, exclude_max=True),
-    st.floats(min_value=0, max_value=4096, allow_nan=False, exclude_max=True)
-)
-def test_binning(xval, yval):
-    ccd = CCD()
-    ccd.add_photons(np.array(xval), np.array(yval))
-    assert ccd.data[int(yval), int(xval)] == 1
