@@ -4,12 +4,12 @@ import random
 import numba.cuda
 import numpy as np
 
-from CCD import CCD
-from randomgen import make_alias_sampling_arrays, unravel_index
-from slit import simple_slit, octagonal_slit, hexagonal_slit, round_slit
-from sources import Source
-from spectrograph import ZEMAX
-from telescope import Telescope
+from pyechelle.CCD import CCD
+from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
+from pyechelle.slit import simple_slit, octagonal_slit, hexagonal_slit, round_slit
+from pyechelle.sources import Source
+from pyechelle.spectrograph import ZEMAX
+from pyechelle.telescope import Telescope
 
 
 @numba.njit(cache=True, parallel=False, nogil=True)
@@ -52,10 +52,9 @@ def raytrace(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, tra
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
             ccd[y_int, x_int] += 1
 
-    return ccd
 
-
-def raytrace_order(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd: CCD, efficiency=None):
+def raytrace_order_cpu(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd: CCD, efficiency=None,
+                       n_cpu=1):
     wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
 
     # get spectral density per order
@@ -116,9 +115,16 @@ def raytrace_order(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: flo
                                                                                    dtype=np.float32))
 
     psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
-    ccd_new = np.ascontiguousarray(np.zeros_like(ccd.data, dtype=np.uint32))
-    ccd_new = raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
-                       transformations, trans_wl, trans_wld, trans_deriv,
-                       psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
-                       ccd_new, float(ccd.pixelsize), slitfunc, total_photons)
-    return ccd_new
+    if n_cpu > 1:
+        ccd_new = np.ascontiguousarray(np.zeros_like(ccd.data, dtype=np.uint32))
+        raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                 transformations, trans_wl, trans_wld, trans_deriv,
+                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
+                 ccd_new, float(ccd.pixelsize), slitfunc, total_photons)
+
+        return ccd_new
+    else:
+        raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                 transformations, trans_wl, trans_wld, trans_deriv,
+                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
+                 ccd.data, float(ccd.pixelsize), slitfunc, total_photons)

@@ -11,10 +11,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - CUDA support (use the --cuda flag)
 - more tests to improve code reliability and increase coverage
+- better code documentation incl. API for modules and classes
 
 ### Changed
 
-- restructured core algorithm, code now properly parallelized by order
+- restructured core algorithm, code now properly parallelized by diffraction order
 - better scaling with number of CPUs for multi-order simulations
 - speed improvements for CPU simulation
 - more precise simulation by interpolating transformation matrices
@@ -26,6 +27,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - model_viewer is working again
+- ThNe wavelength returned Ne wavelength in angstroms rather than microns
 
 ## [0.1.7] - 2021-12-20
 

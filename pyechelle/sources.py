@@ -21,15 +21,15 @@ memory = Memory(cache_path, verbose=0)
 
 
 @memory.cache
-def pull_catalogue_lines(min_wl, max_wl, catalogue='Th', wavelength_type='vacuum'):
+def pull_catalogue_lines(min_wl: float, max_wl: float, catalogue: str = 'Th', wavelength_type: str = 'vacuum'):
     """
     Reads NIST catalogue lines between min_wl and max_wl of catalogue.
 
     Args:
-        min_wl (float): minimum wavelength bound [micron]
-        max_wl (float): maximum wavelength bound [micron]
-        catalogue (str): catalogue appreciation label, e.g. 'Th', 'Ar', etc.
-        wavelength_type (str): either 'var+air' or 'vacuum'
+        min_wl: minimum wavelength bound [micron]
+        max_wl: maximum wavelength bound [micron]
+        catalogue: catalogue appreciation label, e.g. 'Th', 'Ar', etc.
+        wavelength_type: either 'var+air' or 'vacuum'
 
     Returns:
         (tuple) line catalogue wavelength and relative intensities. wavelength is in [angstrom]
@@ -82,15 +82,19 @@ class Source:
         name (str): name of the source. This will end up in the .fits header.
         min_wl (float): lower wavelength limit [nm] (for normalization purposes)
         max_wl (float): upper wavelength limit [nm] (for normalization purposes)
+        list_like (bool): if True, the Source has a bunch of discrete wavelength, rather than a continuous spectral density.
+        flux_in_photons (bool): if True, get_spectral_density() returns flux in photons rather than micro watts
 
     """
 
-    def __init__(self, min_wl=599.8, max_wl=600.42, name=""):
+    def __init__(self, min_wl=599.8, max_wl=600.42, name="", list_like=False, flux_in_photons=False,
+                 stellar_target=False):
         self.name = name
         self.min_wl = min_wl
         self.max_wl = max_wl
-        self.stellar_target = False
-        self.flux_in_photons = False
+        self.stellar_target = stellar_target
+        self.flux_in_photons = flux_in_photons
+        self.list_like = list_like
 
     def get_spectral_density(self, wavelength):
         raise NotImplementedError()
@@ -109,8 +113,14 @@ class Source:
 
 
 class Constant(Source):
+    """ Constant spectral density.
+
+    Implements a constant spectral density with given intensity [microW / microns*s]
+
+    """
+
     def __init__(self, intensity=0.001, **kwargs):
-        super().__init__(**kwargs, name="Constant")
+        super().__init__(**kwargs, name="Constant", list_like=False)
         self.intensity = intensity
 
     def get_spectral_density(self, wavelength):
@@ -118,9 +128,30 @@ class Constant(Source):
 
 
 class ThAr(Source):
+    """ Thorium-Argon lamp
+
+    Implements a Thorium Argon arc-lamp.
+    Uses NIST vacuum catalogue wavelength as source.
+
+    Attributes:
+         scale (float): relative intensity scaling factor between the Thorium and the Argon lines.
+
+    .. plot::
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from pyechelle.sources import ThAr
+        plt.title('ThAr Spectrum')
+        wl, int = ThAr().get_spectral_density(np.linspace(0.5, 0.505, 100))
+        for w, i in zip(wl, int):
+            plt.vlines(w, 0, i)
+        plt.xlabel('Wavelength [microns]')
+        plt.ylabel('Flux [photons/s]')
+        plt.show()
+    """
+
     def __init__(self, argon_to_thorium_factor=10):
-        super().__init__(name='ThAr')
-        self.list_like_source = True
+        super().__init__(name='ThAr', list_like=True)
         self.flux_in_photons = True
         self.scale = argon_to_thorium_factor
 
@@ -134,9 +165,31 @@ class ThAr(Source):
 
 
 class ThNe(Source):
+    """ Thorium-Neon lamp
+
+    Implements a Thorium Neon arc-lamp.
+    Uses NIST vacuum catalogue wavelength as source.
+
+    Attributes:
+         scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
+
+    .. plot::
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from pyechelle.sources import ThNe
+        plt.title('ThNe Spectrum')
+        wl, int = ThNe().get_spectral_density(np.linspace(0.5, 0.505, 100))
+        for w, i in zip(wl, int):
+            plt.vlines(w, 0, i)
+        plt.xlabel('Wavelength [microns]')
+        plt.ylabel('Flux [photons/s]')
+        plt.show()
+
+    """
+
     def __init__(self, neon_to_thorium_factor=10):
-        super().__init__(name='ThNe')
-        self.list_like_source = True
+        super().__init__(name='ThNe', list_like=True)
         self.flux_in_photons = True
         self.scale = neon_to_thorium_factor
 
@@ -147,19 +200,50 @@ class ThNe(Source):
         newl, neint = pull_catalogue_lines(minwl, maxwl, 'Ne')
         neint *= self.scale
 
-        return np.hstack((thwl / 10000., newl)), np.hstack((thint / 10000., neint))
+        return np.hstack((thwl / 10000., newl / 10000.)), np.hstack((thint, neint))
 
 
 class Etalon(Source):
+    r""" Fabry-Perot etalon.
+
+    Implements spectrum of an ideal (i.e. dispersion-free) Fabry-Perot etalon.
+    This means, the peak wavelength are at:
+
+    .. math::
+        \lambda_{peak} = \frac{d \cdot n \cdot \cos{(\theta)}}{m}
+
+    Attributes:
+        d (float): mirror distance [mm]
+        n (float): refractive index between mirrors
+        theta (float): angle of incidence onto mirrors
+        min_m (int): minimum peak interference number
+        max_m (int): maximum peak interference number
+        n_photons (int): number of photons per peak per second
+
+
+    .. plot::
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from pyechelle.sources import Etalon
+        plt.title('Etalon Spectrum')
+        wl, int = Etalon().get_spectral_density(np.linspace(0.5, 0.501, 100))
+        for w, i in zip(wl, int):
+            plt.vlines(w, 0, i)
+        plt.xlabel('Wavelength [microns]')
+        plt.ylabel('Flux [photons/s]')
+        plt.show()
+
+    """
+
     def __init__(self, d=5.0, n=1.0, theta=0.0, n_photons=1000, **kwargs):
-        super().__init__(**kwargs, name="Etalon")
+        super().__init__(**kwargs, name="Etalon", list_like=True)
         self.d = d
         self.n = n
         self.theta = theta
         self.min_m = np.ceil(2e3 * d * np.cos(theta) / self.max_wl)
         self.max_m = np.floor(2e3 * d * np.cos(theta) / self.min_wl)
         self.n_photons = n_photons
-        self.list_like_source = True
         self.flux_in_photons = True
 
     @staticmethod
@@ -176,24 +260,32 @@ class Etalon(Source):
 
 
 class Phoenix(Source):
-    """
-    Phoenix M-dwarf spectra.
-
-             .-'  |
-            / M < |
-           /dwarf\'
-           |_.- o-o
-           / C  -._)\
-          /',        |
-         |   `-,_,__,'
-         (,,)====[_]=|
-           '.   ____/
-            | -|-|_
-            |____)_)
+    """ Phoenix M-dwarf spectra.
 
     This class provides a convenient handling of PHOENIX M-dwarf spectra.
     For a given set of effective Temperature, log g, metalicity and alpha, it downloads the spectrum from PHOENIX ftp
     server.
+
+    See the `original paper <http://dx.doi.org/10.1051/0004-6361/201219058>`_ for more details.
+
+
+    Attributes:
+        t_eff (float): effective Temperature [K]
+        log_g (float): surface gravity
+        z (float): metalicity [Fe/H]
+        alpha (float): abundance of alpha elements [α/Fe]
+
+    .. plot::
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from pyechelle.sources import Phoenix
+        wl = np.linspace(0.3, 1.0, 100)
+        plt.title('Phoenix M-dwarf spectrum')
+        plt.plot(*Phoenix().get_spectral_density(wl))
+        plt.xlabel('Wavelength [microns]')
+        plt.ylabel('Flux')
+        plt.show()
 
     """
     valid_t = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]

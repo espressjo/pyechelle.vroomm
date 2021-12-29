@@ -9,3 +9,4 @@ tests/.pytest_cache
 *.fits
 /pyechelle/models/*.hdf
 /pyechelle/.cache/
+docs/source/_autosummary

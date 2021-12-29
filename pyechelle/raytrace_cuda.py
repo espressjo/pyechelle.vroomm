@@ -6,10 +6,10 @@ import numpy as np
 from numba import cuda
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64
 
-from randomgen import make_alias_sampling_arrays
-from sources import Source
-from spectrograph import ZEMAX
-from telescope import Telescope
+from pyechelle.randomgen import make_alias_sampling_arrays
+from pyechelle.sources import Source
+from pyechelle.spectrograph import ZEMAX
+from pyechelle.telescope import Telescope
 
 
 @cuda.jit()
@@ -20,7 +20,7 @@ def cuda_raytrace_rectangularslit(spectrum_wl, spectrum_q, spectrum_j, transform
     max_y, max_x = ccd.shape
     thread_id = cuda.grid(1)
 
-    for _ in range(nphotons):
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
         # sample from spectrum
         k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
         wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] else spectrum_wl[
@@ -78,7 +78,7 @@ def cuda_raytrace_roundslit(spectrum_wl, spectrum_q, spectrum_j, transformations
     max_y, max_x = ccd.shape
     thread_id = cuda.grid(1)
 
-    for _ in range(nphotons):
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
         # sample from spectrum
         k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
         wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] else spectrum_wl[
@@ -141,7 +141,7 @@ def cuda_raytrace_octagonalslit(spectrum_wl, spectrum_q, spectrum_j, transformat
     max_y, max_x = ccd.shape
     thread_id = cuda.grid(1)
 
-    for _ in range(nphotons):
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
         # sample from spectrum
         k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
         wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] else spectrum_wl[
@@ -215,7 +215,7 @@ def cuda_raytrace_hexagonalslit(spectrum_wl, spectrum_q, spectrum_j, transformat
     max_y, max_x = ccd.shape
     thread_id = cuda.grid(1)
 
-    for _ in range(nphotons):
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
         # sample from spectrum
         k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
         wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] else spectrum_wl[
@@ -282,9 +282,11 @@ def cuda_raytrace_hexagonalslit(spectrum_wl, spectrum_q, spectrum_j, transformat
             numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
 
 
-def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd, ps, efficiency=None):
+def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd, ps, efficiency=None,
+                        seed=-1):
     wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
-
+    if seed < 0:
+        seed = np.random.randint(0, np.iinfo(np.int64).max)
     # get spectral density per order
     spectral_density = source.get_spectral_density_rv(wavelength, rv)
     # if source returns own wavelength vector, use that for further calculations instead of default grid
@@ -333,14 +335,12 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
 
     psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
 
-    threads_per_block = 64
+    threads_per_block = 128
     blocks = 64
-    rng_states = create_xoroshiro128p_states(threads_per_block * blocks,
-                                             seed=np.random.randint(0, np.iinfo(np.int64).max))
+    rng_states = create_xoroshiro128p_states(threads_per_block * blocks, seed=seed)
 
     if spec.field_shape == "rectangular":
-        # cuda_raytrace = cuda_raytrace_rectangularslit
-        cuda_raytrace = cuda_raytrace_roundslit
+        cuda_raytrace = cuda_raytrace_rectangularslit
     elif spec.field_shape == "octagonal":
         cuda_raytrace = cuda_raytrace_octagonalslit
     elif spec.field_shape == "hexagonal":
@@ -359,4 +359,4 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
                                              psfs_wld[0],
                                              np.ascontiguousarray(psf_shape), psf_sampling[0],
                                              ccd, float(ps), rng_states,
-                                             int(total_photons / (threads_per_block * blocks)))
+                                             total_photons)

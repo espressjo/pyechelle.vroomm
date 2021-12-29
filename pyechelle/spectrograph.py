@@ -32,14 +32,13 @@ class PSFs:
 
 
 class ZEMAX(Spectrograph):
-    def __init__(self, path, fiber: int = 1, n_lookup_table: int = 10000):
+    def __init__(self, path, fiber: int = 1):
         """
         Load spectrograph model from ZEMAX based .hdf model.
 
         Args:
             path: file path
             fiber: which fiber
-            n_lookup_table: number of entries in lookup
         """
         super().__init__()
         self.transformations = {}
@@ -76,7 +75,6 @@ class ZEMAX(Spectrograph):
                     data = h5f[f"fiber_{fiber}/{g}"][()]
                     data = np.sort(data, order='wavelength')
                     self.transformations[g] = AffineTransformation(*data.view((data.dtype[0], len(data.dtype.names))).T)
-                    self.transformations[g].make_lookup_table(n_lookup_table)
                 if "psf" in g:
                     self.psfs[g] = PSFs()
                     for wl in h5f[f"fiber_{fiber}/{g}"]:

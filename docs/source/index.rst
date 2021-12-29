@@ -7,7 +7,19 @@ Welcome to PyEchelle's documentation!
 
    installation
    usage
+   examples
    new_model
+   spectrographs
+
+API documentation
+-----------------
+
+.. autosummary::
+   :toctree: _autosummary
+   :template: custom-module-template.rst
+   :recursive:
+
+    pyechelle
 
 Indices and tables
 ==================
