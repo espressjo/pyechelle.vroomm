@@ -116,15 +116,16 @@ def raytrace_order_cpu(o, spec: ZEMAX, source: Source, telescope: Telescope, rv:
 
     psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
     if n_cpu > 1:
-        ccd_new = np.ascontiguousarray(np.zeros_like(ccd.data, dtype=np.uint32))
+        ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
                  psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
                  ccd_new, float(ccd.pixelsize), slitfunc, total_photons)
 
-        return ccd_new
+        return ccd_new, total_photons
     else:
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
                  psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
                  ccd.data, float(ccd.pixelsize), slitfunc, total_photons)
+        return total_photons

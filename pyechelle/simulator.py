@@ -175,6 +175,8 @@ def simulate(args):
 
     n_cpu_max = args.max_cpu
 
+    total_simulated_photons = []
+
     if args.cuda:
         dccd = cuda.to_device(np.zeros_like(ccd.data, dtype=np.uint32))
 
@@ -232,15 +234,20 @@ def simulate(args):
                     delayed(raytrace_order_cpu)(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency,
                                                 n_cpu_max) for o in np.sort(orders))
                 logger.info('Add up orders...')
-                ccd.data = np.sum(results, axis=0)
+                ccd_results = [r[0] for r in results]
+                total_simulated_photons.extend([r[1] for r in results])
+                ccd.data = np.sum(ccd_results, axis=0)
                 t0 = log_elapsed_time('done.', t0)
             else:
                 for o in np.sort(orders):
-                    raytrace_order_cpu(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency, 1)
+                    nphot = raytrace_order_cpu(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency,
+                                               1)
+                    total_simulated_photons.append(nphot)
         else:
             for o in np.sort(orders):
-                raytrace_order_cuda(o, spec, source, telescope, rv, args.integration_time, dccd,
-                                    float(ccd.pixelsize), efficiency, seed=args.cuda_seed)
+                nphot = raytrace_order_cuda(o, spec, source, telescope, rv, args.integration_time, dccd,
+                                            float(ccd.pixelsize), efficiency, seed=args.cuda_seed)
+                total_simulated_photons.append(nphot)
         t0 = log_elapsed_time('done.', t0)
 
     if args.cuda:
@@ -268,7 +275,8 @@ def simulate(args):
         plt.show()
     t0 = log_elapsed_time('done.', t0)
     logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
-
+    logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
+    return sum(total_simulated_photons)
 
 def generate_parser():
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
@@ -379,10 +387,8 @@ def main(args=None):
         args = sys.argv[1:]
     parser = generate_parser()
     args = parser.parse_args(args)
-    t1 = time.time()
-    simulate(args)
-    t2 = time.time()
-    print(f"Simulation took {t2 - t1:.3f} s")
+    n_total_photons = simulate(args)
+    return n_total_photons
 
 
 if __name__ == "__main__":

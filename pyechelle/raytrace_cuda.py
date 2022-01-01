@@ -14,9 +14,8 @@ from pyechelle.telescope import Telescope
 
 @cuda.jit()
 def cuda_raytrace_rectangularslit(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, trans_wld,
-                                  transf_deriv,
-                                  psfs_q, psfs_j, psf_wl, psf_wld, psf_shape, psf_sampling, ccd, pixelsize, rng_states,
-                                  nphotons):
+                                  transf_deriv, psfs_q, psfs_j, psf_wl, psf_wld, psf_shape, psf_sampling, ccd,
+                                  pixelsize, rng_states, nphotons):
     max_y, max_x = ccd.shape
     thread_id = cuda.grid(1)
 
@@ -360,3 +359,4 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
                                              np.ascontiguousarray(psf_shape), psf_sampling[0],
                                              ccd, float(ps), rng_states,
                                              total_photons)
+    return total_photons
