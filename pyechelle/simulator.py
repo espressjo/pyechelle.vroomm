@@ -25,8 +25,8 @@ from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import Phoenix
 from pyechelle.telescope import Telescope
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Simulator')
+logger.setLevel(level=logging.INFO)
 
 # get list of available spectrograph models
 dir_path = Path(__file__).resolve().parent.joinpath("models").joinpath("available_models.txt")
