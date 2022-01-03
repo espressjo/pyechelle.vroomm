@@ -7,9 +7,9 @@ Welcome to PyEchelle's documentation!
 
    installation
    usage
+   benchmark
    examples
    new_model
-   spectrographs
 
 API documentation
 -----------------

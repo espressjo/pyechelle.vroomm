@@ -73,12 +73,12 @@ def plot_results(result_cpu: dict, result_cuda: dict):
         for run, result in result_cuda.items():
             x.append(int(result['nphot']))
             y.append(float(result['duration']))
-            c.append('cuda')
-    df = pd.DataFrame(np.array([x, y, c]).T, columns=["N Photons", "duration", "# Cores"])
+            c.append('cuda Quadro RTX4000')
+    df = pd.DataFrame(np.array([x, y, c]).T, columns=["N Photons", "duration [s]", "# Cores"])
     df['N Photons'] = pd.to_numeric(df['N Photons'])
-    df['duration'] = pd.to_numeric(df['duration'])
-    fig = px.line(df, x="N Photons", y="duration", color="# Cores", markers=True)
-
+    df['duration [s]'] = pd.to_numeric(df['duration [s]'])
+    fig = px.line(df, x="N Photons", y="duration [s]", color="# Cores", markers=True, title='Benchmark AMD Ryzen 5950')
+    # fig.write_html("../docs/source/_static/plots/benchmark.html")
     fig.show()
 
 

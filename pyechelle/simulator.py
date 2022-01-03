@@ -278,6 +278,7 @@ def simulate(args):
     logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
     return sum(total_simulated_photons)
 
+
 def generate_parser():
     parser = argparse.ArgumentParser(description='PyEchelle Simulator')
     parser.add_argument('-s', '--spectrograph', choices=available_models, type=str, default="MaroonX", required=True,
@@ -387,7 +388,11 @@ def main(args=None):
         args = sys.argv[1:]
     parser = generate_parser()
     args = parser.parse_args(args)
+    t1 = time.time()
     n_total_photons = simulate(args)
+    t2 = time.time()
+    print(f"Simulation took {t2 - t1:.3f} s")
+
     return n_total_photons
 
 
