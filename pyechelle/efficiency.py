@@ -133,13 +133,7 @@ class Atmosphere(Efficiency):
         super().__init__(name)
         # set default atmosphere arguments to high-resolution
         self.kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
-        if sky_calc_kwargs is not None:
-            self.kwargs.update(sky_calc_kwargs)
-
-        if skycalc_ipy is None:
-            raise SystemError(
-                "You have to install pyechelle's optional dependency skycalc. "
-                "Please refer to the documentation how to do this.")
+        self.kwargs.update(sky_calc_kwargs)
 
     def get_efficiency(self, wavelength):
         return self.get_atmosphere_data(wavelength, self.kwargs)
@@ -151,8 +145,7 @@ class Atmosphere(Efficiency):
     @memory.cache
     def get_atmosphere_data(wavelength, sky_calc_kwargs=None):
         kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
-        if sky_calc_kwargs is not None:
-            kwargs.update(sky_calc_kwargs)
+        kwargs.update(sky_calc_kwargs)
         sky = skycalc_ipy.SkyCalc()
         sky.update(kwargs)  # set sky arguments
         wmin = np.min(wavelength) * 1000.

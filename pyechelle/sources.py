@@ -313,35 +313,27 @@ class Phoenix(Source):
 
         wavelength_path = cache_path.joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
 
-        if t_eff in self.valid_t and log_g in self.valid_g and z in self.valid_z and alpha in self.valid_a:
-            if not wavelength_path.is_file():
-                print("Download Phoenix wavelength file...")
-                with urllib.request.urlopen(self.get_wavelength_url()) as response, open(wavelength_path,
-                                                                                         "wb") as out_file:
-                    data = response.read()
-                    out_file.write(data)
+        if not wavelength_path.is_file():
+            print("Download Phoenix wavelength file...")
+            with urllib.request.urlopen(self.get_wavelength_url()) as response, open(wavelength_path,
+                                                                                     "wb") as out_file:
+                data = response.read()
+                out_file.write(data)
 
-            self.wl_data = fits.getdata(wavelength_path) / 10000.0
-            url = self.get_spectrum_url(t_eff, alpha, log_g, z)
-            spectrum_path = cache_path.joinpath(url.split("/")[-1])
+        self.wl_data = fits.getdata(wavelength_path) / 10000.0
+        url = self.get_spectrum_url(t_eff, alpha, log_g, z)
+        spectrum_path = cache_path.joinpath(url.split("/")[-1])
 
-            if not spectrum_path.is_file():
-                print(f"Download Phoenix spectrum from {url}...")
-                with urllib.request.urlopen(url) as response, open(spectrum_path, "wb") as out_file:
-                    print("Trying to download:" + url)
-                    data = response.read()
-                    out_file.write(data)
+        if not spectrum_path.is_file():
+            print(f"Download Phoenix spectrum from {url}...")
+            with urllib.request.urlopen(url) as response, open(spectrum_path, "wb") as out_file:
+                print("Trying to download:" + url)
+                data = response.read()
+                out_file.write(data)
 
-            self.spectrum_data = 0.1 * fits.getdata(spectrum_path)  # convert ergs/s/cm^2/cm to uW/m^2/um
-            self.spectrum_data *= calc_flux_scale(self.wl_data, self.spectrum_data, self.magnitude)
-            self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
-        else:
-            print("Valid values are:")
-            print("T: ", *self.valid_t)
-            print("log g: ", *self.valid_g)
-            print("Z: ", *self.valid_z)
-            print("alpha: ", *self.valid_a)
-            raise ValueError("Invalid parameter for M-dwarf spectrum ")
+        self.spectrum_data = 0.1 * fits.getdata(spectrum_path)  # convert ergs/s/cm^2/cm to uW/m^2/um
+        self.spectrum_data *= calc_flux_scale(self.wl_data, self.spectrum_data, self.magnitude)
+        self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
 
     @staticmethod
     def get_wavelength_url():

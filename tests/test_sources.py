@@ -4,6 +4,7 @@ from hypothesis import given, strategies as st
 
 import pyechelle.sources as sources
 from pyechelle.simulator import available_sources
+from pyechelle.simulator import check_url_exists
 
 
 @given(
@@ -35,6 +36,10 @@ def test_rv_shift(rv):
     # TODO: fix this test. Right now the problem is that some edge lines are in sd0 which are not in sd1
     # if len(sd0[0]) == len(sd1[0]):
     #    assert np.allclose(sd0[0], sd1[0] * ((c+rv)/c))
+
+
+def test_phoenix_base_url():
+    assert check_url_exists(sources.Phoenix().get_wavelength_url())
 
 # @given(
 #     st.sampled_from(sources.Phoenix.valid_t),

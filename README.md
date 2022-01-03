@@ -5,7 +5,7 @@ However, it is not limited to echelle spectrographs, but allows simulating arbit
 spectrograph, where a model file is available. Optical aberrations are treated accurately, the simulated spectra include
 photon and read-out noise.
 
-PyEchelle uses numba for implementing fast python-based simulation code. It also comes with **CUDA support** for major
+PyEchelle uses numba for implementing fast Python-based simulation code. It also comes with **CUDA support** for major
 speed improvements.
 
 ### Example usage
@@ -52,7 +52,7 @@ See [Documentation](https://stuermer.gitlab.io/pyechelle/usage.html) for more ex
 # Concept:
 
 The basic idea is that any spectrograph can be modelled with a set of wavelength-dependent transformation matrices and
-point spread functions which describe the spectrographs optics:
+point spread functions which describe the spectrographs' optics:
 
 First, wavelength-dependent **affine transformation matrices** are extracted from the ZEMAX model of the spectrograph.
 As the underlying geometric transformations (scaling, rotation, shearing, translation) vary smoothly across an echelle

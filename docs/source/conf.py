@@ -14,6 +14,11 @@ import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 import sys
+from io import StringIO
+from os.path import basename
+
+from docutils import nodes
+from docutils.parsers.rst import Directive
 
 sys.path.insert(0, os.path.abspath('../..'))
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -84,7 +89,7 @@ def parse_class_attributes_section(self, section):
 GoogleDocstring._parse_class_attributes_section = parse_class_attributes_section
 
 
-# we now patch the parse method to guarantee that the the above methods are
+# we now patch the parse method to guarantee that the above methods are
 # assigned to the _section dict
 def patched_parse(self):
     self._sections['keys'] = self._parse_keys_section
@@ -105,12 +110,6 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 html_experimental_html5_writer = True
-
-from os.path import basename
-from io import StringIO
-
-from docutils.parsers.rst import Directive
-from docutils import nodes
 
 
 class ExecDirective(Directive):

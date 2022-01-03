@@ -9,7 +9,7 @@ from pyechelle.spectrograph import ZEMAX
 
 
 def plot_transformations(spectrograph: ZEMAX):
-    """Plot affine transformation matrices
+    """ Plot affine transformation matrices
 
     Args:
         spectrograph: Spectrograph model
@@ -36,7 +36,7 @@ def plot_transformations(spectrograph: ZEMAX):
 
 
 def plot_transformation_matrices(spectrograph: ZEMAX):
-    """Plot affine transformation matrices
+    """ Plot affine transformation matrices
 
     Args:
         spectrograph: Spectrograph model
@@ -63,8 +63,7 @@ def plot_transformation_matrices(spectrograph: ZEMAX):
 
 
 def plot_psfs(spectrograph: ZEMAX):
-    """
-    Plot PSFs as one big map
+    """ Plot PSFs as one big map
     Args:
         spectrograph: Spectrograph model
 

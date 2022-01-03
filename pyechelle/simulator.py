@@ -57,14 +57,14 @@ def parse_num_list(string_list: str) -> list:
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def check_url_exists(url: str):
+def check_url_exists(url: str) -> bool:
     """
     Check if URL exists.
     Args:
         url: url to be tested
 
     Returns:
-        (bool): URL exists
+        if URL exists
     """
     try:
         with urllib.request.urlopen(url) as response:

@@ -14,3 +14,6 @@ def test_slits():
         x, y = slit(random.random(), random.random())
         assert 0. <= x <= 1.0
         assert 0. <= y <= 1.0
+        x, y = slit.py_func(random.random(), random.random())
+        assert 0. <= x <= 1.0
+        assert 0. <= y <= 1.0
