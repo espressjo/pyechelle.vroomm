@@ -62,7 +62,7 @@ Second, a wavelength-dependent **point spread functions (PSFs)** is applied on t
 account for optical aberrations. Again, the PSF is only slowly varying across an echelle order, allowing for
 interpolation at intermediate wavelength.
 
-![Echelle simulation](https://gitlab.com/Stuermer/pyechelle/-/blob/master/docs/source/_static/plots/intro.png "Echelle simulation")
+![Echelle simulation](https://gitlab.com/Stuermer/pyechelle/-/raw/master/docs/source/_static/plots/intro.png "Echelle simulation")
 
 **Both, the matrices and the PSFs have to be extracted from ZEMAX only once. It is therefore possible to simulate
 spectra without access to ZEMAX**
