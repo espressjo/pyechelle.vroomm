@@ -48,3 +48,14 @@ def test_atmosphere():
     # test with higher airmass
     e2 = eff.Atmosphere("Testatmosphere", {'airmass': 1.4})
     assert np.all(e2.get_efficiency(wl) <= eff1)
+
+
+def test_tabulated():
+    e = eff.TabulatedEfficiency('tab', [0.4, 0.5, 0.6, 0.7], [0., 0.33333, 0.666666, 1.0])
+    assert e.get_efficiency(0.55) > 0
+    assert e.get_efficiency_per_order(0.55, 91)
+    # This test fails so far... bug in tabulated efficiency
+    # e = eff.TabulatedEfficiency('tab', np.array([[0.4, 0.5, 0.6, 0.7]]), np.array([[0., 0.33333, 0.666666, 1.0]]),
+    #                             orders=np.array([91], dtype=int))
+    # assert e.get_efficiency(0.55) > 0
+    # assert e.get_efficiency_per_order(0.55, 91)

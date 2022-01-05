@@ -1,3 +1,37 @@
+""" Spectral sources
+
+Implementing various spectral sources that can be used in pyechelle.
+
+.. plot::
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pyechelle.sources as sources
+    from pyechelle.simulator import available_sources
+
+    fig, ax = plt.subplots(len(available_sources), 1, figsize=(9, len(available_sources) * 2.5), sharex=True)
+    fig.suptitle('Supported source functions')
+    for i, source_name in enumerate(available_sources):
+        wavelength = np.linspace(0.5, 0.501, 1000, dtype=float)
+        source = getattr(sources, source_name)()
+        sd = source.get_spectral_density(wavelength)
+        if source.list_like:
+            if isinstance(sd, tuple):
+                ax[i].vlines(sd[0], [0]*len(sd[1]), sd[1])
+            else:
+                ax[i].vlines(wavelength, [0]*len(sd), sd)
+        else:
+            if isinstance(sd, tuple):
+                ax[i].plot(*sd)
+            else:
+                ax[i].plot(wavelength, sd)
+        ax[i].set_title(source_name)
+        ax[i].set_ylabel("")
+        ax[i].set_yticks([])
+    ax[-1].set_xlabel("Wavelength [microns]")
+    plt.tight_layout()
+    plt.show()
+"""
 import pathlib
 import urllib.request
 
@@ -136,18 +170,6 @@ class ThAr(Source):
     Attributes:
          scale (float): relative intensity scaling factor between the Thorium and the Argon lines.
 
-    .. plot::
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from pyechelle.sources import ThAr
-        plt.title('ThAr Spectrum')
-        wl, int = ThAr().get_spectral_density(np.linspace(0.5, 0.505, 100))
-        for w, i in zip(wl, int):
-            plt.vlines(w, 0, i)
-        plt.xlabel('Wavelength [microns]')
-        plt.ylabel('Flux [photons/s]')
-        plt.show()
     """
 
     def __init__(self, argon_to_thorium_factor=10):
@@ -172,19 +194,6 @@ class ThNe(Source):
 
     Attributes:
          scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
-
-    .. plot::
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from pyechelle.sources import ThNe
-        plt.title('ThNe Spectrum')
-        wl, int = ThNe().get_spectral_density(np.linspace(0.5, 0.505, 100))
-        for w, i in zip(wl, int):
-            plt.vlines(w, 0, i)
-        plt.xlabel('Wavelength [microns]')
-        plt.ylabel('Flux [photons/s]')
-        plt.show()
 
     """
 
@@ -219,20 +228,6 @@ class Etalon(Source):
         min_m (int): minimum peak interference number
         max_m (int): maximum peak interference number
         n_photons (int): number of photons per peak per second
-
-
-    .. plot::
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from pyechelle.sources import Etalon
-        plt.title('Etalon Spectrum')
-        wl, int = Etalon().get_spectral_density(np.linspace(0.5, 0.501, 100))
-        for w, i in zip(wl, int):
-            plt.vlines(w, 0, i)
-        plt.xlabel('Wavelength [microns]')
-        plt.ylabel('Flux [photons/s]')
-        plt.show()
 
     """
 
@@ -274,18 +269,6 @@ class Phoenix(Source):
         log_g (float): surface gravity
         z (float): metalicity [Fe/H]
         alpha (float): abundance of alpha elements [α/Fe]
-
-    .. plot::
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from pyechelle.sources import Phoenix
-        wl = np.linspace(0.3, 1.0, 100)
-        plt.title('Phoenix M-dwarf spectrum')
-        plt.plot(*Phoenix().get_spectral_density(wl))
-        plt.xlabel('Wavelength [microns]')
-        plt.ylabel('Flux')
-        plt.show()
 
     """
     valid_t = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]

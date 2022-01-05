@@ -5,7 +5,7 @@ from numba import int32, float32, njit, float64
 
 @njit()
 def unravel_index(index, shape):
-    """
+    """ Unravels the index of a flat array
     Converts a flat index into a tuple of coordinate arrays. More or less equivalent to numpy.unravel_index()
     Args:
         index: An integer array whose elements are indices into the flattened version of an array of dimensions shape.

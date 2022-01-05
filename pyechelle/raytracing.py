@@ -6,7 +6,6 @@ import numpy as np
 
 from pyechelle.CCD import CCD
 from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
-from pyechelle.slit import simple_slit, octagonal_slit, hexagonal_slit, round_slit
 from pyechelle.sources import Source
 from pyechelle.spectrograph import ZEMAX
 from pyechelle.telescope import Telescope
@@ -53,7 +52,8 @@ def raytrace(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, tra
             ccd[y_int, x_int] += 1
 
 
-def raytrace_order_cpu(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd: CCD, efficiency=None,
+def raytrace_order_cpu(o, spec: ZEMAX, source: Source, slit_fun: callable,
+                       telescope: Telescope, rv: float, t, ccd: CCD, efficiency=None,
                        n_cpu=1):
     wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
 
@@ -100,17 +100,6 @@ def raytrace_order_cpu(o, spec: ZEMAX, source: Source, telescope: Telescope, rv:
     psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
     psf_shape = spec.psfs[f"psf_order_{o}"].psfs[0].shape
 
-    if spec.field_shape == "rectangular":
-        slitfunc = simple_slit
-    elif spec.field_shape == "octagonal":
-        slitfunc = octagonal_slit
-    elif spec.field_shape == "hexagonal":
-        slitfunc = hexagonal_slit
-    elif spec.field_shape == "circular":
-        slitfunc = round_slit
-    else:
-        raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
-
     spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
                                                                                    dtype=np.float32))
 
@@ -120,12 +109,12 @@ def raytrace_order_cpu(o, spec: ZEMAX, source: Source, telescope: Telescope, rv:
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
                  psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
-                 ccd_new, float(ccd.pixelsize), slitfunc, total_photons)
+                 ccd_new, float(ccd.pixelsize), slit_fun, total_photons)
 
         return ccd_new, total_photons
     else:
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
                  psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
-                 ccd.data, float(ccd.pixelsize), slitfunc, total_photons)
+                 ccd.data, float(ccd.pixelsize), slit_fun, total_photons)
         return total_photons

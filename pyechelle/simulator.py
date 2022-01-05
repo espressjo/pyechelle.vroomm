@@ -17,9 +17,11 @@ from joblib import Parallel, delayed
 from numba import cuda
 
 import pyechelle
+import pyechelle.slit
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
+from pyechelle.raytrace_cuda import make_cuda_kernel
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import Phoenix
@@ -229,9 +231,16 @@ def simulate(args):
         t0 = log_elapsed_time('done.', t0)
         logger.info('Do raytracing...')
         if not args.cuda:
+            # get slit function
+            try:
+                slit_fun = getattr(pyechelle.slit, spec.field_shape)
+            except AttributeError:
+                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
+
             if n_cpu_max > 1:
                 results = Parallel(n_jobs=min(n_cpu_max, len(orders)))(
-                    delayed(raytrace_order_cpu)(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency,
+                    delayed(raytrace_order_cpu)(o, spec, source, slit_fun, telescope, rv, args.integration_time, ccd,
+                                                efficiency,
                                                 n_cpu_max) for o in np.sort(orders))
                 logger.info('Add up orders...')
                 ccd_results = [r[0] for r in results]
@@ -240,13 +249,21 @@ def simulate(args):
                 t0 = log_elapsed_time('done.', t0)
             else:
                 for o in np.sort(orders):
-                    nphot = raytrace_order_cpu(o, spec, source, telescope, rv, args.integration_time, ccd, efficiency,
+                    nphot = raytrace_order_cpu(o, spec, source, slit_fun, telescope, rv, args.integration_time, ccd,
+                                               efficiency,
                                                1)
                     total_simulated_photons.append(nphot)
         else:
+            try:
+                slit_fun = getattr(pyechelle.slit, f"cuda_{spec.field_shape}")
+            except AttributeError:
+                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
+
+            cuda_kernel = make_cuda_kernel(slit_fun)
             for o in np.sort(orders):
                 nphot = raytrace_order_cuda(o, spec, source, telescope, rv, args.integration_time, dccd,
-                                            float(ccd.pixelsize), efficiency, seed=args.cuda_seed)
+                                            float(ccd.pixelsize), efficiency, seed=args.cuda_seed,
+                                            cuda_kernel=cuda_kernel)
                 total_simulated_photons.append(nphot)
         t0 = log_elapsed_time('done.', t0)
 
