@@ -4,6 +4,7 @@ Implementing handling of CCDs/detectors for PyEchelle. It is recommended to use 
 such as pyxel. Therefore, this module is rather simple.
 """
 import logging
+from dataclasses import dataclass, field
 
 import h5py
 import numpy as np
@@ -11,20 +12,12 @@ import numpy as np
 logger = logging.getLogger('CCD')
 
 
-def read_ccd_from_hdf(path):
-    with h5py.File(path, "r") as h5f:
-        # read in CCD information
-        Nx = h5f[f"CCD"].attrs['Nx']
-        Ny = h5f[f"CCD"].attrs['Ny']
-        ps = h5f[f"CCD"].attrs['pixelsize']
-        return CCD(xmin=0, xmax=Nx, ymax=Ny, pixelsize=ps)
-
-
+@dataclass
 class CCD:
     """ A CCD detector
 
     Attributes:
-        data (np.ndarray): data array (uint) that will be filled by the simualtor
+        data (np.ndarray): data array (uint) that will be filled by the simulator
         name (str): name of the CCD detector. This will end up in the .fits header.
         xmin (int): minimum pixel x-coordinate
         xmax (int): maximum pixel x-coordinate
@@ -34,16 +27,17 @@ class CCD:
         pixelsize (float): physical size of an individual pixel [microns]
 
     """
+    data: np.ndarray = field(init=False)
+    name: str = 'detector'
+    xmin: int = 0
+    xmax: int = 4096
+    ymin: int = 0
+    ymax: int = 4096
+    maxval: int = 65536
+    pixelsize = 9.
 
-    def __init__(self, name='detector', xmin=0, xmax=4096, ymin=0, ymax=4096, maxval=65536, pixelsize=9):
-        self.data = np.zeros(((ymax - ymin), (xmax - xmin)), dtype=np.uint32)
-        self.name = name
-        self.xmin = xmin
-        self.xmax = xmax
-        self.ymin = ymin
-        self.ymax = ymax
-        self.maxval = maxval
-        self.pixelsize = pixelsize
+    def __post_init__(self):
+        self.data = np.zeros(((self.ymax - self.ymin), (self.xmax - self.xmin)), dtype=np.uint32)
 
     def add_readnoise(self, std: float = 3.):
         """ Adds readnoise to the detector counts
@@ -81,3 +75,12 @@ class CCD:
             self.data[self.data < 0] = 0
         if np.any(self.data > self.maxval):
             self.data[self.data > self.maxval] = self.maxval
+
+
+def read_ccd_from_hdf(path) -> CCD:
+    with h5py.File(path, "r") as h5f:
+        # read in CCD information
+        Nx = h5f[f"CCD"].attrs['Nx']
+        Ny = h5f[f"CCD"].attrs['Ny']
+        ps = h5f[f"CCD"].attrs['pixelsize']
+        return CCD(xmax=Nx, ymax=Ny, pixelsize=ps)
