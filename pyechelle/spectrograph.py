@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import logging
 import math
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 import h5py
 import numpy as np
 
-import pyechelle.CCD
 from pyechelle.CCD import CCD
 
 
@@ -56,26 +55,13 @@ class PSF:
         return self.wavelength < other.wavelength
 
 
-@dataclass
-class Field:
-    """ Input Field
-
-        Describes the input field of a spectrograph i.e. a slit or a fiber
-        Attributes:
-            name (str): name of the field
-            shape (str): shape string of the field (e.g. circular, octagonal, rectangular)
-        """
-    name: str
-    shape: str
-
-
 class Spectrograph:
     """ Entire Spectrograph
 
     Describes an entire spectrograph, i.e. a collection of SpectrographUnits
     """
 
-    def get_spectrograph_unit(self, field: int = 1, detector: int = 1) -> SpectrographUnit:
+    def get_spectrograph_unit(self, fiber: int = 1, detector: int = 1) -> SpectrographUnit:
         raise NotImplementedError
 
 
@@ -86,16 +72,16 @@ class SpectrographUnit:
     Attributes:
         field_shape (str): an input field shape (circular, octagonal etc.)
         transformations (dict[int, dict[float, AffineTransformation]]): affine transformation matrices describing the optical behaviour
-        orders (list[int]): list of diffraction orders
+        # orders (list[int]): list of diffraction orders
         CCD (CCD): detector object describing the CCD.
     """
 
     def __init__(self):
         self.field_shape = None
-        self.orders = None
+        self.orders = []
         self.CCD = None
 
-    def get_transformation(self, wavelength: float | Iterable[float], order: int):
+    def get_transformation(self, wavelength: float, order: int):
         """ Transformation matrix
 
         Args:
@@ -107,7 +93,7 @@ class SpectrographUnit:
         """
         raise NotImplementedError
 
-    def get_psf(self, wavelength: float | Iterable[float], order: int) -> PSF | Iterable[PSF]:
+    def get_psf(self, wavelength: float, order: int) -> PSF:
         """ PSF
 
         Args:
@@ -132,29 +118,8 @@ class SpectrographUnit:
         raise NotImplementedError
 
 
-class PSFs:
-    def __init__(self):
-        self.wl = []
-        self.psfs = []
-        self.idx = None
-        self.sampling = []
-
-    def add_psf(self, wl, data, sampling):
-        self.wl.append(wl)
-        self.psfs.append(data)
-        self.sampling.append(sampling)
-        self.idx = None
-
-    def prepare_lookup(self):
-        self.idx = np.argsort(self.wl)
-        self.wl = np.array(self.wl)[self.idx]
-        self.psfs = np.array(self.psfs)[self.idx]
-        self.sampling = np.array(self.sampling)[self.idx]
-
-
 class ZEMAX(Spectrograph):
     def __init__(self, path):
-        self.CCD = pyechelle.CCD.read_ccd_from_hdf(path)
         self.path = path
 
     def get_spectrograph_unit(self, field: int = 1, detector: int = 1) -> SpectrographUnit:
@@ -164,8 +129,10 @@ class ZEMAX(Spectrograph):
 class ZEMAXUnit(SpectrographUnit):
     """ ZEMAXUnit
     Attributes:
-        psfs (dict[int, list[PSF]]): tabulated PSFs
-        transformations (dict[int, list[AffineTransformation]): tabulated affine transformation matrices
+        _psfs (dict[int, list[PSF]]): tabulated PSFs
+        _transformations (dict[int, list[AffineTransformation]): tabulated affine transformation matrices
+        fiber (int): Fiber/Field number as specified in .hdf File
+        h5f (h5py.File): .hdf file handle
     """
 
     def __init__(self, path, fiber: int = 1):
@@ -177,99 +144,105 @@ class ZEMAXUnit(SpectrographUnit):
             fiber: which fiber
         """
         super().__init__()
-        self.transformations = {}
-        self.order_keys = {}
-        self.psfs = {}
-        self.fiber = fiber
-        self.field_shape = "round"
-        self.CCD = None
-        self.efficiency = None
-
-        self.blaze = None
-        self.gpmm = None
-        self.name = None
-        self.modelpath = path
         self.h5f = h5py.File(path, "r")
+        self.fiber = fiber
+        self._transformations = {}
+        self._psfs = {}
 
-        # self.CCD = pyechelle.CCD.read_ccd_from_hdf(path)
-        #
-        # with h5py.File(path, "r") as h5f:
-        #     # read in grating information
-        #     self.name = h5f[f"Spectrograph"].attrs['name']
-        #     self.blaze = h5f[f"Spectrograph"].attrs['blaze']
-        #     self.gpmm = h5f[f"Spectrograph"].attrs['gpmm']
-        #
-        #     self.field_shape = h5f[f"fiber_{fiber}"].attrs["field_shape"]
-        #     try:
-        #         self.efficiency = h5f[f"fiber_{fiber}"].attrs["efficiency"]
-        #     except KeyError:
-        #         logging.warning(f'No spectrograph efficiency data found for fiber {fiber}.')
-        #         self.efficiency = None
-        #     for g in h5f[f"fiber_{fiber}"]:
-        #         if not "psf" in g:
-        #
-        #             data = h5f[f"fiber_{fiber}/{g}"][()]
-        #             data = np.sort(data, order='wavelength')
-        #             self.transformations[g] = AffineTransformation(*data.view((data.dtype[0], len(data.dtype.names))).T)
-        #         if "psf" in g:
-        #             self.psfs[g] = PSFs()
-        #             for wl in h5f[f"fiber_{fiber}/{g}"]:
-        #                 self.psfs[g].add_psf(h5f[f"fiber_{fiber}/{g}/{wl}"].attrs['wavelength'],
-        #                                      h5f[f"fiber_{fiber}/{g}/{wl}"][()],
-        #                                      h5f[f"fiber_{fiber}/{g}/{wl}"].attrs['dataSpacing'])
-        #             self.psfs[g].prepare_lookup()
-        # self.order_keys = list(self.transformations.keys())
-        # self.orders = [int(o[5:]) for o in self.order_keys]
-        # print(f"Available orders: {self.orders}")
+        try:
+            self.efficiency = self.h5f[f"fiber_{fiber}"].attrs["efficiency"]
+        except KeyError:
+            logging.warning(f'No spectrograph efficiency data found for fiber {fiber}.')
+            self.efficiency = None
 
-    def get_wavelength_range(self, order: int | None = None) -> tuple[float, float]:
-        if order is not None:
-            return self.transformations[f"order{order}"].min_wavelength(), self.transformations[
-                f"order{order}"].max_wavelength()
-        else:
-            minw = min([self.transformations[f"order{order}"].min_wavelength() for order in self.orders])
-            maxw = max([self.transformations[f"order{order}"].max_wavelength() for order in self.orders])
-            return minw, maxw
+        self.blaze = self.h5f[f"Spectrograph"].attrs['blaze']
+        self.gpmm = self.h5f[f"Spectrograph"].attrs['gpmm']
 
-    def get_transformation(self, wavelength: float | Iterable[float], order: int):
-        if order not in self.transformations.keys():
-            # read in transformations for this order
+        self.name = self.h5f[f"Spectrograph"].attrs['name']
+        self.field_shape = self.h5f[f"fiber_{self.fiber}"].attrs["field_shape"]
+
+        self._orders = []
+
+        self.CCD = self.read_ccd_from_hdf
+
+    def read_ccd_from_hdf(self) -> CCD:
+        # read in CCD information
+        Nx = self.h5f[f"CCD"].attrs['Nx']
+        Ny = self.h5f[f"CCD"].attrs['Ny']
+        ps = self.h5f[f"CCD"].attrs['pixelsize']
+        return CCD(xmax=Nx, ymax=Ny, pixelsize=ps)
+
+    @property
+    def orders(self) -> list[int]:
+        if not self._orders:
+            self._orders = [int(k[5:]) for k in self.h5f[f"fiber_{self.fiber}/"].keys() if "psf" not in k]
+            self._orders.sort()
+        return self._orders
+
+    @orders.setter
+    def orders(self, ol: list):
+        self._orders = ol
+
+    def transformations(self, order) -> list[AffineTransformation]:
+        if order not in self._transformations.keys():
             try:
-                self.transformations[order] = [AffineTransformation(*af)
-                                               for af in self.h5f[f"fiber_{self.fiber}/order{order}"][()]]
-                self.transformations[order].sort()
-                
+                self._transformations[order] = [AffineTransformation(*af)
+                                                for af in self.h5f[f"fiber_{self.fiber}/order{order}"][()]]
+                self._transformations[order].sort()
+
             except KeyError:
                 raise KeyError(
                     f"You asked for the affine transformation metrices in diffraction order {order}. "
                     f"But this data is not available")
-        idx = min(range(len(self.transformations[order])),
-                  key=lambda i: abs(self.transformations[order][i].wavelength - wavelength))
-        return self.transformations[order][idx]
+
+        return self._transformations[order]
+
+    def get_wavelength_range(self, order: int | None = None) -> tuple[float, float]:
+        if order is not None:
+            # here we use that transformations are sorted by wavelength
+            return self.transformations(order)[0].wavelength, self.transformations(order)[-1].wavelength
+        else:
+            min_w = min([self.transformations(o)[0].wavelength for o in self.orders])
+            max_w = max([self.transformations(o)[-1].wavelength for o in self.orders])
+            return min_w, max_w
+
+    def get_transformation(self, wavelength: float, order: int):
+        idx = min(range(len(self.transformations(order))),
+                  key=lambda i: abs(self.transformations(order)[i].wavelength - wavelength))
+        return self.transformations(order)[idx]
 
     def get_psf(self, wavelength: float, order: int) -> PSF:
-        if order not in self.psfs.keys():
+        if order not in self._psfs.keys():
             # read in PSFs for this order
             try:
-                self.psfs[order] = [PSF(self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"].attrs['wavelength'],
-                                        self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"][()],
-                                        self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"].attrs['dataSpacing'])
-                                    for wl in self.h5f[f"fiber_{self.fiber}/psf_order_{order}"]]
+                self._psfs[order] = [PSF(self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"].attrs['wavelength'],
+                                         self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"][()],
+                                         self.h5f[f"fiber_{self.fiber}/psf_order_{order}/{wl}"].attrs['dataSpacing'])
+                                     for wl in self.h5f[f"fiber_{self.fiber}/psf_order_{order}"]]
             except KeyError:
                 raise KeyError(
                     f"You asked for the PSFs in diffraction order {order}. But this data is not available")
-            self.psfs[order].sort()
+            self._psfs[order].sort()
 
         # find the nearest PSF:
-        idx = min(range(len(self.psfs[order])), key=lambda i: abs(self.psfs[order][i].wavelength - wavelength))
-        return self.psfs[order][idx]
+        idx = min(range(len(self._psfs[order])), key=lambda i: abs(self._psfs[order][i].wavelength - wavelength))
+        return self._psfs[order][idx]
 
     def __exit__(self):
         self.h5f.close()
 
 
 if __name__ == "__main__":
-    zm = ZEMAXUnit("/home/stuermer/Repos/python/pyechelle/pyechelle/models/MaroonX.hdf", 1)
+    zm = ZEMAXUnit("/home/stuermer/PycharmProjects/pyechelle/pyechelle/models/MaroonX.hdf", 1)
     # psf = zm.get_psf(0.608, 100)
-    tf = zm.get_transformation(0.608, 100)
-    print(tf)
+    for o in zm.orders:
+        min_w, max_w = zm.get_wavelength_range(o)
+        print(zm.get_psf((min_w + max_w) / 2., o))
+        print(zm.get_transformation((min_w + max_w) / 2., o))
+    #
+    # print(zm.orders)
+    # print(zm.get_wavelength_range())
+    # print(zm.get_wavelength_range(100))
+    #
+    # tf = zm.get_transformation(0.608, 100)
+    # print(tf)

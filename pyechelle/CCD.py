@@ -6,7 +6,6 @@ such as pyxel. Therefore, this module is rather simple.
 import logging
 from dataclasses import dataclass, field
 
-import h5py
 import numpy as np
 
 logger = logging.getLogger('CCD')
@@ -34,7 +33,7 @@ class CCD:
     ymin: int = 0
     ymax: int = 4096
     maxval: int = 65536
-    pixelsize = 9.
+    pixelsize: float = 9.
 
     def __post_init__(self):
         self.data = np.zeros(((self.ymax - self.ymin), (self.xmax - self.xmin)), dtype=np.uint32)
@@ -75,12 +74,3 @@ class CCD:
             self.data[self.data < 0] = 0
         if np.any(self.data > self.maxval):
             self.data[self.data > self.maxval] = self.maxval
-
-
-def read_ccd_from_hdf(path) -> CCD:
-    with h5py.File(path, "r") as h5f:
-        # read in CCD information
-        Nx = h5f[f"CCD"].attrs['Nx']
-        Ny = h5f[f"CCD"].attrs['Ny']
-        ps = h5f[f"CCD"].attrs['pixelsize']
-        return CCD(xmax=Nx, ymax=Ny, pixelsize=ps)
