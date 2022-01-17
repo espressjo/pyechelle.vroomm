@@ -17,23 +17,23 @@ class CCD:
 
     Attributes:
         data (np.ndarray): data array (uint) that will be filled by the simulator
-        name (str): name of the CCD detector. This will end up in the .fits header.
         xmin (int): minimum pixel x-coordinate
         xmax (int): maximum pixel x-coordinate
         ymin (int): minimum pixel y-coordinate
         ymax (int): maximum pixel y-coordinate
         maxval (int): maximum pixel value before clipping
         pixelsize (float): physical size of an individual pixel [microns]
+        identifier (str): identifier of the CCD. This will also end up in the .fits header.
 
     """
     data: np.ndarray = field(init=False)
-    name: str = 'detector'
     xmin: int = 0
     xmax: int = 4096
     ymin: int = 0
     ymax: int = 4096
     maxval: int = 65536
     pixelsize: float = 9.
+    identifier: str = 'detector'
 
     def __post_init__(self):
         self.data = np.zeros(((self.ymax - self.ymin), (self.xmax - self.xmin)), dtype=np.uint32)

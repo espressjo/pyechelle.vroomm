@@ -84,11 +84,11 @@ def make_cuda_kernel(slitfun):
     return cuda_kernel
 
 
-def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd, ps, efficiency=None,
+def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd, ps, fiber: int,
+                        ccd_index: int, efficiency=None,
                         seed=-1, cuda_kernel=None):
-    wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
-    if seed < 0:
-        seed = np.random.randint(0, np.iinfo(np.int32).max)
+    wavelength = np.linspace(*spec.get_wavelength_range(o, fiber, ccd_index), num=100000)
+
     # get spectral density per order
     spectral_density = source.get_spectral_density_rv(wavelength, rv)
     # if source returns own wavelength vector, use that for further calculations instead of default grid
@@ -119,23 +119,24 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
     print(f'Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     '
           f'Number of photons: {total_photons}')
 
-    minwl, maxwl = spec.get_wavelength_range(o)
+    minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
     trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
+    transformations = np.array([spec.get_transformation(wl, o, fiber, ccd_index).asarray() for wl in trans_wl]).T
+    # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
     # derivatives for simple linear interpolation
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
 
     psf_sampler_qj = np.array(
-        [make_alias_sampling_arrays(p.T.ravel()) for p in spec.psfs[f"psf_order_{o}"].psfs])
+        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.psfs(o, fiber, ccd_index)])
 
-    psfs_wl = spec.psfs[f"psf_order_{o}"].wl
+    psfs_wl = np.array([p.wavelength for p in spec.psfs(o, fiber, ccd_index)])
     psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.psfs[f"psf_order_{o}"].psfs[0].shape
+    psf_shape = spec.psfs(o, fiber, ccd_index)[0].data.shape
 
     spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
                                                                                    dtype=np.float32))
 
-    psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
+    psf_sampling = spec.psfs(o, fiber, ccd_index)[0].sampling
 
     threads_per_block = 128
     blocks = 64
@@ -148,7 +149,7 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
                                            np.ascontiguousarray(psf_sampler_qj[:, 0]),
                                            np.ascontiguousarray(psf_sampler_qj[:, 1]), np.ascontiguousarray(psfs_wl),
                                            psfs_wld[0],
-                                           np.ascontiguousarray(psf_shape), psf_sampling[0],
+                                           np.ascontiguousarray(psf_shape), psf_sampling,
                                            ccd, float(ps), rng_states,
                                            total_photons)
     return total_photons

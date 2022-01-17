@@ -3,7 +3,7 @@ import pathlib
 import numpy as np
 
 from pyechelle import simulator
-from pyechelle.simulator import export_to_html, check_url_exists, check_for_spectrogrpah_model, parse_num_list, \
+from pyechelle.simulator import export_to_html, check_url_exists, check_for_spectrograph_model, parse_num_list, \
     available_models
 
 
@@ -24,10 +24,10 @@ def test_export_to_html():
 def test_models_exist():
     # test that URL exists for all models
     for m in available_models:
-        assert check_for_spectrogrpah_model(m, False)
+        assert check_for_spectrograph_model(m, False)
 
     # test download for first model
-    check_for_spectrogrpah_model(available_models[0], True)
+    check_for_spectrograph_model(available_models[0], True)
     assert pathlib.Path(simulator.__file__).resolve().parent.joinpath('models').joinpath(
         f"{available_models[0]}.hdf").is_file()
     pathlib.Path(simulator.__file__).resolve().parent.joinpath('models').joinpath(f"{available_models[0]}.hdf").unlink(

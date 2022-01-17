@@ -7,7 +7,7 @@ import numpy as np
 from pyechelle.CCD import CCD
 from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
 from pyechelle.sources import Source
-from pyechelle.spectrograph import ZEMAX
+from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
 
 
@@ -52,10 +52,10 @@ def raytrace(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, tra
             ccd[y_int, x_int] += 1
 
 
-def raytrace_order_cpu(o, spec: ZEMAX, source: Source, slit_fun: callable,
-                       telescope: Telescope, rv: float, t, ccd: CCD, efficiency=None,
+def raytrace_order_cpu(o, spec: Spectrograph, source: Source, slit_fun: callable,
+                       telescope: Telescope, rv: float, t, ccd: CCD, fiber: int, ccd_index: int, efficiency=None,
                        n_cpu=1):
-    wavelength = np.linspace(*spec.get_wavelength_range(o), num=100000)
+    wavelength = np.linspace(*spec.get_wavelength_range(o, fiber, ccd_index), num=100000)
 
     # get spectral density per order
     spectral_density = source.get_spectral_density_rv(wavelength, rv)
@@ -87,34 +87,35 @@ def raytrace_order_cpu(o, spec: ZEMAX, source: Source, slit_fun: callable,
     print(f'Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     '
           f'Number of photons: {total_photons}')
 
-    minwl, maxwl = spec.get_wavelength_range(o)
+    minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
     trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
+    transformations = np.array([spec.get_transformation(wl, o, fiber, ccd_index).asarray() for wl in trans_wl]).T
+    # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
     # derivatives for simple linear interpolation
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
 
     psf_sampler_qj = np.array(
-        [make_alias_sampling_arrays(p.T.ravel()) for p in spec.psfs[f"psf_order_{o}"].psfs])
+        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.psfs(o, fiber, ccd_index)])
 
-    psfs_wl = spec.psfs[f"psf_order_{o}"].wl
+    psfs_wl = np.array([p.wavelength for p in spec.psfs(o, fiber, ccd_index)])
     psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.psfs[f"psf_order_{o}"].psfs[0].shape
+    psf_shape = spec.psfs(o, fiber, ccd_index)[0].data.shape
 
     spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
                                                                                    dtype=np.float32))
 
-    psf_sampling = spec.psfs[f"psf_order_{o}"].sampling
+    psf_sampling = spec.psfs(o, fiber, ccd_index)[0].sampling
     if n_cpu > 1:
         ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
-                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
+                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
                  ccd_new, float(ccd.pixelsize), slit_fun, total_photons)
 
         return ccd_new, total_photons
     else:
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
                  transformations, trans_wl, trans_wld, trans_deriv,
-                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling[0],
+                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
                  ccd.data, float(ccd.pixelsize), slit_fun, total_photons)
         return total_photons
