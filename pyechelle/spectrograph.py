@@ -261,7 +261,7 @@ class ZEMAX(Spectrograph):
             self._transformations[ccd_index] = {}
         if order not in self._transformations[ccd_index].keys():
             try:
-                self._transformations[ccd_index][order] = [AffineTransformation(*af)
+                self._transformations[ccd_index][order] = [AffineTransformation(*af.T)
                                                            for af in
                                                            self.h5f[f"CCD_{ccd_index}/fiber_{fiber}/order{order}"][()]]
                 self._transformations[ccd_index][order].sort()
@@ -278,12 +278,12 @@ class ZEMAX(Spectrograph):
             self._spline_transformations[ccd_index] = {}
         if order not in self._spline_transformations[ccd_index].keys():
             tfs = self.transformations(order, fiber, ccd_index)
-            sx = [t.sx for t in tfs]
-            sy = [t.sy for t in tfs]
-            rot = [t.rot for t in tfs]
-            shear = [t.shear for t in tfs]
-            tx = [t.tx for t in tfs]
-            ty = [t.ty for t in tfs]
+            sx = [t.m0 for t in tfs]
+            sy = [t.m1 for t in tfs]
+            rot = [t.m2 for t in tfs]
+            shear = [t.m3 for t in tfs]
+            tx = [t.m4 for t in tfs]
+            ty = [t.m5 for t in tfs]
             wl = [t.wavelength for t in tfs]
 
             self._spline_transformations[ccd_index][order] = (scipy.interpolate.UnivariateSpline(wl, sx),
@@ -294,11 +294,14 @@ class ZEMAX(Spectrograph):
                                                               scipy.interpolate.UnivariateSpline(wl, ty))
         return self._spline_transformations[ccd_index][order]
 
-    def get_transformation(self, wavelength: float, order: int, fiber: int = 1,
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
                            ccd_index: int = 1) -> AffineTransformation:
-
-        return AffineTransformation(
-            *tuple([float(ev(wavelength)) for ev in self.spline_transformations(order, fiber, ccd_index)]), wavelength)
+        if isinstance(wavelength, float):
+            return AffineTransformation(
+                *tuple([float(ev(wavelength)) for ev in self.spline_transformations(order, fiber, ccd_index)]),
+                wavelength)
+        else:
+            return [ev(wavelength) for ev in self.spline_transformations(order, fiber, ccd_index)]
         #
         # idx = min(range(len(self.transformations(order, fiber, ccd_index))),
         #           key=lambda i: abs(self.transformations(order, fiber, ccd_index)[i].wavelength - wavelength))

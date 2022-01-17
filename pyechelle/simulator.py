@@ -603,7 +603,7 @@ def main(args=None):
                     [item for sublist in args.orders for item in sublist] if args.orders is not None else None,
                     Telescope(args.d_primary, args.d_secondary), cuda=args.cuda, cuda_seed=args.cuda_seed, rvs=rvs,
                     atmosphere=atmosphere)
-    sim.run(args.max_cpu, 'test.fits', True, args.integration_time)
+    sim.run(args.max_cpu, args.output, True, args.integration_time)
     t2 = time.time()
     print(f"Simulation took {t2 - t1:.3f} s")
 

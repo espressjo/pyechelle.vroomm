@@ -121,7 +121,8 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
 
     minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
     trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = np.array([spec.get_transformation(wl, o, fiber, ccd_index).asarray() for wl in trans_wl]).T
+    transformations = np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index))
+    # transformations = np.array([spec.get_transformation(wl, o, fiber, ccd_index).asarray() for wl in trans_wl]).T
     # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
     # derivatives for simple linear interpolation
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
