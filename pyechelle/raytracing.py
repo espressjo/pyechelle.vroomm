@@ -89,22 +89,22 @@ def raytrace_order_cpu(o, spec: Spectrograph, source: Source, slit_fun: callable
 
     minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
     trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = np.array([spec.get_transformation(wl, o, fiber, ccd_index).asarray() for wl in trans_wl]).T
+    transformations = np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index))
     # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
     # derivatives for simple linear interpolation
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
 
     psf_sampler_qj = np.array(
-        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.psfs(o, fiber, ccd_index)])
+        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.get_psf(None, o, fiber, ccd_index)])
 
-    psfs_wl = np.array([p.wavelength for p in spec.psfs(o, fiber, ccd_index)])
+    psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
     psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.psfs(o, fiber, ccd_index)[0].data.shape
+    psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
 
     spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
                                                                                    dtype=np.float32))
 
-    psf_sampling = spec.psfs(o, fiber, ccd_index)[0].sampling
+    psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
     if n_cpu > 1:
         ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
         raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,

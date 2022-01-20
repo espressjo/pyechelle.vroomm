@@ -1,7 +1,9 @@
 """ Detector module
 
-Implementing handling of CCDs/detectors for PyEchelle. It is recommended to use a dedicated dedector simulation framework
-such as pyxel. Therefore, this module is rather simple.
+Implementing handling of CCDs/detectors for PyEchelle. It is recommended to use a dedicated detector simulation
+framework such as pyxel for including CCD effects such as cosmics, CTI or the brighter-fatter effect.
+
+Therefore, this module is kept rather simple.
 """
 import logging
 from dataclasses import dataclass, field
@@ -17,26 +19,22 @@ class CCD:
 
     Attributes:
         data (np.ndarray): data array (uint) that will be filled by the simulator
-        xmin (int): minimum pixel x-coordinate
-        xmax (int): maximum pixel x-coordinate
-        ymin (int): minimum pixel y-coordinate
-        ymax (int): maximum pixel y-coordinate
+        n_pix_x (int): number of pixels in x-direction
+        n_pix_y (int): number of pixels in y-direction
         maxval (int): maximum pixel value before clipping
         pixelsize (float): physical size of an individual pixel [microns]
         identifier (str): identifier of the CCD. This will also end up in the .fits header.
 
     """
-    data: np.ndarray = field(init=False)
-    xmin: int = 0
-    xmax: int = 4096
-    ymin: int = 0
-    ymax: int = 4096
+    n_pix_x: int = 4096
+    n_pix_y: int = 4096
     maxval: int = 65536
-    pixelsize: float = 9.
+    pixelsize: float = 9.  # physical size of an individual pixel [microns]
     identifier: str = 'detector'
+    data: np.ndarray = field(init=False)
 
     def __post_init__(self):
-        self.data = np.zeros(((self.ymax - self.ymin), (self.xmax - self.xmin)), dtype=np.uint32)
+        self.data = np.zeros((self.n_pix_y, self.n_pix_x), dtype=np.uint32)
 
     def add_readnoise(self, std: float = 3.):
         """ Adds readnoise to the detector counts

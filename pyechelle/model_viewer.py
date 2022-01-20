@@ -4,14 +4,16 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pyechelle.simulator import available_models, check_for_spectrograph_model
-from pyechelle.spectrograph import ZEMAX
+from pyechelle.simulator import available_models
+from pyechelle.spectrograph import Spectrograph, ZEMAX
 
 
-def plot_transformations(spectrograph: ZEMAX):
+def plot_transformations(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
     """ Plot affine transformation matrices
 
     Args:
+        fiber: fiber index
+        ccd_index: ccd index
         spectrograph: Spectrograph model
 
     Returns:
@@ -19,26 +21,31 @@ def plot_transformations(spectrograph: ZEMAX):
     """
     fig, ax = plt.subplots(2, 3, sharex=True)
     fig.suptitle(f"Affine transformations of {spectrograph.name}")
-    for o in spectrograph.order_keys:
-        ax[0, 0].set_title("sx")
-        ax[0, 0].plot(spectrograph.transformations[o].sx)
-        ax[0, 1].set_title("sy")
-        ax[0, 1].plot(spectrograph.transformations[o].sy)
-        ax[0, 2].set_title("shear")
-        ax[0, 2].plot(spectrograph.transformations[o].shear)
-        ax[1, 0].set_title("rot")
-        ax[1, 0].plot(spectrograph.transformations[o].rot)
-        ax[1, 1].set_title("tx")
-        ax[1, 1].plot(spectrograph.transformations[o].tx)
-        ax[1, 2].set_title("ty")
-        ax[1, 2].plot(spectrograph.transformations[o].ty)
+    if isinstance(spectrograph, ZEMAX):
+        for o in spectrograph.get_orders(fiber, ccd_index):
+            ax[0, 0].set_title("sx")
+            ax[0, 0].plot([af.sx for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 1].set_title("sy")
+            ax[0, 1].plot([af.sy for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 2].set_title("shear")
+            ax[0, 2].plot([af.shear for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 0].set_title("rot")
+            ax[1, 0].plot([af.rot for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 1].set_title("tx")
+            ax[1, 1].plot([af.tx for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 2].set_title("ty")
+            ax[1, 2].plot([af.ty for af in spectrograph.transformations(o, fiber, ccd_index)])
+    else:
+        raise NotImplementedError
     return fig
 
 
-def plot_transformation_matrices(spectrograph: ZEMAX):
+def plot_transformation_matrices(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
     """ Plot affine transformation matrices
 
     Args:
+        fiber: fiber index
+        ccd_index: ccd index
         spectrograph: Spectrograph model
 
     Returns:
@@ -46,38 +53,58 @@ def plot_transformation_matrices(spectrograph: ZEMAX):
     """
     fig, ax = plt.subplots(2, 3, sharex=True)
     fig.suptitle(f"Affine transformation matrices of {spectrograph.name}")
-    for o in spectrograph.order_keys:
-        ax[0, 0].set_title("m0")
-        ax[0, 0].plot(spectrograph.transformations[o].m0)
-        ax[0, 1].set_title("m1")
-        ax[0, 1].plot(spectrograph.transformations[o].m1)
-        ax[0, 2].set_title("m2")
-        ax[0, 2].plot(spectrograph.transformations[o].m2)
-        ax[1, 0].set_title("m3")
-        ax[1, 0].plot(spectrograph.transformations[o].m3)
-        ax[1, 1].set_title("m4")
-        ax[1, 1].plot(spectrograph.transformations[o].m4)
-        ax[1, 2].set_title("m5")
-        ax[1, 2].plot(spectrograph.transformations[o].m5)
+    for o in spectrograph.get_orders(fiber, ccd_index):
+        if isinstance(spectrograph, ZEMAX):
+            ax[0, 0].set_title("m0")
+            ax[0, 0].plot([af.m0 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 1].set_title("m1")
+            ax[0, 1].plot([af.m1 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 2].set_title("m2")
+            ax[0, 2].plot([af.m2 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 0].set_title("m3")
+            ax[1, 0].plot([af.m3 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 1].set_title("m4")
+            ax[1, 1].plot([af.m4 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 2].set_title("m5")
+            ax[1, 2].plot([af.m5 for af in spectrograph.transformations(o, fiber, ccd_index)])
+        else:
+            raise NotImplementedError
     return fig
 
 
-def plot_psfs(spectrograph: ZEMAX):
+def plot_psfs(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
     """ Plot PSFs as one big map
     Args:
+        fiber: fiber index
+        ccd_index: ccd index
         spectrograph: Spectrograph model
 
     Returns:
 
     """
+
     fig, ax = plt.subplots()
-    n_orders = len(spectrograph.order_keys)
-    n_psfs = max([len(spectrograph.psfs[k].psfs) for k in spectrograph.psfs.keys()])
-    shape_psfs = spectrograph.psfs[next(spectrograph.psfs.keys().__iter__())].psfs[0].data.shape
+    orders = spectrograph.get_orders(fiber, ccd_index)
+    n_orders = len(orders)
+    if isinstance(spectrograph, ZEMAX):
+        n_psfs = len(spectrograph.psfs(orders[0], fiber, ccd_index))
+    else:
+        n_psfs = 10
+
+    shape_psfs = spectrograph.get_psf(sum(spectrograph.get_wavelength_range(orders[0], fiber, ccd_index)) / 2.,
+                                      orders[0], fiber, ccd_index).data.shape
+
+    # shape_psfs = spectrograph.psfs[next(spectrograph.psfs.keys().__iter__())].psfs[0].data.shape
     img = np.empty((n_psfs * shape_psfs[0], n_orders * shape_psfs[1]))
 
-    for oo, o in enumerate(np.sort(spectrograph.orders)):
-        for i, p in enumerate(spectrograph.psfs[f"psf_order_" + f"{o}"].psfs):
+    for oo, o in enumerate(np.sort(orders)):
+        if isinstance(spectrograph, ZEMAX):
+            psfs = spectrograph.psfs(o, fiber, ccd_index)
+        else:
+            wl = np.linspace(*spectrograph.get_wavelength_range(o, fiber, ccd_index), num=n_psfs)
+            psfs = [spectrograph.get_psf(w, o, fiber, ccd_index) for w in wl]
+
+        for i, p in enumerate(psfs):
             if p.data.shape == shape_psfs:
                 img[int(i * shape_psfs[0]):int((i + 1) * shape_psfs[0]),
                 int(oo * shape_psfs[1]):int((oo + 1) * shape_psfs[1])] = p.data
@@ -108,7 +135,7 @@ def main(args):
     parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-    spec = ZEMAX(check_for_spectrograph_model(args.spectrograph), args.fiber)
+    spec = ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf")
     # if args.plot_transformations:
     plot_transformations(spec)
     # if args.plot_transformation_matrices:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 
 import numpy as np
@@ -38,7 +40,7 @@ class ConstantEfficiency(Efficiency):
 
 
 class SystemEfficiency(Efficiency):
-    def __init__(self, efficiencies, name):
+    def __init__(self, efficiencies: list[Efficiency], name: str):
         super().__init__(name)
         self.efficiencies = efficiencies
 
@@ -53,6 +55,9 @@ class SystemEfficiency(Efficiency):
         for ef in self.efficiencies:
             e *= ef.get_efficiency_per_order(wavelength, order)
         return e
+
+    def add_efficiency(self, efficiency):
+        self.efficiencies.append(efficiency)
 
 
 class GratingEfficiency(Efficiency):

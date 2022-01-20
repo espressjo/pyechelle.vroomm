@@ -10,7 +10,7 @@ from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform
 
 from pyechelle.randomgen import make_alias_sampling_arrays
 from pyechelle.sources import Source
-from pyechelle.spectrograph import ZEMAX
+from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
 
 path = pathlib.Path(__file__).parent.resolve()
@@ -84,7 +84,7 @@ def make_cuda_kernel(slitfun):
     return cuda_kernel
 
 
-def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv: float, t, ccd, ps, fiber: int,
+def raytrace_order_cuda(o, spec: Spectrograph, source: Source, telescope: Telescope, rv: float, t, ccd, ps, fiber: int,
                         ccd_index: int, efficiency=None,
                         seed=-1, cuda_kernel=None):
     wavelength = np.linspace(*spec.get_wavelength_range(o, fiber, ccd_index), num=100000)
@@ -128,16 +128,16 @@ def raytrace_order_cuda(o, spec: ZEMAX, source: Source, telescope: Telescope, rv
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
 
     psf_sampler_qj = np.array(
-        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.psfs(o, fiber, ccd_index)])
+        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.get_psf(None, o, fiber, ccd_index)])
 
-    psfs_wl = np.array([p.wavelength for p in spec.psfs(o, fiber, ccd_index)])
+    psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
     psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.psfs(o, fiber, ccd_index)[0].data.shape
+    psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
 
     spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
                                                                                    dtype=np.float32))
 
-    psf_sampling = spec.psfs(o, fiber, ccd_index)[0].sampling
+    psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
 
     threads_per_block = 128
     blocks = 64

@@ -1,122 +1,91 @@
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 
 import h5py
 import numpy as np
 import scipy.interpolate
 
-from efficiency import SystemEfficiency
 from pyechelle.CCD import CCD
+from pyechelle.efficiency import SystemEfficiency, GratingEfficiency, TabulatedEfficiency, ConstantEfficiency
+from pyechelle.optics import AffineTransformation, PSF
 
 
 @dataclass
-class AffineTransformation:
-    sx: float
-    sy: float
-    rot: float
-    shear: float
-    tx: float
-    ty: float
-    wavelength: float
-
-    m0: float = field(init=False)
-    m1: float = field(init=False)
-    m2: float = field(init=False)
-    m3: float = field(init=False)
-    m4: float = field(init=False)
-    m5: float = field(init=False)
-
-    def __post_init__(self):
-        self.m0 = self.sx * math.cos(self.rot)
-        self.m1 = -self.sy * math.sin(self.rot + self.shear)
-        self.m2 = self.tx
-        self.m3 = self.sx * math.sin(self.rot)
-        self.m4 = self.sy * math.cos(self.rot + self.shear)
-        self.m5 = self.ty
-
-    def __le__(self, other):
-        return self.wavelength <= other.wavelength
-
-    def __lt__(self, other):
-        return self.wavelength < other.wavelength
-
-    def asarray(self):
-        return self.m0, self.m1, self.m2, self.m3, self.m4, self.m5
-
-
-@dataclass
-class PSF:
-    wavelength: float
-    data: np.ndarray
-    sampling: float
-
-    def __le__(self, other):
-        return self.wavelength <= other.wavelength
-
-    def __lt__(self, other):
-        return self.wavelength < other.wavelength
-
-    def __str__(self):
-        res = f'PSF@\n{self.wavelength:.4f}micron\n'
-        letters = ['.', ':', 'o', 'x', '#', '@']
-        norm = np.max(self.data)
-        for d in self.data:
-            for dd in d:
-                i = int(math.floor(dd / norm / 0.2))
-                res += letters[i]
-            res += '\n'
-        return res
-
-
 class Spectrograph:
-    """ Entire Spectrograph
+    """ Abstract spectrograph model
 
-    Describes an entire spectrograph.
+    Describes all methods that a spectrograph model must have to be used in a simulation. \n
+    When subclassing, all methods need to be implemented in the subclass.
+
+    A spectrograph model as at least one CCD (with CCD_index 1), at least one field/fiber (with fiber index 1),
+    and at least one diffraction order.
     """
+    name: str = 'Spectrograph'
 
     def get_fibers(self, ccd_index: int = 1) -> list[int]:
+        """ Fields/fiber indices
+
+        Args:
+            ccd_index: CCD index
+
+        Returns:
+            available fields/fiber indices
+        """
         raise NotImplementedError
 
     def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
-        raise NotImplementedError
-
-    def get_transformation(self, wavelength: float, order: int, fiber: int = 1,
-                           ccd_index: int = 1) -> AffineTransformation:
-        """ Transformation matrix
+        """ Diffraction orders
 
         Args:
-            wavelength: wavelength [micron]
+            fiber: fiber/field index
+            ccd_index: CCD index
+
+        Returns:
+            available diffraction order(s) for given indices
+        """
+        raise NotImplementedError
+
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
+        """ Transformation matrix/matrices
+
+        Args:
+            wavelength: wavelength(s) [micron]
             order: diffraction order
             fiber: fiber index
             ccd_index: CCD index
 
         Returns:
-            transformation matrix
+            transformation matrix/matrices
         """
         raise NotImplementedError
 
-    def get_psf(self, wavelength: float, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF:
+    def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
         """ PSF
 
+        PSFs are tabulated. When wavelength is provided, the closest available PSF of the model is returned.
+
+        When wavelength is None, all PSFs for that particular order (and fiber and CCD index) is returned.
+
         Args:
-            wavelength: wavelength [micron]
+            wavelength: wavelength [micron] or None
             order: diffraction order
             fiber: fiber index
             ccd_index: ccd index
 
         Returns:
-            PSF
+            PSF(s)
         """
         raise NotImplementedError
 
-    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) -> \
-            tuple[
-                float, float]:
+    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
+            -> tuple[float, float]:
         """ Wavelength range
 
         Returns minimum and maximum wavelength of the entire spectrograph unit or an individual order if specified.
+
         Args:
             ccd_index: CCD index
             fiber: fiber index
@@ -128,13 +97,45 @@ class Spectrograph:
         raise NotImplementedError
 
     def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
+        """ Get CCD object(s)
+
+        When index is provided the corresponding CCD object is returned.\n
+        If no index is provided, all available CCDs are return as a dict with the index as key.
+
+        Args:
+            ccd_index: CCD index
+
+        Returns:
+            CCD object(s)
+        """
         raise NotImplementedError
 
     def get_field_shape(self, fiber: int, ccd_index: int) -> str:
-        pass
+        """ Shape of field/fiber
 
-    def get_efficiency(self, ccd_index: int) -> SystemEfficiency:
-        pass
+        Returning the field/fiber shape for the given indices as a string.
+        See slit.py for currently implemented shapes.
+
+        Args:
+            fiber: fiber index
+            ccd_index: ccd index
+
+        Returns:
+            field/fiber shape as string (e.g. rectangular, octagonal)
+        """
+        raise NotImplementedError
+
+    def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
+        """ Spectrograph efficiency
+
+        Args:
+            fiber: fiber/field index
+            ccd_index: CCD index
+
+        Returns:
+            System efficiency for given indices
+        """
+        raise NotImplementedError
 
 
 class SimpleSpectrograph(Spectrograph):
@@ -155,12 +156,17 @@ class SimpleSpectrograph(Spectrograph):
     def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
         return self._orders[ccd_index][fiber]
 
-    def get_transformation(self, wavelength: float, order: int, fiber: int = 1,
-                           ccd_index: int = 1) -> AffineTransformation:
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
+        if isinstance(wavelength, float):
+            return AffineTransformation(0.0, 1.0, 10., 0., (wavelength - 0.5) * wavelength * 100000. + 2000.,
+                                        fiber * 10. + 2000., wavelength)
+        else:
+            return np.vstack([AffineTransformation(0.0, 1.0, 10., 0., (w - 0.5) * w * 100000. + 2000.,
+                                                   fiber * 10. + 2000., w).as_matrix() for w in wavelength]).T
 
-        return AffineTransformation(1.0, 1.0, 0., 0., (wavelength - 0.5) * 1000, fiber * 10., wavelength)
-
-    def gauss_map(self, size_x, size_y=None, sigma_x=5., sigma_y=None):
+    @staticmethod
+    def gauss_map(size_x, size_y=None, sigma_x=5., sigma_y=None):
         if size_y is None:
             size_y = size_x
         if sigma_y is None:
@@ -181,19 +187,28 @@ class SimpleSpectrograph(Spectrograph):
         exp_part = x ** 2 / (2 * sigma_x ** 2) + y ** 2 / (2 * sigma_y ** 2)
         return 1 / (2 * np.pi * sigma_x * sigma_y) * np.exp(-exp_part)
 
-    def get_psf(self, wavelength: float, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF:
-        return PSF(wavelength, self.gauss_map(11, sigma_x=1.5, sigma_y=2.), 1.5)
+    def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
+        if wavelength is None:
+            wl = np.linspace(*self.get_wavelength_range(order, fiber, ccd_index), 20)
+            return [PSF(w, self.gauss_map(11, sigma_x=3., sigma_y=10.), 1.5) for w in wl]
+        else:
+            return PSF(wavelength, self.gauss_map(11, sigma_x=3., sigma_y=10.), 1.5)
 
-    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) -> \
-            tuple[
-                float, float]:
-        pass
+    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
+            -> tuple[float, float]:
+        return 0.4, 0.6
 
     def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
         if ccd_index is None:
             return self._ccd
         else:
             return self._ccd[ccd_index]
+
+    def get_field_shape(self, fiber: int, ccd_index: int) -> str:
+        return 'rectangular'
+
+    def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
+        return SystemEfficiency([ConstantEfficiency(1.0)], 'System')
 
 
 class ZEMAX(Spectrograph):
@@ -207,15 +222,6 @@ class ZEMAX(Spectrograph):
         self._spline_transformations = {}
         self._psfs = {}
         self._efficiency = {}
-
-        # try:
-        #     self.efficiency = self.h5f[f"fiber_{fiber}"].attrs["efficiency"]
-        # except KeyError:
-        #     logging.warning(f'No spectrograph efficiency data found for fiber {fiber}.')
-        #     self.efficiency = None
-
-        # self.blaze = self.h5f[f"Spectrograph"].attrs['blaze']
-        # self.gpmm = self.h5f[f"Spectrograph"].attrs['gpmm']
 
         # self.name = self.h5f[f"Spectrograph"].attrs['name']
         self._field_shape = {}
@@ -235,7 +241,7 @@ class ZEMAX(Spectrograph):
         nx = self.h5f[f"CCD_{k}"].attrs['Nx']
         ny = self.h5f[f"CCD_{k}"].attrs['Ny']
         ps = self.h5f[f"CCD_{k}"].attrs['pixelsize']
-        return CCD(xmax=nx, ymax=ny, pixelsize=ps)
+        return CCD(n_pix_x=nx, n_pix_y=ny, pixelsize=ps)
 
     def get_fibers(self, ccd_index: int = 1) -> list[int]:
         return [int(k[6:]) for k in self.h5f[f"CCD_{ccd_index}"].keys() if "fiber" in k]
@@ -259,53 +265,55 @@ class ZEMAX(Spectrograph):
     def transformations(self, order: int, fiber: int = 1, ccd_index: int = 1) -> list[AffineTransformation]:
         if ccd_index not in self._transformations.keys():
             self._transformations[ccd_index] = {}
-        if order not in self._transformations[ccd_index].keys():
+        if fiber not in self._transformations[ccd_index].keys():
+            self._transformations[ccd_index][fiber] = {}
+        if order not in self._transformations[ccd_index][fiber].keys():
             try:
-                self._transformations[ccd_index][order] = [AffineTransformation(*af.T)
-                                                           for af in
-                                                           self.h5f[f"CCD_{ccd_index}/fiber_{fiber}/order{order}"][()]]
-                self._transformations[ccd_index][order].sort()
+                self._transformations[ccd_index][fiber][order] = [AffineTransformation(*af)
+                                                                  for af in
+                                                                  self.h5f[
+                                                                      f"CCD_{ccd_index}/fiber_{fiber}/order{order}"][
+                                                                      ()]]
+                self._transformations[ccd_index][fiber][order].sort()
 
             except KeyError:
                 raise KeyError(
-                    f"You asked for the affine transformation metrices in diffraction order {order}. "
+                    f"You asked for the affine transformation matrices in diffraction order {order}. "
                     f"But this data is not available")
 
-        return self._transformations[ccd_index][order]
+        return self._transformations[ccd_index][fiber][order]
 
     def spline_transformations(self, order: int, fiber: int = 1, ccd_index: int = 1) -> callable(float):
         if ccd_index not in self._spline_transformations.keys():
             self._spline_transformations[ccd_index] = {}
-        if order not in self._spline_transformations[ccd_index].keys():
+        if fiber not in self._spline_transformations[ccd_index].keys():
+            self._spline_transformations[ccd_index][fiber] = {}
+        if order not in self._spline_transformations[ccd_index][fiber].keys():
             tfs = self.transformations(order, fiber, ccd_index)
-            sx = [t.m0 for t in tfs]
-            sy = [t.m1 for t in tfs]
-            rot = [t.m2 for t in tfs]
-            shear = [t.m3 for t in tfs]
-            tx = [t.m4 for t in tfs]
-            ty = [t.m5 for t in tfs]
+            m0 = [t.m0 for t in tfs]
+            m1 = [t.m1 for t in tfs]
+            m2 = [t.m2 for t in tfs]
+            m3 = [t.m3 for t in tfs]
+            m4 = [t.m4 for t in tfs]
+            m5 = [t.m5 for t in tfs]
             wl = [t.wavelength for t in tfs]
 
-            self._spline_transformations[ccd_index][order] = (scipy.interpolate.UnivariateSpline(wl, sx),
-                                                              scipy.interpolate.UnivariateSpline(wl, sy),
-                                                              scipy.interpolate.UnivariateSpline(wl, rot),
-                                                              scipy.interpolate.UnivariateSpline(wl, shear),
-                                                              scipy.interpolate.UnivariateSpline(wl, tx),
-                                                              scipy.interpolate.UnivariateSpline(wl, ty))
-        return self._spline_transformations[ccd_index][order]
+            self._spline_transformations[ccd_index][fiber][order] = (scipy.interpolate.UnivariateSpline(wl, m0),
+                                                                     scipy.interpolate.UnivariateSpline(wl, m1),
+                                                                     scipy.interpolate.UnivariateSpline(wl, m2),
+                                                                     scipy.interpolate.UnivariateSpline(wl, m3),
+                                                                     scipy.interpolate.UnivariateSpline(wl, m4),
+                                                                     scipy.interpolate.UnivariateSpline(wl, m5))
+        return self._spline_transformations[ccd_index][fiber][order]
 
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
-                           ccd_index: int = 1) -> AffineTransformation:
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
         if isinstance(wavelength, float):
             return AffineTransformation(
                 *tuple([float(ev(wavelength)) for ev in self.spline_transformations(order, fiber, ccd_index)]),
                 wavelength)
         else:
             return [ev(wavelength) for ev in self.spline_transformations(order, fiber, ccd_index)]
-        #
-        # idx = min(range(len(self.transformations(order, fiber, ccd_index))),
-        #           key=lambda i: abs(self.transformations(order, fiber, ccd_index)[i].wavelength - wavelength))
-        # return self.transformations(order, fiber, ccd_index)[idx]
 
     def psfs(self, order: int, fiber: int = 1, ccd_index: int = 1) -> list[PSF]:
         if ccd_index not in self._psfs.keys():
@@ -324,15 +332,17 @@ class ZEMAX(Spectrograph):
             self._psfs[ccd_index][order].sort()
         return self._psfs[ccd_index][order]
 
-    def get_psf(self, wavelength: float, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF:
-        # find the nearest PSF:
-        idx = min(range(len(self.psfs(order, fiber, ccd_index))),
-                  key=lambda i: abs(self.psfs(order, fiber, ccd_index)[i].wavelength - wavelength))
-        return self.psfs(order, fiber, ccd_index)[idx]
+    def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
+        if wavelength is None:
+            return self.psfs(order, fiber, ccd_index)
+        else:
+            # find the nearest PSF:
+            idx = min(range(len(self.psfs(order, fiber, ccd_index))),
+                      key=lambda i: abs(self.psfs(order, fiber, ccd_index)[i].wavelength - wavelength))
+            return self.psfs(order, fiber, ccd_index)[idx]
 
-    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) -> \
-            tuple[
-                float, float]:
+    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
+            -> tuple[float, float]:
         min_w = []
         max_w = []
 
@@ -370,6 +380,25 @@ class ZEMAX(Spectrograph):
             self._CCDs[ccd_index] = self._read_ccd_from_hdf(ccd_index)
         return self._CCDs[ccd_index]
 
+    def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
+        ge = GratingEfficiency(self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
+                               self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
+                               self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['gpmm'])
+
+        if ccd_index not in self._efficiency.keys():
+            self._efficiency[ccd_index] = {}
+        if fiber not in self._efficiency[ccd_index].keys():
+            try:
+                self._efficiency[ccd_index][fiber] = \
+                    SystemEfficiency([ge,
+                                      TabulatedEfficiency('System', *self.h5f[f"CCD_{ccd_index}/fiber_{fiber}"].attrs[
+                                          "efficiency"])], 'System')
+
+            except KeyError:
+                logging.warning(f'No spectrograph efficiency data found for fiber {fiber}.')
+                self._efficiency[ccd_index][fiber] = SystemEfficiency([ge], 'System')
+        return self._efficiency[ccd_index][fiber]
+
     def __exit__(self):
         if self._h5f:
             self._h5f.close()
@@ -377,24 +406,34 @@ class ZEMAX(Spectrograph):
 
 if __name__ == "__main__":
     simple = SimpleSpectrograph()
-    print(simple.get_transformation(0.503, 1))
-    print(simple.get_psf(0.503, 1))
+    # print(simple.get_transformation(0.503, 1))
+    wl = np.linspace(*simple.get_wavelength_range(), 100)
+
+    print(simple.get_transformation(wl, 1))
+
+    # print(simple.get_psf(0.503, 1))
     # plt.figure()
     # plt.imshow(simple.get_psf(0.503, 1).data)
     # plt.show()
     #
 
-    zm = ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf")
+    # zm = ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf")
     # print(zm.get_CCD())
     # print(zm.get_fibers())
     # print(zm.get_orders(1, 1))
     # zm.get_psf(int(10, 10, 1, 1)
 
-    print(zm.get_psf(0.6088, 100, 1, 1))
+    # print(zm.get_psf(0.6088, 100, 1, 1))
+    #
+    # print(zm.get_transformation(0.610, 100, 2, 1, ))
+    # print(zm.get_transformation(0.610, 100, 3, 1, ))
+    # print(zm.get_transformation(0.610, 100, 4, 1, ))
 
-    print(zm.get_transformation(0.610, 100))
-    print(zm.get_transformation(0.6101, 100))
-    print(zm.get_wavelength_range(100))
+    # wl = np.linspace(*zm.get_wavelength_range(100,1,1), 1000)
+    # zm.get_transformation(wl)
+
+    # print(zm.get_transformation(0.6101, 100))
+    # print(zm.get_wavelength_range(100))
     # print(zm.get_wavelength_range(100, 1))
     # print(zm.get_wavelength_range(fiber=2))
     # print(zm.get_wavelength_range(100, 3))

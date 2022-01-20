@@ -20,15 +20,15 @@ from numba import cuda
 
 import pyechelle
 import pyechelle.slit
-from CCD import CCD
 from pyechelle import spectrograph, sources
+from pyechelle.CCD import CCD
 from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.raytrace_cuda import make_cuda_kernel
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import Phoenix, Source
+from pyechelle.spectrograph import Spectrograph, ZEMAX
 from pyechelle.telescope import Telescope
-from spectrograph import Spectrograph, ZEMAX
 
 logger = logging.getLogger('Simulator')
 logger.setLevel(level=logging.INFO)
@@ -249,7 +249,7 @@ class Simulator:
             for f, s, atmo, rv in zip(self.fibers, self.sources, self.atmosphere, self.rvs):
                 orders = self.get_valid_orders(f, i)
                 slit_fun = self.get_slit_function(f, i, self.cuda)
-                e = self.spectrograph.get_efficiency(i)
+                e = self.spectrograph.get_efficiency(f, i)
 
                 if not self.cuda:
                     if max_cpu > 1:
@@ -598,7 +598,8 @@ def main(args=None):
         rvs = [rvs[0]] * len(
             fibers)  # generate list of same length as 'fields' if only one flag is given
 
-    sim = Simulator(ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf"),
+    sim = Simulator(ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MARVEL_2021_11_22.hdf"),
+                    # sim=Simulator(SimpleSpectrograph(),
                     [getattr(sources, source)() for source in source_names], fibers,
                     [item for sublist in args.orders for item in sublist] if args.orders is not None else None,
                     Telescope(args.d_primary, args.d_secondary), cuda=args.cuda, cuda_seed=args.cuda_seed, rvs=rvs,

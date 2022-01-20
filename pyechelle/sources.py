@@ -116,7 +116,8 @@ class Source:
         name (str): name of the source. This will end up in the .fits header.
         min_wl (float): lower wavelength limit [nm] (for normalization purposes)
         max_wl (float): upper wavelength limit [nm] (for normalization purposes)
-        list_like (bool): if True, the Source has a bunch of discrete wavelength, rather than a continuous spectral density.
+        list_like (bool): if True, the Source has a bunch of discrete wavelength, rather than a continuous spectral
+        density.
         flux_in_photons (bool): if True, get_spectral_density() returns flux in photons rather than micro watts
 
     """
