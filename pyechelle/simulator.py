@@ -280,7 +280,8 @@ def simulate(args):
 
 
 def generate_parser():
-    parser = argparse.ArgumentParser(description='PyEchelle Simulator')
+    parser = argparse.ArgumentParser(description='PyEchelle Simulator',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-s', '--spectrograph', choices=available_models, type=str, default="MaroonX", required=True,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. ")
     parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
@@ -359,13 +360,13 @@ def generate_parser():
 
     etalon_group = parser.add_argument_group('Etalon')
     etalon_group.add_argument('--etalon_d', type=float, default=5., required=False,
-                              help='Mirror distance of Fabry Perot etalon in [mm]. Default: 5.0')
+                              help='Mirror distance of Fabry Perot etalon in [mm].')
     etalon_group.add_argument('--etalon_n', type=float, default=1.0, required=False,
-                              help='Refractive index of medium between etalon mirrors. Default: 1.0')
+                              help='Refractive index of medium between etalon mirrors.')
     etalon_group.add_argument('--etalon_theta', type=float, default=0., required=False,
-                              help='angle of incidence of light in radians. Default: 0.')
+                              help='angle of incidence of light in radians.')
     etalon_group.add_argument('--etalon_n_photons', default=1000, required=False,
-                              help='Number of photons per seconds per peak of the etalon spectrum. Default: 1000')
+                              help='Number of photons per seconds per peak of the etalon spectrum.')
 
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
