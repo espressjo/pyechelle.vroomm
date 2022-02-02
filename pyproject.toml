@@ -27,9 +27,9 @@ joblib = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
 Sphinx = "^3.2.1"
-hypothesis = "^6.28.1"
+hypothesis = "^6.36.1"
 pytest = "^6.2.5"
-coverage = { extras = ["toml"], version = "^5.3" }
+coverage = { extras = ["toml"], version = "^6.3.1" }
 sphinx-argparse = "^0.3.1"
 sphinx-rtd-theme = "^1.0.0"
 pytest-benchmark = "^3.4.1"
