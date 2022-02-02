@@ -19,7 +19,7 @@ from numba import cuda
 import pyechelle
 from pyechelle import spectrograph, sources
 from pyechelle.CCD import read_ccd_from_hdf
-from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
+from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere, CSVEfficiency
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import Phoenix, CSV
@@ -208,7 +208,14 @@ def simulate(args):
             atmosphere = Atmosphere("Atmosphere", sky_calc_kwargs={'airmass': args.airmass})
         else:
             atmosphere = None
-        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency, atmosphere] if e is not None]
+
+        if args.csv_eff_filepath:
+            csv_eff = CSVEfficiency('CSV', args.csv_eff_filepath,
+                                    ',' if args.csv_eff_delimiter is not None else args.csv_eff_delimiter)
+        else:
+            csv_eff = None
+        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency, atmosphere, csv_eff]
+                            if e is not None]
 
         if all_efficiencies:
             efficiency = SystemEfficiency(all_efficiencies, "Total efficiency")
@@ -355,6 +362,17 @@ def generate_parser():
     csv_group.add_argument('--csv_magnitude', type=float, default=10., required=False,
                            help='If stellar target, the magnitude value i considered as V magnitude of the object and '
                                 'the flux is scaled accordingly. Ignored if --flux_in_photons is true.')
+    csv_group.add_argument('--csv_delimiter', type=str, required=False, default=',', help='Delimiter of the CSV file')
+
+    csv_eff_group = parser.add_argument_group('CSVEfficiency')
+    csv_eff_group.add_argument('--csv_eff_filepath', type=argparse.FileType('r'), required=False,
+                               help="Path to .csv file that contains two columns: wavelength and efficiency."
+                                    "The wavelength is expected to be in microns, "
+                                    "the efficiency is a real number in [0,1]."
+                                    "PyEchelle will interpolate the given values "
+                                    "for intermediate wavelength positions.")
+    csv_eff_group.add_argument('--csv_eff_delimiter', type=str, required=False, default=',',
+                               help='Delimiter of the CSV file')
 
     phoenix_group = parser.add_argument_group('Phoenix')
     phoenix_group.add_argument('--phoenix_t_eff', default=3600,

@@ -363,7 +363,7 @@ class CSV(Source):
 
     def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,
                  wavelength_unit: str = 'a', flux_in_photons: bool = False, stellar_target: bool = False,
-                 magnitude: float = 10.):
+                 magnitude: float = 10., delimiter: str = ','):
         assert wavelength_unit in self.wavelength_scaling.keys(), f'Supported wavelength units are ' \
                                                                   f'{self.wavelength_scaling.keys()}'
 
@@ -376,7 +376,7 @@ class CSV(Source):
         self.flux_in_photons = flux_in_photons
         self.stellar_target = stellar_target
         self.magnitude = magnitude
-        data = pd.read_csv(filepath, delimiter=',')
+        data = pd.read_csv(filepath, delimiter=delimiter)
 
         self.wl_data = data.iloc[:, 0].values * self.wavelength_scaling[wavelength_unit]
         self.flux_data = data.iloc[:, 1].values

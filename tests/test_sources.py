@@ -16,7 +16,10 @@ from pyechelle.simulator import check_url_exists
 def test_sources(wl, bw, source_name):
     wavelength = np.linspace(wl, wl + bw, 1000, dtype=np.float)
     print(f"Test {source_name}...")
-    source = getattr(sources, source_name)()
+    if source_name == 'CSV':
+        source = getattr(sources, source_name)('test_eff.csv', wavelength_unit='micron', stellar_target=False)
+    else:
+        source = getattr(sources, source_name)()
     sd = source.get_spectral_density(wavelength)
     assert isinstance(sd, tuple) or isinstance(sd, np.ndarray)
 
