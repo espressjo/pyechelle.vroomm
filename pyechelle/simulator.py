@@ -22,7 +22,7 @@ from pyechelle.CCD import read_ccd_from_hdf
 from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
-from pyechelle.sources import Phoenix
+from pyechelle.sources import Phoenix, CSV
 from pyechelle.telescope import Telescope
 
 logger = logging.getLogger('Simulator')
@@ -338,6 +338,25 @@ def generate_parser():
     arclamps_group = parser.add_argument_group('Arc Lamps')
     arclamps_group.add_argument('--scale', default=10.0, required=False,
                                 help='Intensity scale of gas lines (e.g. Ag or Ne) vs metal (Th)')
+
+    csv_group = parser.add_argument_group('CSV')
+    csv_group.add_argument('--csv_filepath', type=argparse.FileType('r'), required=False,
+                           help="Path to .csv file that contains two columns: wavelength and flux. The flux is expected"
+                                "to be in ergs/s/cm^2/cm (like Phoenix spectra) or photons (then set it via "
+                                "--csv_flux_in_photons). The wavelength unit is expected to "
+                                "be angstroms, but it can be changed via --csv_wavelength_unit")
+    csv_group.add_argument('--csv_wavelength_unit', choices=[CSV.wavelength_scaling.keys()], default='a',
+                           help=f"Unit of the wavelength column in the .csv file. Options are "
+                                f"{[CSV.wavelength_scaling.keys()]}")
+    csv_group.add_argument('--csv_list_like', type=bool, default=False, help='Set to True if spectrum is discrete.')
+    csv_group.add_argument('--csv_flux_in_photons', type=bool, default=False,
+                           help='Set to True if flux is given in Photons/s rather than ergs')
+    csv_group.add_argument('--csv_stellar_target', type=bool, default=True,
+                           help='Set to True if Source is a stellar target.')
+    csv_group.add_argument('--csv_magnitude', type=float, default=10., required=False,
+                           help='If stellar target, the magnitude value i considered as V magnitude of the object and '
+                                'the flux is scaled accordingly. Ignored if --flux_in_photons is true.')
+
     phoenix_group = parser.add_argument_group('Phoenix')
     phoenix_group.add_argument('--phoenix_t_eff', default=3600,
                                choices=Phoenix.valid_t,
