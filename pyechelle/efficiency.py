@@ -92,8 +92,22 @@ class GratingEfficiency(Efficiency):
 class TabulatedEfficiency(Efficiency):
     def __init__(self, name, wavelength, efficiency, orders=None):
         super().__init__(name)
+        wavelength = np.atleast_1d(wavelength)
+        efficiency = np.atleast_1d(efficiency)
+        assert len(wavelength) == len(efficiency)
         if orders is None:
-            self.ip = interp1d(wavelength, efficiency, kind="cubic", fill_value=0., bounds_error=False)
+            # do constant extrapolation if only 1 point
+            if len(wavelength) == 1:
+                self.ip = lambda x: efficiency
+            # do linear interpolation if only 2 points
+            elif len(wavelength) == 2:
+                self.ip = interp1d(wavelength, efficiency, kind="linear", fill_value=0., bounds_error=False)
+            # do linear interpolation if only 2 points
+            elif len(wavelength) == 3:
+                self.ip = interp1d(wavelength, efficiency, kind="quadratic", fill_value=0., bounds_error=False)
+            # do cubic interpolation if >= 4 points
+            else:
+                self.ip = interp1d(wavelength, efficiency, kind="cubic", fill_value=0., bounds_error=False)
             self.ip_per_order = self.ip
         else:
             self.ip_per_order = {}

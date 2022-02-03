@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import pathlib
 import urllib.request
 
@@ -366,7 +367,8 @@ class CSV(Source):
                  magnitude: float = 10., delimiter: str = ','):
         assert wavelength_unit in self.wavelength_scaling.keys(), f'Supported wavelength units are ' \
                                                                   f'{self.wavelength_scaling.keys()}'
-
+        if isinstance(filepath, io.TextIOWrapper):
+            filepath = filepath.name
         if isinstance(filepath, str):
             filepath = pathlib.Path(filepath)
         if name is None:
@@ -376,6 +378,7 @@ class CSV(Source):
         self.flux_in_photons = flux_in_photons
         self.stellar_target = stellar_target
         self.magnitude = magnitude
+        print(f'{filepath=}, {type(filepath)}')
         data = pd.read_csv(filepath, delimiter=delimiter)
 
         self.wl_data = data.iloc[:, 0].values * self.wavelength_scaling[wavelength_unit]

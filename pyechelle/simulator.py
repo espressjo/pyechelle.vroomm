@@ -98,7 +98,7 @@ def export_to_html(data, filename, include_plotlyjs=False):
     fig.write_html(filename, include_plotlyjs=include_plotlyjs)
 
 
-def check_for_spectrogrpah_model(model_name: str, download=True):
+def check_for_spectrograph_model(model_name: str, download=True):
     """
     Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
     spectrograph model is valid (this is mainly for testing purpose).
@@ -133,7 +133,7 @@ def log_elapsed_time(msg: str, t0: float):
 def simulate(args):
     t0 = time.time()
     logger.info(f'Check/download spectrograph model...')
-    spec_path = check_for_spectrogrpah_model(args.spectrograph)
+    spec_path = check_for_spectrograph_model(args.spectrograph)
     t0 = log_elapsed_time('done.', t0)
 
     logger.info(f'Prepare simulation arguments...')
@@ -187,7 +187,7 @@ def simulate(args):
         logger.info('Prepare simulation...')
         telescope = Telescope(args.d_primary, args.d_secondary)
         # extract kwords specific to selected source
-        source_args = [ss for ss in vars(args) if s.lower() in ss]
+        source_args = [ss for ss in vars(args) if ss.startswith(s.lower())]
         # create dict consisting of kword arguments and values specific to selected source
         source_kwargs = dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
                                  [getattr(args, ss) for ss in source_args]))
@@ -209,9 +209,8 @@ def simulate(args):
         else:
             atmosphere = None
 
-        if args.csv_eff_filepath:
-            csv_eff = CSVEfficiency('CSV', args.csv_eff_filepath,
-                                    ',' if args.csv_eff_delimiter is not None else args.csv_eff_delimiter)
+        if args.eff_csv_filepath:
+            csv_eff = CSVEfficiency('CSV', args.eff_csv_filepath.name, args.eff_csv_delimiter)  # pass filepath as str
         else:
             csv_eff = None
         all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency, atmosphere, csv_eff]
@@ -366,13 +365,13 @@ def generate_parser():
     csv_group.add_argument('--csv_delimiter', type=str, required=False, default=',', help='Delimiter of the CSV file')
 
     csv_eff_group = parser.add_argument_group('CSVEfficiency')
-    csv_eff_group.add_argument('--csv_eff_filepath', type=argparse.FileType('r'), required=False,
+    csv_eff_group.add_argument('--eff_csv_filepath', type=argparse.FileType('r'), required=False,
                                help="Path to .csv file that contains two columns: wavelength and efficiency."
                                     "The wavelength is expected to be in microns, "
                                     "the efficiency is a real number in [0,1]."
                                     "PyEchelle will interpolate the given values "
                                     "for intermediate wavelength positions.")
-    csv_eff_group.add_argument('--csv_eff_delimiter', type=str, required=False, default=',',
+    csv_eff_group.add_argument('--eff_csv_delimiter', type=str, required=False, default=',',
                                help='Delimiter of the CSV file')
 
     phoenix_group = parser.add_argument_group('Phoenix')
