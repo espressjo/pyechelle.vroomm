@@ -170,6 +170,14 @@ def simulate(args):
         rvs), f'You specified {len(rvs)} radial velocity flags, but we have {len(rvs)} fields/fibers.'
 
     ccd = read_ccd_from_hdf(spec_path)
+    if args.append:
+        try:
+            previous_data = fits.getdata(args.output)
+        except FileNotFoundError:
+            previous_data = None
+        if previous_data is not None:
+            assert ccd.data.shape == previous_data.shape, f'You are trying to append data to {args.output}, but it contains data with different shape'
+            ccd.data += previous_data
     t0 = log_elapsed_time('done.', t0)
     t1 = time.time()
 
@@ -178,7 +186,7 @@ def simulate(args):
     total_simulated_photons = []
 
     if args.cuda:
-        dccd = cuda.to_device(np.zeros_like(ccd.data, dtype=np.uint32))
+        dccd = cuda.to_device(ccd.data)
 
     for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
         logger.info('Read in spectrograph model')
@@ -269,9 +277,9 @@ def simulate(args):
     t2 = time.time()
 
     # save simulation to .fits file
-    hdu = fits.PrimaryHDU(data=np.array(ccd.data, dtype=int))
+    hdu = fits.PrimaryHDU(data=np.array(ccd.data))
     hdu_list = fits.HDUList([hdu])
-    hdu_list.writeto(args.output, overwrite=args.overwrite)
+    hdu_list.writeto(args.output, overwrite=True)
 
     if args.html_export:
         export_to_html(ccd.data, args.html_export)
@@ -410,9 +418,14 @@ def generate_parser():
 
     parser.add_argument('--show', default=False, action='store_true',
                         help='If set, the simulated frame will be shown in a matplotlib imshow frame at the end.')
-    parser.add_argument('-o', '--output', type=argparse.FileType('wb', 0), required=False, default='test.fits',
+    parser.add_argument('-o', '--output', type=lambda p: Path(p).absolute(), required=False,
+                        default=Path(__file__).absolute().parent / "test.fits",
                         help='A .fits file where the simulation is saved.')
-    parser.add_argument('--overwrite', default=False, action='store_true')
+    parser.add_argument('--append', default=False, action='store_true',
+                        help='If set, the simulated photons will be added to the output file rather than overwriting '
+                             'the content of the output file. If the output file does not exist yet, '
+                             'it will be created.This flag can be used to do more complex multi-fiber simulations as a'
+                             ' sequential manner of simpler simulations.')
 
     parser.add_argument('--html_export', type=str, default='',
                         help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"
