@@ -35,6 +35,7 @@ def run_benchmark_cpu(N_CPU=None, T=None):
     with open("benchmark_results.json", 'w') as fout:
         json_dumps_str = json.dumps(times, indent=4)
         print(json_dumps_str, file=fout)
+    return times
 
 
 def run_benchmark_cuda(T=None):
@@ -58,6 +59,7 @@ def run_benchmark_cuda(T=None):
     with open("benchmark_results_cuda.json", 'w') as fout:
         json_dumps_str = json.dumps(times, indent=4)
         print(json_dumps_str, file=fout)
+    return times
 
 
 def plot_results(result_cpu: dict, result_cuda: dict):

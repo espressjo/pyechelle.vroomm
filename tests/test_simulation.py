@@ -1,10 +1,10 @@
-import os
 import pathlib
 
-# disable jit, because it is not
-os.environ['NUMBA_DISABLE_JIT'] = '4'
+from pyechelle import simulator, benchmark
 
-from pyechelle import simulator
+
+# disable jit, because it is not
+# os.environ['NUMBA_DISABLE_JIT'] = '4'
 
 
 def test_simulation(capsys, benchmark):
@@ -28,4 +28,10 @@ def test_simulation_multicore(capsys, benchmark):
     result = captured.out
     assert "Simulation took" in result
     # cleanup files
+    pathlib.Path.cwd().joinpath('test.fits').unlink(missing_ok=True)
+
+
+def test_benchmark():
+    benchmark.run_benchmark_cpu([1], [0.01])
+    # benchmark.run_benchmark_cuda([0.01])
     pathlib.Path.cwd().joinpath('test.fits').unlink(missing_ok=True)

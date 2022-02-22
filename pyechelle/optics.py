@@ -3,6 +3,8 @@
 PyEchelle concept is to describe the optics of an instrument by applying a wavelength dependent affine transformation
  to the input plane and applying a PSF. This module implements the two basic classes that are needed to do so.
 """
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass, field
 
@@ -45,7 +47,7 @@ class AffineTransformation:
         shear (float): shearing factor
         tx (float): translation in x-direction
         ty (float): translation in y-direction
-        wavelength (float): wavelength [micron] of affine transformation matrix
+        wavelength (float | None): wavelength [micron] of affine transformation matrix
         m0 (float): affine transformation matrix element 0
         m1 (float): affine transformation matrix element 1
         m2 (float): affine transformation matrix element 2
@@ -60,7 +62,7 @@ class AffineTransformation:
     shear: float
     tx: float
     ty: float
-    wavelength: float
+    wavelength: float | None
 
     m0: float = field(init=False)
     m1: float = field(init=False)
@@ -82,6 +84,31 @@ class AffineTransformation:
 
     def __lt__(self, other):
         return self.wavelength < other.wavelength
+
+    def __add__(self, other):
+        if other.wavelength and self.wavelength:
+            assert np.isclose(other.wavelength, self.wavelength)
+            wl = self.wavelength
+        if other.wavelength and self.wavelength is None:
+            wl = other.wavelength
+        if self.wavelength and other.wavelength is None:
+            wl = self.wavelength
+        return AffineTransformation(self.rot + other.rot,
+                                    self.sx + other.sx,
+                                    self.sy + other.sy,
+                                    self.shear + other.shear,
+                                    self.tx + other.tx,
+                                    self.ty + other.ty,
+                                    wl)
+
+    def __iadd__(self, other):
+        assert np.isclose(other.wavelength, self.wavelength)
+        self.sx += other.sx
+        self.sy += other.sy
+        self.shear += other.shear
+        self.tx += other.tx
+        self.ty += other.ty
+        return self
 
     def as_matrix(self):
         """flat affine matrix

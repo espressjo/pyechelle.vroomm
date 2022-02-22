@@ -13,7 +13,7 @@ import numpy as np
        st.floats(min_value=0, max_value=10, allow_nan=False))
 @settings(deadline=None)
 def test_ccd(maxx, maxy, bias, readnoise):
-    ccd = CCD(xmax=maxx, ymax=maxy)
+    ccd = CCD(n_pix_x=maxx, n_pix_y=maxy)
     assert ccd.data.shape == (maxy, maxx)
     ccd.add_bias(bias)
     assert np.mean(ccd.data) == bias

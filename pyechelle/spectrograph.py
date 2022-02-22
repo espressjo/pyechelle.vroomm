@@ -48,7 +48,7 @@ class Spectrograph:
         raise NotImplementedError
 
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
-                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
+                           ccd_index: int = 1) -> AffineTransformation | np.ndarray:
         """ Transformation matrix/matrices
 
         Args:
@@ -67,7 +67,7 @@ class Spectrograph:
 
         PSFs are tabulated. When wavelength is provided, the closest available PSF of the model is returned.
 
-        When wavelength is None, all PSFs for that particular order (and fiber and CCD index) is returned.
+        When wavelength is None, all PSFs for that particular order (and fiber and CCD index) are returned.
 
         Args:
             wavelength: wavelength [micron] or None
@@ -404,6 +404,53 @@ class ZEMAX(Spectrograph):
             self._h5f.close()
 
 
+class InteractiveZEMAX(Spectrograph):
+
+    def get_fibers(self, ccd_index: int = 1) -> list[int]:
+        pass
+
+    def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
+        pass
+
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
+        pass
+
+    def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
+        pass
+
+    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) -> \
+            tuple[float, float]:
+        pass
+
+    def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
+        pass
+
+    def get_field_shape(self, fiber: int, ccd_index: int) -> str:
+        pass
+
+    def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
+        pass
+
+
+class Disturber(Spectrograph):
+
+    def __init__(self, spec: Spectrograph, d_tx=0., d_ty=0., d_rot=0., d_shear=0., d_sx=0., d_sy=0.):
+        self.spec = spec
+        for method in dir(Spectrograph):
+            if method.startswith('get_') and method != 'get_transformation':
+                setattr(self, method, getattr(self.spec, method))
+        self.disturber_matrix = AffineTransformation(d_rot, d_sx, d_sy, d_shear, d_tx, d_ty, None)
+
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | np.ndarray:
+        if isinstance(wavelength, float):
+            return self.spec.get_transformation(wavelength, order, fiber, ccd_index) + self.disturber_matrix
+        else:
+            return self.spec.get_transformation(wavelength, order, fiber, ccd_index) + \
+                   np.expand_dims(self.disturber_matrix.as_matrix(), axis=-1)
+
+
 if __name__ == "__main__":
     simple = SimpleSpectrograph()
     # print(simple.get_transformation(0.503, 1))
@@ -411,6 +458,10 @@ if __name__ == "__main__":
 
     print(simple.get_transformation(wl, 1))
 
+    dis = Disturber(simple, d_tx=1.)
+    print(dis.get_transformation(wl, 1))
+
+    print(simple.get_transformation(wl, 1) - dis.get_transformation(wl, 1))
     # print(simple.get_psf(0.503, 1))
     # plt.figure()
     # plt.imshow(simple.get_psf(0.503, 1).data)

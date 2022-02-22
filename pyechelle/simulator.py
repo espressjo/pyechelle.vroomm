@@ -12,7 +12,6 @@ import urllib.request
 from pathlib import Path
 from urllib.error import URLError
 
-import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 from joblib import Parallel, delayed
@@ -20,9 +19,8 @@ from numba import cuda
 
 import pyechelle
 import pyechelle.slit
-from pyechelle import spectrograph, sources
+from pyechelle import sources
 from pyechelle.CCD import CCD
-from pyechelle.efficiency import GratingEfficiency, TabulatedEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.raytrace_cuda import make_cuda_kernel
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
@@ -117,7 +115,7 @@ def check_for_spectrograph_model(model_name: str, download=True):
     """
     file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
     if not file_path.is_file():
-        url = f"https://stuermer.science/nextcloud/index.php/s/zLAw7L5NPEqp7aB/download?path=/&files={model_name}.hdf"
+        url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
         if download:
             print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
             Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
@@ -133,6 +131,23 @@ def log_elapsed_time(msg: str, t0: float) -> float:
     t1 = time.time()
     logger.info(msg + f' (took {t1 - t0:2f} s )')
     return t1
+
+
+def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True):
+    """ Saves CCD image to disk
+
+    Args:
+        c: CCD object
+        filename: filepath
+        overwrite: if True, file will be overwritten if existing
+
+    Returns:
+        None
+    """
+
+    hdu = fits.PrimaryHDU(data=np.array(c.data, dtype=int))
+    hdu_list = fits.HDUList([hdu])
+    hdu_list.writeto(filename, overwrite=overwrite)
 
 
 class Simulator:
@@ -167,8 +182,36 @@ class Simulator:
         self.show_after_simulation = show_after_simulation
         self.ccds = [ccds] if isinstance(ccds, int) else ccds
         self.cuda = cuda
-        self.cuda_seed = -1
+        self.cuda_seed = cuda_seed
         self.max_cpu = max_cpu
+
+    def set_source(self, source: Source | list[Source]):
+        assert self.fibers is not None, 'Please set first the fields that you want to simulate.'
+        self.sources = [source] * len(self.fibers) if isinstance(source, Source) else source
+        assert len(self.fibers) == len(self.sources), \
+            'Number of sources needs to match the number of fields/fibers (or be 1)'
+
+    def set_atmosphere(self, atmosphere: bool | list[bool]):
+        assert self.sources is not None, 'Please set first the sources that you want to simulate.'
+        self.atmosphere = [atmosphere] * len(self.sources) if isinstance(atmosphere, bool) else atmosphere
+        assert len(self.atmosphere) == len(self.sources), \
+            'Number of atmosphere flags needs to match the number of sources (or be 1)'
+
+    def set_radial_velocities(self, rvs: float | list[float]):
+        assert self.sources is not None, 'Please set first the sources that you want to simulate.'
+        self.rvs = [rvs] * len(self.sources) if isinstance(rvs, float) else rvs
+        assert len(self.rvs) == len(self.sources), \
+            'Number of radial velocity values needs to match the number of sources (or be 1)'
+
+    def set_telescope(self, telescope: Telescope):
+        self.telescope = telescope
+
+    def set_fibers(self, fiber: int | list[int]):
+        self.fibers = [fiber] if isinstance(fiber, int) else fiber
+
+    def set_cuda(self, activate: bool = True, seed: int = -1):
+        self.cuda = activate
+        self.cuda_seed = seed
 
     def validate(self):
         assert len(self.fibers) == len(
@@ -199,15 +242,14 @@ class Simulator:
                 f"Field shape {self.spectrograph.get_field_shape(fiber, ccd_index)} is not implemented.")
         return slit_fun
 
-    def simulate_multi_CPU(self, orders, fiber, ccd_index, slit_fun, s, rv, integration_time, c, efficiency):
+    def _simulate_multi_cpu(self, orders, fiber, ccd_index, slit_fun, s, rv, integration_time, c, efficiency):
         simulated_photons = []
         t0 = time.time()
-        results = Parallel(n_jobs=min(self.max_cpu, len(orders)))(
-            delayed(raytrace_order_cpu)(o, self.spectrograph.get_wavelength_range(o, fiber, ccd_index), s, slit_fun,
-                                        self.telescope, rv, integration_time,
-                                        c,
-                                        efficiency,
-                                        self.max_cpu) for o in np.sort(orders))
+        results = Parallel(n_jobs=min(self.max_cpu, len(orders)), backend="threading")(
+            delayed(raytrace_order_cpu)(o, self.spectrograph, s, slit_fun, self.telescope, rv,
+                                        integration_time,
+                                        c, fiber, ccd_index,
+                                        efficiency, self.max_cpu) for o in np.sort(orders))
         logger.info('Add up orders...')
         ccd_results = [r[0] for r in results]
         simulated_photons.extend([r[1] for r in results])
@@ -215,7 +257,7 @@ class Simulator:
         log_elapsed_time('done.', t0)
         return simulated_photons
 
-    def simulate_single_CPU(self, orders, fiber, ccd_index, s, slit_fun, rv, integration_time, c, efficiency):
+    def _simulate_single_cpu(self, orders, fiber, ccd_index, s, slit_fun, rv, integration_time, c, efficiency):
         simulated_photons = []
         for o in np.sort(orders):
             nphot = raytrace_order_cpu(o, self.spectrograph, s, slit_fun, self.telescope, rv,
@@ -226,7 +268,7 @@ class Simulator:
             simulated_photons.append(nphot)
         return simulated_photons
 
-    def simulate_cuda(self, orders, slit_fun, rv, integration_time, dccd, efficiency, s, c, fiber, ccd_index):
+    def _simulate_cuda(self, orders, slit_fun, rv, integration_time, dccd, efficiency, s, c, fiber, ccd_index):
         cuda_kernel = make_cuda_kernel(slit_fun)
         simulated_photons = []
         for o in np.sort(orders):
@@ -253,11 +295,11 @@ class Simulator:
 
                 if not self.cuda:
                     if max_cpu > 1:
-                        self.simulate_multi_CPU(orders, f, i, slit_fun, s, rv, integration_time, c, e)
+                        self._simulate_multi_cpu(orders, f, i, slit_fun, s, rv, integration_time, c, e)
                     else:
-                        self.simulate_single_CPU(orders, f, i, s, slit_fun, rv, integration_time, c, e)
+                        self._simulate_single_cpu(orders, f, i, s, slit_fun, rv, integration_time, c, e)
                 else:
-                    self.simulate_cuda(orders, slit_fun, rv, integration_time, dccd, e, s, c, f, i)
+                    self._simulate_cuda(orders, slit_fun, rv, integration_time, dccd, e, s, c, f, i)
 
             if self.cuda:
                 dccd.copy_to_host(c.data)
@@ -271,7 +313,7 @@ class Simulator:
             #     ccd.add_readnoise(args.read_noise)
             t2 = time.time()
 
-            self.write_to_fits(c, output, overwrite)
+            write_to_fits(c, output, overwrite)
 
             # if args.html_export:
             #     export_to_html(ccd.data, args.html_export)
@@ -283,177 +325,6 @@ class Simulator:
             # logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
             logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
             return sum(total_simulated_photons)
-
-    def write_to_fits(self, c: CCD, filename: str | Path, overwrite: bool = True):
-        hdu = fits.PrimaryHDU(data=np.array(c.data, dtype=int))
-        hdu_list = fits.HDUList([hdu])
-        hdu_list.writeto(filename, overwrite=overwrite)
-
-
-def simulate(args):
-    t0 = time.time()
-    logger.info(f'Check/download spectrograph model...')
-    spec_path = check_for_spectrograph_model(args.spectrograph)
-    spec = ZEMAX(spec_path)
-    t0 = log_elapsed_time('done.', t0)
-
-    logger.info(f'Prepare simulation arguments...')
-    # generate flat list for all fields to simulate
-    if any(isinstance(el, list) for el in args.fiber):
-        fibers = [item for sublist in args.fiber for item in sublist]
-    else:
-        fibers = args.fiber
-
-    # generate flat list of all sources to simulate
-    source_names = args.sources
-    if len(source_names) == 1:
-        source_names = [source_names[0]] * len(
-            fibers)  # generate list of same length as 'fields' if only one source given
-
-    assert len(fibers) == len(source_names), 'Number of sources needs to match number of fields (or be 1).'
-
-    # generate flat list of whether atmosphere is added
-    atmosphere = args.atmosphere
-    if len(atmosphere) == 1:
-        atmosphere = [atmosphere[0]] * len(
-            fibers)  # generate list of same length as 'fields' if only one flag is given
-
-    assert len(fibers) == len(
-        atmosphere), f'You specified {len(atmosphere)} atmosphere flags, but we have {len(fibers)} fields/fibers.'
-
-    # generate flat list for RV values
-    rvs = args.rv
-    if len(rvs) == 1:
-        rvs = [rvs[0]] * len(
-            fibers)  # generate list of same length as 'fields' if only one flag is given
-
-    assert len(fibers) == len(
-        rvs), f'You specified {len(rvs)} radial velocity flags, but we have {len(rvs)} fields/fibers.'
-
-    ccd = read_ccd_from_hdf(spec_path)
-    ccd = ZEMAX.get_spectrograph_unit()
-    t0 = log_elapsed_time('done.', t0)
-    t1 = time.time()
-
-    n_cpu_max = args.max_cpu
-
-    total_simulated_photons = []
-
-    if args.cuda:
-        dccd = cuda.to_device(np.zeros_like(ccd.data, dtype=np.uint32))
-
-    for f, s, atmo, rv in zip(fibers, source_names, atmosphere, rvs):
-        logger.info('Read in spectrograph model')
-        spec = spectrograph.ZEMAX(spec_path, f)
-        t0 = log_elapsed_time('done.', t0)
-        logger.info('Prepare simulation...')
-        telescope = Telescope(args.d_primary, args.d_secondary)
-        # extract kwords specific to selected source
-        source_args = [ss for ss in vars(args) if s.lower() in ss]
-        # create dict consisting of kword arguments and values specific to selected source
-        source_kwargs = dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
-                                 [getattr(args, ss) for ss in source_args]))
-        source = getattr(sources, s)(**source_kwargs)
-        if args.no_blaze:
-            grating_efficiency = None
-        else:
-            grating_efficiency = GratingEfficiency(spec.blaze, spec.blaze, spec.gpmm)
-
-        if args.no_efficiency:
-            spectrograph_efficiency = None
-        else:
-            if spec.efficiency is not None:
-                spectrograph_efficiency = TabulatedEfficiency("Spectrograph efficiency", *spec.efficiency)
-            else:
-                spectrograph_efficiency = None
-        if atmo:
-            atmosphere = Atmosphere("Atmosphere", sky_calc_kwargs={'airmass': args.airmass})
-        else:
-            atmosphere = None
-        all_efficiencies = [e for e in [grating_efficiency, spectrograph_efficiency, atmosphere] if e is not None]
-
-        if all_efficiencies:
-            efficiency = SystemEfficiency(all_efficiencies, "Total efficiency")
-        else:
-            efficiency = None
-
-        if args.orders is None:
-            orders = spec.orders
-        else:
-            requested_orders = [item for sublist in args.orders for item in sublist]
-            orders = []
-            for o in requested_orders:
-                if o in spec.orders:
-                    orders.append(o)
-                else:
-                    logger.warning(f'Order {o} is requested, but it is not in the Spectrograph model.')
-
-        t0 = log_elapsed_time('done.', t0)
-        logger.info('Do raytracing...')
-        if not args.cuda:
-            # get slit function
-            try:
-                slit_fun = getattr(pyechelle.slit, spec.field_shape)
-            except AttributeError:
-                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
-
-            if n_cpu_max > 1:
-                results = Parallel(n_jobs=min(n_cpu_max, len(orders)))(
-                    delayed(raytrace_order_cpu)(o, spec, source, slit_fun, telescope, rv, args.integration_time, ccd,
-                                                efficiency,
-                                                n_cpu_max) for o in np.sort(orders))
-                logger.info('Add up orders...')
-                ccd_results = [r[0] for r in results]
-                total_simulated_photons.extend([r[1] for r in results])
-                ccd.data = np.sum(ccd_results, axis=0)
-                t0 = log_elapsed_time('done.', t0)
-            else:
-                for o in np.sort(orders):
-                    nphot = raytrace_order_cpu(o, spec, source, slit_fun, telescope, rv, args.integration_time, ccd,
-                                               efficiency,
-                                               1)
-                    total_simulated_photons.append(nphot)
-        else:
-            try:
-                slit_fun = getattr(pyechelle.slit, f"cuda_{spec.field_shape}")
-            except AttributeError:
-                raise NotImplementedError(f"Field shape {spec.field_shape} is not implemented.")
-
-            cuda_kernel = make_cuda_kernel(slit_fun)
-            for o in np.sort(orders):
-                nphot = raytrace_order_cuda(o, spec, source, telescope, rv, args.integration_time, dccd,
-                                            float(ccd.pixelsize), efficiency, seed=args.cuda_seed,
-                                            cuda_kernel=cuda_kernel)
-                total_simulated_photons.append(nphot)
-        t0 = log_elapsed_time('done.', t0)
-
-    if args.cuda:
-        dccd.copy_to_host(ccd.data)
-    logger.info('Finish up simulation and save...')
-    ccd.clip()
-
-    # add bias / global ccd effects
-    if args.bias:
-        ccd.add_bias(args.bias)
-    if args.read_noise:
-        ccd.add_readnoise(args.read_noise)
-    t2 = time.time()
-
-    # save simulation to .fits file
-    hdu = fits.PrimaryHDU(data=np.array(ccd.data, dtype=int))
-    hdu_list = fits.HDUList([hdu])
-    hdu_list.writeto(args.output, overwrite=args.overwrite)
-
-    if args.html_export:
-        export_to_html(ccd.data, args.html_export)
-    if args.show:
-        plt.figure()
-        plt.imshow(ccd.data)
-        plt.show()
-    t0 = log_elapsed_time('done.', t0)
-    logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
-    logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
-    return sum(total_simulated_photons)
 
 
 def generate_parser():
@@ -581,6 +452,14 @@ def main(args=None):
         source_names = [source_names[0]] * len(
             fibers)  # generate list of same length as 'fields' if only one source given
 
+    source_kwargs = []
+    # extract kwords specific to selected source
+    for s in source_names:
+        source_args = [ss for ss in vars(args) if s.lower() in ss]
+        # create dict consisting of kword arguments and values specific to selected source
+        source_kwargs.append(dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
+                                      [getattr(args, ss) for ss in source_args])))
+
     assert len(fibers) == len(source_names), 'Number of sources needs to match number of fields (or be 1).'
 
     # generate flat list of whether atmosphere is added
@@ -598,12 +477,13 @@ def main(args=None):
         rvs = [rvs[0]] * len(
             fibers)  # generate list of same length as 'fields' if only one flag is given
 
-    sim = Simulator(ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MARVEL_2021_11_22.hdf"),
-                    # sim=Simulator(SimpleSpectrograph(),
-                    [getattr(sources, source)() for source in source_names], fibers,
+    spec_path = check_for_spectrograph_model(args.spectrograph)
+
+    sim = Simulator(ZEMAX(spec_path),
+                    [getattr(sources, source)(**s_args) for source, s_args in zip(source_names, source_kwargs)], fibers,
                     [item for sublist in args.orders for item in sublist] if args.orders is not None else None,
                     Telescope(args.d_primary, args.d_secondary), cuda=args.cuda, cuda_seed=args.cuda_seed, rvs=rvs,
-                    atmosphere=atmosphere)
+                    atmosphere=atmosphere, max_cpu=args.max_cpu)
     sim.run(args.max_cpu, args.output, True, args.integration_time)
     t2 = time.time()
     print(f"Simulation took {t2 - t1:.3f} s")
