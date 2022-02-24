@@ -9,7 +9,8 @@ from pyechelle import simulator, benchmark
 
 def test_simulation(capsys, benchmark):
     benchmark.pedantic(simulator.main,
-                       args=([["-s", "MaroonX", "--sources", "Constant", "-t", "0.01", "--orders", "100-102"]]),
+                       args=([["-s", "MaroonX", "--sources", "Constant", "-t", "0.01", "--orders", "100-102", "-o",
+                               "test.fits"]]),
                        iterations=1, rounds=1)
     captured = capsys.readouterr()
     result = captured.out

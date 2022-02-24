@@ -4,7 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pyechelle.simulator import available_models
+from pyechelle.simulator import available_models, check_for_spectrograph_model
 from pyechelle.spectrograph import Spectrograph, ZEMAX
 
 
@@ -12,8 +12,6 @@ def plot_transformations(spectrograph: Spectrograph, fiber: int = 1, ccd_index: 
     """ Plot affine transformation matrices
 
     Args:
-        fiber: fiber index
-        ccd_index: ccd index
         spectrograph: Spectrograph model
 
     Returns:
@@ -135,7 +133,7 @@ def main(args):
     parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-    spec = ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf")
+    spec = ZEMAX(check_for_spectrograph_model(args.spectrograph), args.fiber)
     # if args.plot_transformations:
     plot_transformations(spec)
     # if args.plot_transformation_matrices:

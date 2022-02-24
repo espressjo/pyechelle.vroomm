@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.2.3] - 2022-02-20
+
+### Added
+
+- support for CSV based spectra
+- support for CSV based spectrograph efficiency files
+- added *--append* option, to add simulations with different command line arguments to existing .fits frame rather than
+  overwrite the file content
+
+### Changed
+
+- updated project dependencies
+
+### Removed
+
+- *--overwrite* flag, since wasn't working
+
+## [0.2.2] - 2022-01-26
+
+### Fixed
+
+- project dependencies
+
+## [0.2.1] - 2022-01-26
+
+### Added
+
+- CUBES spectrograph (red and blue arm)
+
+### Changed
+ - updated project dependencies
 
 ## [UNRELEASED] -
 
@@ -15,7 +46,7 @@ Code restructuring for better readability/maintainability.
 
 ### Added
 
-- CUDA support (use the --cuda flag)
+- CUDA support (use the *--cuda* flag)
 - more tests to improve code reliability and increase coverage
 - better code documentation incl. API for modules and classes
 

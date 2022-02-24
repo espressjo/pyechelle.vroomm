@@ -32,6 +32,9 @@ Implementing various spectral sources that can be used in pyechelle.
     plt.tight_layout()
     plt.show()
 """
+from __future__ import annotations
+
+import io
 import pathlib
 import urllib.request
 
@@ -338,3 +341,36 @@ class Phoenix(Source):
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.ip_spectra(self.wl_data[idx])
+
+
+class CSV(Source):
+    wavelength_scaling = {'a': 1E-4, 'nm': 1E-3, 'micron': 1, 'm': 1E-6}
+
+    def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,
+                 wavelength_unit: str = 'a', flux_in_photons: bool = False, stellar_target: bool = False,
+                 magnitude: float = 10., delimiter: str = ','):
+        assert wavelength_unit in self.wavelength_scaling.keys(), f'Supported wavelength units are ' \
+                                                                  f'{self.wavelength_scaling.keys()}'
+        if isinstance(filepath, io.TextIOWrapper):
+            filepath = filepath.name
+        if isinstance(filepath, str):
+            filepath = pathlib.Path(filepath)
+        if name is None:
+            name = filepath.name
+        super().__init__(name=name)
+        self.list_like = list_like
+        self.flux_in_photons = flux_in_photons
+        self.stellar_target = stellar_target
+        self.magnitude = magnitude
+        print(f'{filepath=}, {type(filepath)}')
+        data = pd.read_csv(filepath, delimiter=delimiter)
+
+        self.wl_data = data.iloc[:, 0].values * self.wavelength_scaling[wavelength_unit]
+        self.flux_data = data.iloc[:, 1].values
+        if not flux_in_photons:
+            self.flux_data *= 0.1  # convert ergs/s/cm^2/cm to uW/m^2/um
+            self.flux_data *= calc_flux_scale(self.wl_data, self.flux_data, self.magnitude)
+
+    def get_spectral_density(self, wavelength):
+        idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
+        return self.wl_data[idx], self.flux_data[idx]

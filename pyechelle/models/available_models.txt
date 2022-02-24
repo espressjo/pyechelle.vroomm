@@ -4,3 +4,5 @@ cubespec
 NEID
 VeloceRosso
 MARVEL_2021_11_22
+cubes_blue
+cubes_red

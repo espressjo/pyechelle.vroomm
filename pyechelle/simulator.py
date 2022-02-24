@@ -24,6 +24,7 @@ from pyechelle.CCD import CCD
 from pyechelle.raytrace_cuda import make_cuda_kernel
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
+from pyechelle.sources import Phoenix, CSV
 from pyechelle.sources import Phoenix, Source
 from pyechelle.spectrograph import Spectrograph, ZEMAX
 from pyechelle.telescope import Telescope
@@ -328,7 +329,8 @@ class Simulator:
 
 
 def generate_parser():
-    parser = argparse.ArgumentParser(description='PyEchelle Simulator')
+    parser = argparse.ArgumentParser(description='PyEchelle Simulator',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-s', '--spectrograph', choices=available_models, type=str, default="MaroonX", required=True,
                         help=f"Filename of spectrograph model. Model file needs to be located in models/ folder. ")
     parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
@@ -385,6 +387,36 @@ def generate_parser():
     arclamps_group = parser.add_argument_group('Arc Lamps')
     arclamps_group.add_argument('--scale', default=10.0, required=False,
                                 help='Intensity scale of gas lines (e.g. Ag or Ne) vs metal (Th)')
+
+    csv_group = parser.add_argument_group('CSV')
+    csv_group.add_argument('--csv_filepath', type=argparse.FileType('r'), required=False,
+                           help="Path to .csv file that contains two columns: wavelength and flux. The flux is expected"
+                                "to be in ergs/s/cm^2/cm (like Phoenix spectra) or photons (then set it via "
+                                "--csv_flux_in_photons). The wavelength unit is expected to "
+                                "be angstroms, but it can be changed via --csv_wavelength_unit")
+    csv_group.add_argument('--csv_wavelength_unit', choices=[CSV.wavelength_scaling.keys()], default='a',
+                           help=f"Unit of the wavelength column in the .csv file. Options are "
+                                f"{[CSV.wavelength_scaling.keys()]}")
+    csv_group.add_argument('--csv_list_like', type=bool, default=False, help='Set to True if spectrum is discrete.')
+    csv_group.add_argument('--csv_flux_in_photons', type=bool, default=False,
+                           help='Set to True if flux is given in Photons/s rather than ergs')
+    csv_group.add_argument('--csv_stellar_target', type=bool, default=True,
+                           help='Set to True if Source is a stellar target.')
+    csv_group.add_argument('--csv_magnitude', type=float, default=10., required=False,
+                           help='If stellar target, the magnitude value i considered as V magnitude of the object and '
+                                'the flux is scaled accordingly. Ignored if --flux_in_photons is true.')
+    csv_group.add_argument('--csv_delimiter', type=str, required=False, default=',', help='Delimiter of the CSV file')
+
+    csv_eff_group = parser.add_argument_group('CSVEfficiency')
+    csv_eff_group.add_argument('--eff_csv_filepath', type=argparse.FileType('r'), required=False,
+                               help="Path to .csv file that contains two columns: wavelength and efficiency."
+                                    "The wavelength is expected to be in microns, "
+                                    "the efficiency is a real number in [0,1]."
+                                    "PyEchelle will interpolate the given values "
+                                    "for intermediate wavelength positions.")
+    csv_eff_group.add_argument('--eff_csv_delimiter', type=str, required=False, default=',',
+                               help='Delimiter of the CSV file')
+
     phoenix_group = parser.add_argument_group('Phoenix')
     phoenix_group.add_argument('--phoenix_t_eff', default=3600,
                                choices=Phoenix.valid_t,
@@ -407,13 +439,13 @@ def generate_parser():
 
     etalon_group = parser.add_argument_group('Etalon')
     etalon_group.add_argument('--etalon_d', type=float, default=5., required=False,
-                              help='Mirror distance of Fabry Perot etalon in [mm]. Default: 5.0')
+                              help='Mirror distance of Fabry Perot etalon in [mm].')
     etalon_group.add_argument('--etalon_n', type=float, default=1.0, required=False,
-                              help='Refractive index of medium between etalon mirrors. Default: 1.0')
+                              help='Refractive index of medium between etalon mirrors.')
     etalon_group.add_argument('--etalon_theta', type=float, default=0., required=False,
-                              help='angle of incidence of light in radians. Default: 0.')
+                              help='angle of incidence of light in radians.')
     etalon_group.add_argument('--etalon_n_photons', default=1000, required=False,
-                              help='Number of photons per seconds per peak of the etalon spectrum. Default: 1000')
+                              help='Number of photons per seconds per peak of the etalon spectrum.')
 
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
@@ -421,9 +453,14 @@ def generate_parser():
 
     parser.add_argument('--show', default=False, action='store_true',
                         help='If set, the simulated frame will be shown in a matplotlib imshow frame at the end.')
-    parser.add_argument('-o', '--output', type=argparse.FileType('wb', 0), required=False, default='test.fits',
+    parser.add_argument('-o', '--output', type=lambda p: Path(p).absolute(), required=False,
+                        default=Path(__file__).absolute().parent / "test.fits",
                         help='A .fits file where the simulation is saved.')
-    parser.add_argument('--overwrite', default=False, action='store_true')
+    parser.add_argument('--append', default=False, action='store_true',
+                        help='If set, the simulated photons will be added to the output file rather than overwriting '
+                             'the content of the output file. If the output file does not exist yet, '
+                             'it will be created.This flag can be used to do more complex multi-fiber simulations as a'
+                             ' sequential manner of simpler simulations.')
 
     parser.add_argument('--html_export', type=str, default='',
                         help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"

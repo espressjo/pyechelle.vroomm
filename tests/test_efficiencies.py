@@ -35,6 +35,43 @@ def test_grating(alpha, beta, gpmm, peak_efficiency, name, wl, order):
     assert e.get_efficiency(wl) >= 0.0
     assert e.get_efficiency_per_order(wl, order) >= 0.0
 
+@given(
+    st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, ),
+    st.integers(min_value=1, max_value=200),
+)
+def test_tabulated_constant(wl, order):
+    e = eff.TabulatedEfficiency('tab', 0.5, 0.3)
+    assert np.isclose(e.get_efficiency(wl), 0.3)
+    assert np.isclose(e.get_efficiency_per_order(wl, order), 0.3)
+
+@given(
+    st.floats(min_value=0.4, max_value=0.5, allow_nan=False, allow_infinity=False, ),
+    st.integers(min_value=1, max_value=200),
+)
+def test_tabulated_linear(wl, order):
+    e = eff.TabulatedEfficiency('tab', [0.4, 0.5], [0.3, 0.5])
+    assert 0.29 < e.get_efficiency(wl) < 0.51
+    assert 0.29 < e.get_efficiency_per_order(wl, order) < 0.51
+
+@given(
+    st.floats(min_value=0.4, max_value=0.5, allow_nan=False, allow_infinity=False, ),
+    st.integers(min_value=1, max_value=200),
+)
+def test_tabulated_quadratic(wl, order):
+    e = eff.TabulatedEfficiency('tab', [0.4, 0.45, 0.5], [0.3, 0.35, 0.5])
+    assert 0.29 < e.get_efficiency(wl) < 0.51
+    assert 0.29 < e.get_efficiency_per_order(wl, order) < 0.51
+
+
+@given(
+    st.floats(min_value=0.4, max_value=0.5, allow_nan=False, allow_infinity=False, ),
+    st.integers(min_value=1, max_value=200),
+)
+def test_tabulated_cubic(wl, order):
+    e = eff.TabulatedEfficiency('tab', [0.4, 0.45, 0.5, 0.6], [0.3, 0.35, 0.5, 0.3])
+    assert 0.29 < e.get_efficiency(wl) < 0.51
+    assert 0.29 < e.get_efficiency_per_order(wl, order) < 0.51
+
 
 def test_atmosphere():
     min_wavelength = 0.38
