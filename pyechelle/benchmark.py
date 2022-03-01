@@ -17,9 +17,11 @@ def run_benchmark_cpu(N_CPU=None, T=None):
 
     # dry run, so everything gets compiled...
     simulator.main(
-        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{1}"]))
+        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{1}",
+               "--overwrite"]))
     simulator.main(
-        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{2}"]))
+        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{2}",
+               "--overwrite"]))
 
     run = 0
     for n_cpu in N_CPU:
@@ -28,7 +30,7 @@ def run_benchmark_cpu(N_CPU=None, T=None):
             t1 = time.time()
             nphot = simulator.main(args=(
                 ["-s", "MaroonX", "--sources", "Constant", "-t", f"{t}", "--orders", "100-105", "--max_cpu",
-                 f"{n_cpu}"]))
+                 f"{n_cpu}", "--overwrite"]))
             t2 = time.time()
             times.update({f"run_{run}": {"cpu": n_cpu, "exp.time": t, "duration": t2 - t1, "nphot": nphot}})
 
@@ -45,14 +47,16 @@ def run_benchmark_cuda(T=None):
 
     # dry run, so everything gets compiled...
     simulator.main(
-        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--cuda"]))
+        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--cuda",
+               "--overwrite"]))
 
     run = 0
     for t in T:
         run += 1
         t1 = time.time()
         nphot = simulator.main(
-            args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{t}", "--orders", "100-105", "--cuda"]))
+            args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{t}", "--orders", "100-105", "--cuda",
+                   "--overwrite"]))
         t2 = time.time()
         times.update({f"cuda_run_{run}": {"cpu": 1, "exp.time": t, "duration": t2 - t1, "nphot": nphot}})
 
