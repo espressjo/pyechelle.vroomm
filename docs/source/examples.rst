@@ -1,5 +1,5 @@
-Examples
-========
+Examples - command line
+=======================
 
 Example 1: Flat
 ^^^^^^^^^^^^^^^

@@ -45,7 +45,8 @@ extensions = [
     'sphinx.ext.autodoc',  # Core library for html generation from docstrings
     'sphinx.ext.autosummary',  # Create neat summary tables
     'matplotlib.sphinxext.plot_directive',
-    "sphinxarg.ext"
+    "sphinxarg.ext",
+    "sphinx_copybutton"
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 

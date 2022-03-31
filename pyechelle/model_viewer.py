@@ -4,8 +4,9 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pyechelle.simulator import available_models, check_for_spectrograph_model
-from pyechelle.spectrograph import Spectrograph, ZEMAX
+from optics import convert_matrix
+from pyechelle.simulator import available_models
+from pyechelle.spectrograph import Spectrograph, ZEMAX, check_for_spectrograph_model
 
 
 def plot_transformations(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
@@ -53,18 +54,20 @@ def plot_transformation_matrices(spectrograph: Spectrograph, fiber: int = 1, ccd
     fig.suptitle(f"Affine transformation matrices of {spectrograph.name}")
     for o in spectrograph.get_orders(fiber, ccd_index):
         if isinstance(spectrograph, ZEMAX):
+            transformations = convert_matrix(
+                np.array([tm.as_matrix() for tm in spectrograph.transformations(o, fiber, ccd_index)]))
             ax[0, 0].set_title("m0")
-            ax[0, 0].plot([af.m0 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 0].plot(transformations[0])
             ax[0, 1].set_title("m1")
-            ax[0, 1].plot([af.m1 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 1].plot(transformations[1])
             ax[0, 2].set_title("m2")
-            ax[0, 2].plot([af.m2 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[0, 2].plot(transformations[2])
             ax[1, 0].set_title("m3")
-            ax[1, 0].plot([af.m3 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 0].plot(transformations[3])
             ax[1, 1].set_title("m4")
-            ax[1, 1].plot([af.m4 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 1].plot(transformations[4])
             ax[1, 2].set_title("m5")
-            ax[1, 2].plot([af.m5 for af in spectrograph.transformations(o, fiber, ccd_index)])
+            ax[1, 2].plot(transformations[5])
         else:
             raise NotImplementedError
     return fig
@@ -133,11 +136,11 @@ def main(args):
     parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-    spec = ZEMAX(check_for_spectrograph_model(args.spectrograph), args.fiber)
+    spec = ZEMAX(check_for_spectrograph_model(args.spectrograph))
     # if args.plot_transformations:
-    plot_transformations(spec)
+    plot_transformations(spec, args.fiber)
     # if args.plot_transformation_matrices:
-    plot_transformation_matrices(spec)
+    plot_transformation_matrices(spec, args.fiber)
     # if args.plot_field:
     # plot_fields(spec)
     # if args.plot_psfs:

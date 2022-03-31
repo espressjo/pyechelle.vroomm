@@ -8,10 +8,8 @@ import logging
 import re
 import sys
 import time
-import urllib.request
 from dataclasses import field, dataclass
 from pathlib import Path
-from urllib.error import URLError
 
 import numpy as np
 from astropy.io import fits
@@ -22,8 +20,7 @@ import pyechelle
 import pyechelle.slit
 from pyechelle import sources
 from pyechelle.CCD import CCD
-from pyechelle.raytrace_cuda import make_cuda_kernel
-from pyechelle.raytrace_cuda import raytrace_order_cuda
+from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import CSV
 from pyechelle.sources import Phoenix, Source
@@ -62,22 +59,6 @@ def parse_num_list(string_list: str) -> list:
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def check_url_exists(url: str) -> bool:
-    """
-    Check if URL exists.
-    Args:
-        url: url to be tested
-
-    Returns:
-        if URL exists
-    """
-    try:
-        with urllib.request.urlopen(url) as response:
-            return float(response.headers['Content-length']) > 0
-    except URLError:
-        return False
-
-
 def export_to_html(data, filename, include_plotlyjs=False):
     """
     Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some examples in the documentation.
@@ -101,32 +82,6 @@ def export_to_html(data, filename, include_plotlyjs=False):
     fig.update_layout(autosize=True, width=w, height=h, margin=dict(l=0, r=0, b=0, t=0))
     fig.update_yaxes(range=[2000, 3000])
     fig.write_html(filename, include_plotlyjs=include_plotlyjs)
-
-
-def check_for_spectrograph_model(model_name: str, download=True):
-    """
-    Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
-    spectrograph model is valid (this is mainly for testing purpose).
-
-    Args:
-        model_name: name of spectrograph model. See models/available_models.txt for valid names
-        download: download flag
-
-    Returns:
-
-    """
-    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
-    if not file_path.is_file():
-        url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
-        if download:
-            print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
-            Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
-            with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
-                data = response.read()
-                out_file.write(data)
-        else:
-            check_url_exists(url)
-    return file_path
 
 
 def log_elapsed_time(msg: str, t0: float) -> float:
@@ -186,7 +141,7 @@ class Simulator:
 
     def set_sources(self, source: Source | list[Source]):
         assert self.fibers is not None, 'Please set first the fields that you want to simulate.'
-        self.sources = [source] * len(self.fibers) if isinstance(source, Source) else source
+        self.sources = source if isinstance(source, list) else [source] * len(self.fibers)
         assert len(self.fibers) == len(self.sources), \
             'Number of sources needs to match the number of fields/fibers (or be 1)'
 
@@ -219,6 +174,7 @@ class Simulator:
         self.read_noise = read_noise
 
     def set_fibers(self, fiber: int | list[int]):
+        assert self.ccd is not None, 'Please set CCD index first.'
         self.fibers = [fiber] if isinstance(fiber, int) else fiber
         for f in self.fibers:
             assert f in self.spectrograph.get_fibers(self.ccd), f'You requested simulation of fiber {f}, which is ' \
@@ -519,8 +475,7 @@ def main(args=None):
     parser = generate_parser()
     args = parser.parse_args(args)
     t1 = time.time()
-    spec_path = check_for_spectrograph_model(args.spectrograph)
-    sim = Simulator(ZEMAX(spec_path))
+    sim = Simulator(ZEMAX(args.spectrograph))
     sim.set_ccd(args.ccd)
 
     # generate flat list for all fields to simulate

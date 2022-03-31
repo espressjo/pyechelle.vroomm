@@ -9,6 +9,7 @@ Welcome to PyEchelle's documentation!
    usage
    benchmark
    examples
+   example_direct
    new_model
 
 API documentation

@@ -4,6 +4,7 @@ import random
 import numba.cuda
 import numpy as np
 
+from optics import convert_matrix
 from pyechelle.CCD import CCD
 from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
 from pyechelle.sources import Source
@@ -89,7 +90,8 @@ def raytrace_order_cpu(o, spec: Spectrograph, source: Source, slit_fun: callable
 
     minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
     trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index))
+    transformations = convert_matrix(np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index)))
+
     # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
     # derivatives for simple linear interpolation
     trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])

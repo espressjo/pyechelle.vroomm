@@ -8,7 +8,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+import numba
 import numpy as np
+import scipy.interpolate
 
 
 @dataclass
@@ -64,20 +66,20 @@ class AffineTransformation:
     ty: float
     wavelength: float | None
 
-    m0: float = field(init=False)
-    m1: float = field(init=False)
-    m2: float = field(init=False)
-    m3: float = field(init=False)
-    m4: float = field(init=False)
-    m5: float = field(init=False)
-
-    def __post_init__(self):
-        self.m0 = self.sx * math.cos(self.rot)
-        self.m1 = -self.sy * math.sin(self.rot + self.shear)
-        self.m2 = self.tx
-        self.m3 = self.sx * math.sin(self.rot)
-        self.m4 = self.sy * math.cos(self.rot + self.shear)
-        self.m5 = self.ty
+    # m0: float = field(init=False)
+    # m1: float = field(init=False)
+    # m2: float = field(init=False)
+    # m3: float = field(init=False)
+    # m4: float = field(init=False)
+    # m5: float = field(init=False)
+    #
+    # def __post_init__(self):
+    #     self.m0 = self.sx * math.cos(self.rot)
+    #     self.m1 = -self.sy * math.sin(self.rot + self.shear)
+    #     self.m2 = self.tx
+    #     self.m3 = self.sx * math.sin(self.rot)
+    #     self.m4 = self.sy * math.cos(self.rot + self.shear)
+    #     self.m5 = self.ty
 
     def __le__(self, other):
         return self.wavelength <= other.wavelength
@@ -101,6 +103,22 @@ class AffineTransformation:
                                     self.ty + other.ty,
                                     wl)
 
+    def __sub__(self, other):
+        if other.wavelength and self.wavelength:
+            assert np.isclose(other.wavelength, self.wavelength)
+            wl = self.wavelength
+        if other.wavelength and self.wavelength is None:
+            wl = other.wavelength
+        if self.wavelength and other.wavelength is None:
+            wl = self.wavelength
+        return AffineTransformation(self.rot - other.rot,
+                                    self.sx - other.sx,
+                                    self.sy - other.sy,
+                                    self.shear - other.shear,
+                                    self.tx - other.tx,
+                                    self.ty - other.ty,
+                                    wl)
+
     def __iadd__(self, other):
         assert np.isclose(other.wavelength, self.wavelength)
         self.sx += other.sx
@@ -110,14 +128,95 @@ class AffineTransformation:
         self.ty += other.ty
         return self
 
-    def as_matrix(self):
+    def __isub__(self, other):
+        assert np.isclose(other.wavelength, self.wavelength)
+        self.sx -= other.sx
+        self.sy -= other.sy
+        self.shear -= other.shear
+        self.tx -= other.tx
+        self.ty -= other.ty
+        return self
+
+    def __mul__(self, other):
+        assert isinstance(other, tuple), "You can only multiply an affine matrix with a tuple of length 2 (x," \
+                                         "y coordinate) "
+        assert len(tuple) == 2, "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
+        x_new = self.sx * math.cos(self.rot) * other[0] - self.sy * math.sin(self.rot + self.shear) * other[1] + self.tx
+        y_new = self.sx * math.sin(self.rot) * other[0] + self.sy * math.cos(self.rot + self.shear) * other[1] + self.ty
+        return x_new, y_new
+
+    def as_matrix(self) -> tuple:
         """flat affine matrix
 
         Returns:
             flat affine transformation matrix
         """
+        return self.rot, self.sx, self.sy, self.shear, self.tx, self.ty
 
-        return self.m0, self.m1, self.m2, self.m3, self.m4, self.m5
+
+@dataclass
+class TransformationSet:
+    affine_transformations: list[AffineTransformation]
+    rot: np.ndarray = field(init=False)
+    sx: np.ndarray = field(init=False)
+    sy: np.ndarray = field(init=False)
+    shear: np.ndarray = field(init=False)
+    tx: np.ndarray = field(init=False)
+    ty: np.ndarray = field(init=False)
+    wl: np.ndarray = field(init=False)
+
+    _spline_affine: list = field(init=False, default=None)
+
+    def __post_init__(self):
+        self.affine_transformations = sorted(self.affine_transformations)
+
+        self.rot = np.array([at.rot for at in self.affine_transformations])
+        self.sx = np.array([at.sx for at in self.affine_transformations])
+        self.sy = np.array([at.sy for at in self.affine_transformations])
+        self.shear = np.array([at.shear for at in self.affine_transformations])
+        self.tx = np.array([at.tx for at in self.affine_transformations])
+        self.ty = np.array([at.ty for at in self.affine_transformations])
+
+        self.wl = np.array([at.wavelength for at in self.affine_transformations])
+
+    def get_affine_transformations(self, wl: float | np.ndarray) -> AffineTransformation | np.ndarray:
+        if self._spline_affine is None:
+            self._spline_affine = [scipy.interpolate.UnivariateSpline(self.wl, self.rot),
+                                   scipy.interpolate.UnivariateSpline(self.wl, self.sx),
+                                   scipy.interpolate.UnivariateSpline(self.wl, self.sy),
+                                   scipy.interpolate.UnivariateSpline(self.wl, self.shear),
+                                   scipy.interpolate.UnivariateSpline(self.wl, self.tx),
+                                   scipy.interpolate.UnivariateSpline(self.wl, self.ty)
+                                   ]
+        if isinstance(wl, float):
+            return AffineTransformation(*[af(wl) for af in self._spline_affine], wl)
+        else:
+            return np.array([af(wl) for af in self._spline_affine])
+
+
+def convert_matrix(input: AffineTransformation | np.ndarray) -> np.ndarray:
+    if isinstance(input, AffineTransformation):
+        return np.array([input.sx * math.cos(input.rot),
+                         -input.sy * math.sin(input.rot + input.shear),
+                         input.tx,
+                         input.sx * math.sin(input.rot),
+                         input.sy * math.cos(input.rot + input.shear),
+                         input.ty])
+    else:
+        assert isinstance(input, np.ndarray)
+        return np.array([
+            input[1] * np.cos(input[0]),
+            -input[2] * np.sin(input[0] + input[3]),
+            input[4],
+            input[1] * np.sin(input[0]),
+            input[2] * np.cos(input[0] + input[3]),
+            input[5]])
+
+
+@numba.njit
+def apply_matrix(matrix, coords):
+    return matrix[0] * coords[0] + matrix[1] * coords[1] + matrix[2], \
+           matrix[3] * coords[0] + matrix[4] * coords[1] + matrix[5]
 
 
 @dataclass

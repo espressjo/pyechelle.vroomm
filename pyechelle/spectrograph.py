@@ -1,15 +1,59 @@
 from __future__ import annotations
 
 import logging
+import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
+from urllib.error import URLError
 
 import h5py
 import numpy as np
-import scipy.interpolate
 
 from pyechelle.CCD import CCD
 from pyechelle.efficiency import SystemEfficiency, GratingEfficiency, TabulatedEfficiency, ConstantEfficiency
-from pyechelle.optics import AffineTransformation, PSF
+from pyechelle.optics import AffineTransformation, PSF, TransformationSet, convert_matrix, apply_matrix
+
+
+def check_url_exists(url: str) -> bool:
+    """
+    Check if URL exists.
+    Args:
+        url: url to be tested
+
+    Returns:
+        if URL exists
+    """
+    try:
+        with urllib.request.urlopen(url) as response:
+            return float(response.headers['Content-length']) > 0
+    except URLError:
+        return False
+
+
+def check_for_spectrograph_model(model_name: str, download=True):
+    """
+    Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
+    spectrograph model is valid (this is mainly for testing purpose).
+
+    Args:
+        model_name: name of spectrograph model. See models/available_models.txt for valid names
+        download: download flag
+
+    Returns:
+
+    """
+    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
+    if not file_path.is_file():
+        url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
+        if download:
+            print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
+            Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
+            with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
+                data = response.read()
+                out_file.write(data)
+        else:
+            check_url_exists(url)
+    return file_path
 
 
 @dataclass
@@ -162,8 +206,9 @@ class SimpleSpectrograph(Spectrograph):
             return AffineTransformation(0.0, 1.0, 10., 0., (wavelength - 0.5) * wavelength * 100000. + 2000.,
                                         fiber * 10. + 2000., wavelength)
         else:
-            return np.vstack([AffineTransformation(0.0, 1.0, 10., 0., (w - 0.5) * w * 100000. + 2000.,
-                                                   fiber * 10. + 2000., w).as_matrix() for w in wavelength]).T
+            ts = TransformationSet([AffineTransformation(0.0, 1.0, 10., 0., (w - 0.5) * w * 100000. + 2000.,
+                                                         fiber * 10. + 2000., w) for w in wavelength])
+            return ts.get_affine_transformations(wavelength)
 
     @staticmethod
     def gauss_map(size_x, size_y=None, sigma_x=5., sigma_y=None):
@@ -212,10 +257,10 @@ class SimpleSpectrograph(Spectrograph):
 
 
 class ZEMAX(Spectrograph):
-    def __init__(self, path):
+    def __init__(self, path: str | Path):
+        self.path = check_for_spectrograph_model(path)
         self._CCDs = {}
         self._ccd_keys = []
-        self.path = path
         self._h5f = None
 
         self._transformations = {}
@@ -283,37 +328,19 @@ class ZEMAX(Spectrograph):
 
         return self._transformations[ccd_index][fiber][order]
 
-    def spline_transformations(self, order: int, fiber: int = 1, ccd_index: int = 1) -> callable(float):
+    def spline_transformations(self, order: int, fiber: int = 1, ccd_index: int = 1) -> TransformationSet:
         if ccd_index not in self._spline_transformations.keys():
             self._spline_transformations[ccd_index] = {}
         if fiber not in self._spline_transformations[ccd_index].keys():
             self._spline_transformations[ccd_index][fiber] = {}
         if order not in self._spline_transformations[ccd_index][fiber].keys():
             tfs = self.transformations(order, fiber, ccd_index)
-            m0 = [t.m0 for t in tfs]
-            m1 = [t.m1 for t in tfs]
-            m2 = [t.m2 for t in tfs]
-            m3 = [t.m3 for t in tfs]
-            m4 = [t.m4 for t in tfs]
-            m5 = [t.m5 for t in tfs]
-            wl = [t.wavelength for t in tfs]
-
-            self._spline_transformations[ccd_index][fiber][order] = (scipy.interpolate.UnivariateSpline(wl, m0),
-                                                                     scipy.interpolate.UnivariateSpline(wl, m1),
-                                                                     scipy.interpolate.UnivariateSpline(wl, m2),
-                                                                     scipy.interpolate.UnivariateSpline(wl, m3),
-                                                                     scipy.interpolate.UnivariateSpline(wl, m4),
-                                                                     scipy.interpolate.UnivariateSpline(wl, m5))
+            self._spline_transformations[ccd_index][fiber][order] = TransformationSet(tfs)
         return self._spline_transformations[ccd_index][fiber][order]
 
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
-                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
-        if isinstance(wavelength, float):
-            return AffineTransformation(
-                *tuple([float(ev(wavelength)) for ev in self.spline_transformations(order, fiber, ccd_index)]),
-                wavelength)
-        else:
-            return [ev(wavelength) for ev in self.spline_transformations(order, fiber, ccd_index)]
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation] | np.ndarray:
+        return self.spline_transformations(order, fiber, ccd_index).get_affine_transformations(wavelength)
 
     def psfs(self, order: int, fiber: int = 1, ccd_index: int = 1) -> list[PSF]:
         if ccd_index not in self._psfs.keys():
@@ -433,7 +460,7 @@ class InteractiveZEMAX(Spectrograph):
         pass
 
 
-class Disturber(Spectrograph):
+class LocalDisturber(Spectrograph):
 
     def __init__(self, spec: Spectrograph, d_tx=0., d_ty=0., d_rot=0., d_shear=0., d_sx=0., d_sy=0.):
         self.spec = spec
@@ -451,24 +478,117 @@ class Disturber(Spectrograph):
                    np.expand_dims(self.disturber_matrix.as_matrix(), axis=-1)
 
 
+class GlobalDisturber(Spectrograph):
+
+    def __init__(self, spec: Spectrograph, tx=0., ty=0., rot=0., shear=0., sx=1., sy=1.):
+        self.spec = spec
+        for method in dir(Spectrograph):
+            if method.startswith('get_') and method != 'get_transformation':
+                setattr(self, method, getattr(self.spec, method))
+        self.disturber_matrix = AffineTransformation(rot, sx, sy, shear, tx, ty, None)
+
+    def _get_transformation_matrix(self, dx, dy, wavelength):
+        if isinstance(wl, float):
+            return AffineTransformation(0., 1., 1., 0., dx, dy, wavelength)
+        else:
+            assert isinstance(wavelength, np.ndarray) or isinstance(wavelength, list)
+            n_wavelength = len(wavelength)
+            return np.array([[0.] * n_wavelength,
+                             [1.] * n_wavelength,
+                             [1.] * n_wavelength,
+                             [0.] * n_wavelength,
+                             [dx] * n_wavelength,
+                             [dy] * n_wavelength])
+
+    def _get_disturbance_matrix(self, wavelength):
+        if isinstance(wavelength, float):
+            return AffineTransformation(self.disturber_matrix.rot, self.disturber_matrix.sx,
+                                        self.disturber_matrix.sy, self.disturber_matrix.shear,
+                                        0., 0., wavelength)
+        else:
+            assert isinstance(wavelength, np.ndarray) or isinstance(wavelength, list)
+            n_wavelength = len(wavelength)
+            return np.array([[self.disturber_matrix.rot] * n_wavelength,
+                             [self.disturber_matrix.sx] * n_wavelength,
+                             [self.disturber_matrix.sy] * n_wavelength,
+                             [self.disturber_matrix.shear] * n_wavelength,
+                             [0.] * n_wavelength,
+                             [0.] * n_wavelength])
+
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | np.ndarray:
+        w, h = self.spec.get_ccd(ccd_index).data.shape
+        if isinstance(wavelength, float):
+            tm = self.spec.get_transformation(wavelength, order, fiber, ccd_index)
+            xy = tm.tx, tm.ty
+            # affine transformation to shift origin to center of image
+            tm_trans = self._get_transformation_matrix(-w / 2., -h / 2., tm.wavelength)
+            xy = tm_trans * xy
+            # affine transformation to rotate/shear/scale
+            tm_trans = self._get_disturbance_matrix(wavelength)
+            xy = tm_trans * xy
+            # affine transformation to shift origin back
+            tm_trans = AffineTransformation(0., 1., 1., 0., w / 2., h / 2., tm.wavelength)
+            xy = tm_trans * xy
+            tm.tx = xy[0]
+            tm.ty = xy[1]
+            return tm
+        else:
+            tm = self.spec.get_transformation(wavelength, order, fiber, ccd_index)
+            xy = tm[4:6].T
+            # affine transformation to shift origin to center of image
+            tm_trans = convert_matrix(self._get_transformation_matrix(-w / 2., -h / 2., wavelength))
+            xy = np.array([apply_matrix(c, p) for c, p in zip(tm_trans.T, xy)])
+
+            tm_trans = convert_matrix(self._get_disturbance_matrix(wavelength))
+            xy = np.array([apply_matrix(c, p) for c, p in zip(tm_trans.T, xy)])
+
+            # affine transformation to shift origin back
+            tm_trans = convert_matrix(self._get_transformation_matrix(w / 2., h / 2., wavelength))
+            xy = np.array([apply_matrix(c, p) for c, p in zip(tm_trans.T, xy)])
+            tm[4:6] = xy.T
+            return tm
+
+
 if __name__ == "__main__":
     simple = SimpleSpectrograph()
     # print(simple.get_transformation(0.503, 1))
     wl = np.linspace(*simple.get_wavelength_range(), 100)
 
-    print(simple.get_transformation(wl, 1))
+    # print(simple.get_transformation(wl, 1))
 
-    dis = Disturber(simple, d_tx=1.)
-    print(dis.get_transformation(wl, 1))
+    # dis = LocalDisturber(simple, d_tx=1.)
+    # print(dis.get_transformation(wl, 1))
 
+    # print(simple.get_transformation(wl, 1) - dis.get_transformation(wl, 1))
+
+    dis = GlobalDisturber(simple, rot=0.001, sx=1.0, sy=1.)
     print(simple.get_transformation(wl, 1) - dis.get_transformation(wl, 1))
     # print(simple.get_psf(0.503, 1))
     # plt.figure()
     # plt.imshow(simple.get_psf(0.503, 1).data)
     # plt.show()
     #
+    from simulator import Simulator
+    from sources import Etalon
 
-    # zm = ZEMAX("/home/stuermer/PycharmProjects/new_Models/models/MaroonX.hdf")
+    zm = ZEMAX("MaroonX")
+    sim = Simulator(GlobalDisturber(zm))
+    sim.set_ccd(1)
+    sim.set_fibers(1)
+    sim.set_sources(Etalon())
+    sim.set_cuda(True)
+    sim.set_output('testNodis.fits')
+    sim.run()
+
+    sim = Simulator(GlobalDisturber(zm, rot=0.001))
+    sim.set_ccd(1)
+    sim.set_fibers(1)
+    sim.set_sources(Etalon())
+    sim.set_cuda(True)
+    sim.set_output('testrotated.fits')
+    sim.run()
+
     # print(zm.get_CCD())
     # print(zm.get_fibers())
     # print(zm.get_orders(1, 1))

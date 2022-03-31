@@ -6,7 +6,7 @@ from hypothesis import given, strategies as st
 
 import pyechelle.sources as sources
 from pyechelle.simulator import available_sources
-from pyechelle.simulator import check_url_exists
+from pyechelle.spectrograph import check_url_exists
 
 
 @given(

@@ -3,8 +3,8 @@ import pathlib
 import numpy as np
 
 from pyechelle import simulator
-from pyechelle.simulator import export_to_html, check_url_exists, check_for_spectrograph_model, parse_num_list, \
-    available_models
+from pyechelle.simulator import export_to_html, parse_num_list, available_models
+from pyechelle.spectrograph import check_for_spectrograph_model, check_url_exists
 
 
 def test_parse_num_list():

@@ -4,8 +4,7 @@ from pyechelle.telescope import Telescope
 
 
 def test_setup_simulator():
-    path = simulator.check_for_spectrograph_model(simulator.available_models[0])
-    spec = spectrograph.ZEMAX(path)
+    spec = spectrograph.ZEMAX(simulator.available_models[0])
 
     sim = simulator.Simulator(spec)
     sim.set_ccd(1)
