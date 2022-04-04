@@ -50,13 +50,6 @@ class AffineTransformation:
         tx (float): translation in x-direction
         ty (float): translation in y-direction
         wavelength (float | None): wavelength [micron] of affine transformation matrix
-        m0 (float): affine transformation matrix element 0
-        m1 (float): affine transformation matrix element 1
-        m2 (float): affine transformation matrix element 2
-        m3 (float): affine transformation matrix element 3
-        m4 (float): affine transformation matrix element 4
-        m5 (float): affine transformation matrix element 5
-
     """
     rot: float
     sx: float

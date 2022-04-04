@@ -1,12 +1,12 @@
 import numpy as np
 
-from pyechelle import simulator, spectrograph
-from spectrograph import LocalDisturber, SimpleSpectrograph, GlobalDisturber
+from pyechelle import simulator
+from pyechelle.spectrograph import LocalDisturber, SimpleSpectrograph, GlobalDisturber, ZEMAX
 
 
 def test_zemax_spectrograph():
     # get spectrograph if not available
-    spec = spectrograph.ZEMAX(simulator.available_models[0])
+    spec = ZEMAX(simulator.available_models[0])
     for o in spec.get_orders():
         min_wl, max_wl = spec.get_wavelength_range(order=o)
         assert min_wl < max_wl
@@ -18,12 +18,11 @@ def test_simple_spectrograph():
         wl = np.linspace(*simple.get_wavelength_range(o, 1, 1), 100)
         transformations = simple.get_transformation(wl, o, 1, 1)
         tx = transformations[4]
-        print(tx)
         assert np.min(np.ediff1d(tx)) > 0.
 
 
 def test_LocaDisturber():
-    spec = spectrograph.ZEMAX(simulator.available_models[0])
+    spec = ZEMAX(simulator.available_models[0])
     o = spec.get_orders()[0]
     wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.
     aff1 = spec.get_transformation(wl, o, 1, 1)
@@ -40,7 +39,7 @@ def test_LocaDisturber():
 
 
 def test_GlobalDisturber():
-    spec = spectrograph.ZEMAX(simulator.available_models[0])
+    spec = ZEMAX(simulator.available_models[0])
     o = spec.get_orders()[0]
     wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.
     aff1 = spec.get_transformation(wl, o, 1, 1)
@@ -66,7 +65,7 @@ def test_zemax_models():
     """
 
     for s in simulator.available_models:
-        spec = spectrograph.ZEMAX(s)
+        spec = ZEMAX(s)
         for ccd in spec.get_ccd():
             for f in spec.get_fibers(ccd):
                 for o in spec.get_orders(f, ccd):
