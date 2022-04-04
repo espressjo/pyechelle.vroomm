@@ -8,7 +8,7 @@ from joblib import Memory
 from numba import cuda
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64
 
-from optics import convert_matrix
+from pyechelle.optics import convert_matrix
 from pyechelle.randomgen import make_alias_sampling_arrays
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph

@@ -479,16 +479,18 @@ class LocalDisturber(Spectrograph):
 
 
 class GlobalDisturber(Spectrograph):
-
-    def __init__(self, spec: Spectrograph, tx=0., ty=0., rot=0., shear=0., sx=1., sy=1.):
+    def __init__(self, spec: Spectrograph, tx: float = 0., ty: float = 0., rot: float = 0., shear: float = 0.,
+                 sx: float = 1., sy: float = 1., reference_x: float = None, reference_y: float = None):
         self.spec = spec
         for method in dir(Spectrograph):
             if method.startswith('get_') and method != 'get_transformation':
                 setattr(self, method, getattr(self.spec, method))
         self.disturber_matrix = AffineTransformation(rot, sx, sy, shear, tx, ty, None)
+        self.ref_x = reference_x
+        self.ref_y = reference_y
 
     def _get_transformation_matrix(self, dx, dy, wavelength):
-        if isinstance(wl, float):
+        if isinstance(wavelength, float):
             return AffineTransformation(0., 1., 1., 0., dx, dy, wavelength)
         else:
             assert isinstance(wavelength, np.ndarray) or isinstance(wavelength, list)
@@ -517,7 +519,16 @@ class GlobalDisturber(Spectrograph):
 
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
                            ccd_index: int = 1) -> AffineTransformation | np.ndarray:
+        # by default take center of CCD as reference point
         w, h = self.spec.get_ccd(ccd_index).data.shape
+        w /= 2.
+        h /= 2.
+
+        if self.ref_x is not None:
+            w = self.ref_x
+        if self.ref_y is not None:
+            h = self.ref_y
+
         if isinstance(wavelength, float):
             tm = self.spec.get_transformation(wavelength, order, fiber, ccd_index)
             xy = tm.tx, tm.ty
@@ -530,8 +541,8 @@ class GlobalDisturber(Spectrograph):
             # affine transformation to shift origin back
             tm_trans = AffineTransformation(0., 1., 1., 0., w / 2., h / 2., tm.wavelength)
             xy = tm_trans * xy
-            tm.tx = xy[0]
-            tm.ty = xy[1]
+            tm.tx = xy[0] + self.disturber_matrix.tx
+            tm.ty = xy[1] + self.disturber_matrix.ty
             return tm
         else:
             tm = self.spec.get_transformation(wavelength, order, fiber, ccd_index)
@@ -547,78 +558,6 @@ class GlobalDisturber(Spectrograph):
             tm_trans = convert_matrix(self._get_transformation_matrix(w / 2., h / 2., wavelength))
             xy = np.array([apply_matrix(c, p) for c, p in zip(tm_trans.T, xy)])
             tm[4:6] = xy.T
+            tm[4] += self.disturber_matrix.tx
+            tm[5] += self.disturber_matrix.ty
             return tm
-
-
-if __name__ == "__main__":
-    simple = SimpleSpectrograph()
-    # print(simple.get_transformation(0.503, 1))
-    wl = np.linspace(*simple.get_wavelength_range(), 100)
-
-    # print(simple.get_transformation(wl, 1))
-
-    # dis = LocalDisturber(simple, d_tx=1.)
-    # print(dis.get_transformation(wl, 1))
-
-    # print(simple.get_transformation(wl, 1) - dis.get_transformation(wl, 1))
-
-    dis = GlobalDisturber(simple, rot=0.001, sx=1.0, sy=1.)
-    print(simple.get_transformation(wl, 1) - dis.get_transformation(wl, 1))
-    # print(simple.get_psf(0.503, 1))
-    # plt.figure()
-    # plt.imshow(simple.get_psf(0.503, 1).data)
-    # plt.show()
-    #
-    from simulator import Simulator
-    from sources import Etalon
-
-    zm = ZEMAX("MaroonX")
-    sim = Simulator(GlobalDisturber(zm))
-    sim.set_ccd(1)
-    sim.set_fibers(1)
-    sim.set_sources(Etalon())
-    sim.set_cuda(True)
-    sim.set_output('testNodis.fits')
-    sim.run()
-
-    sim = Simulator(GlobalDisturber(zm, rot=0.001))
-    sim.set_ccd(1)
-    sim.set_fibers(1)
-    sim.set_sources(Etalon())
-    sim.set_cuda(True)
-    sim.set_output('testrotated.fits')
-    sim.run()
-
-    # print(zm.get_CCD())
-    # print(zm.get_fibers())
-    # print(zm.get_orders(1, 1))
-    # zm.get_psf(int(10, 10, 1, 1)
-
-    # print(zm.get_psf(0.6088, 100, 1, 1))
-    #
-    # print(zm.get_transformation(0.610, 100, 2, 1, ))
-    # print(zm.get_transformation(0.610, 100, 3, 1, ))
-    # print(zm.get_transformation(0.610, 100, 4, 1, ))
-
-    # wl = np.linspace(*zm.get_wavelength_range(100,1,1), 1000)
-    # zm.get_transformation(wl)
-
-    # print(zm.get_transformation(0.6101, 100))
-    # print(zm.get_wavelength_range(100))
-    # print(zm.get_wavelength_range(100, 1))
-    # print(zm.get_wavelength_range(fiber=2))
-    # print(zm.get_wavelength_range(100, 3))
-    # # print(zm.get_field_shape(3))
-    # zm = ZEMAXUnit("/home/stuermer/PycharmProjects/pyechelle/pyechelle/models/MaroonX.hdf", 1)
-    # psf = zm.get_psf(0.608, 100)
-    # for o in zm.orders:
-    #     min_w, max_w = zm.get_wavelength_range(o)
-    #     print(zm.get_psf((min_w + max_w) / 2., o))
-    #     print(zm.get_transformation((min_w + max_w) / 2., o))
-    #
-    # print(zm.orders)
-    # print(zm.get_wavelength_range())
-    # print(zm.get_wavelength_range(100))
-    #
-    # tf = zm.get_transformation(0.608, 100)
-    # print(tf)

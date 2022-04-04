@@ -4,8 +4,8 @@ import random
 import numba.cuda
 import numpy as np
 
-from optics import convert_matrix
 from pyechelle.CCD import CCD
+from pyechelle.optics import convert_matrix
 from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph

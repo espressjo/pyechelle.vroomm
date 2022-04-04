@@ -29,7 +29,7 @@ class CCD:
     n_pix_x: int = 4096
     n_pix_y: int = 4096
     maxval: int = 65536
-    pixelsize: float = 9.  # physical size of an individual pixel [microns]
+    pixelsize: float = 9.
     identifier: str = 'detector'
     data: np.ndarray = field(init=False)
 

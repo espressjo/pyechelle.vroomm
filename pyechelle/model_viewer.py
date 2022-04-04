@@ -4,9 +4,9 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from optics import convert_matrix
+from pyechelle.optics import convert_matrix
 from pyechelle.simulator import available_models
-from pyechelle.spectrograph import Spectrograph, ZEMAX, check_for_spectrograph_model
+from pyechelle.spectrograph import Spectrograph, ZEMAX
 
 
 def plot_transformations(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
@@ -55,7 +55,7 @@ def plot_transformation_matrices(spectrograph: Spectrograph, fiber: int = 1, ccd
     for o in spectrograph.get_orders(fiber, ccd_index):
         if isinstance(spectrograph, ZEMAX):
             transformations = convert_matrix(
-                np.array([tm.as_matrix() for tm in spectrograph.transformations(o, fiber, ccd_index)]))
+                np.array([tm.as_matrix() for tm in spectrograph.transformations(o, fiber, ccd_index)]).T)
             ax[0, 0].set_title("m0")
             ax[0, 0].plot(transformations[0])
             ax[0, 1].set_title("m1")
@@ -136,7 +136,7 @@ def main(args):
     parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(args)
-    spec = ZEMAX(check_for_spectrograph_model(args.spectrograph))
+    spec = ZEMAX(args.spectrograph)
     # if args.plot_transformations:
     plot_transformations(spec, args.fiber)
     # if args.plot_transformation_matrices:

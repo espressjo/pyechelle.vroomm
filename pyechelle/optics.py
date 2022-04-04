@@ -66,21 +66,6 @@ class AffineTransformation:
     ty: float
     wavelength: float | None
 
-    # m0: float = field(init=False)
-    # m1: float = field(init=False)
-    # m2: float = field(init=False)
-    # m3: float = field(init=False)
-    # m4: float = field(init=False)
-    # m5: float = field(init=False)
-    #
-    # def __post_init__(self):
-    #     self.m0 = self.sx * math.cos(self.rot)
-    #     self.m1 = -self.sy * math.sin(self.rot + self.shear)
-    #     self.m2 = self.tx
-    #     self.m3 = self.sx * math.sin(self.rot)
-    #     self.m4 = self.sy * math.cos(self.rot + self.shear)
-    #     self.m5 = self.ty
-
     def __le__(self, other):
         return self.wavelength <= other.wavelength
 
@@ -88,6 +73,7 @@ class AffineTransformation:
         return self.wavelength < other.wavelength
 
     def __add__(self, other):
+        wl = None
         if other.wavelength and self.wavelength:
             assert np.isclose(other.wavelength, self.wavelength)
             wl = self.wavelength
@@ -104,6 +90,7 @@ class AffineTransformation:
                                     wl)
 
     def __sub__(self, other):
+        wl = None
         if other.wavelength and self.wavelength:
             assert np.isclose(other.wavelength, self.wavelength)
             wl = self.wavelength
@@ -140,7 +127,7 @@ class AffineTransformation:
     def __mul__(self, other):
         assert isinstance(other, tuple), "You can only multiply an affine matrix with a tuple of length 2 (x," \
                                          "y coordinate) "
-        assert len(tuple) == 2, "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
+        assert len(other) == 2, "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
         x_new = self.sx * math.cos(self.rot) * other[0] - self.sy * math.sin(self.rot + self.shear) * other[1] + self.tx
         y_new = self.sx * math.sin(self.rot) * other[0] + self.sy * math.cos(self.rot + self.shear) * other[1] + self.ty
         return x_new, y_new
@@ -168,7 +155,7 @@ class TransformationSet:
     _spline_affine: list = field(init=False, default=None)
 
     def __post_init__(self):
-        self.affine_transformations = sorted(self.affine_transformations)
+        self.affine_transformations.sort()
 
         self.rot = np.array([at.rot for at in self.affine_transformations])
         self.sx = np.array([at.sx for at in self.affine_transformations])
@@ -177,16 +164,22 @@ class TransformationSet:
         self.tx = np.array([at.tx for at in self.affine_transformations])
         self.ty = np.array([at.ty for at in self.affine_transformations])
 
+        # correct for possible jumps in rot and shear
+        # assert max(abs(np.ediff1d(self.shear))) < 4, 'There is a jump in the shear parameter of the model file. ' \
+        #                                              'Please correct the jump, by wrapping shear to e.g. to (-pi, pi) or (0, 2.*pi)'
+
+        # self.shear = np.mod(self.shear, np.pi * 2.)
+
         self.wl = np.array([at.wavelength for at in self.affine_transformations])
 
     def get_affine_transformations(self, wl: float | np.ndarray) -> AffineTransformation | np.ndarray:
         if self._spline_affine is None:
-            self._spline_affine = [scipy.interpolate.UnivariateSpline(self.wl, self.rot),
-                                   scipy.interpolate.UnivariateSpline(self.wl, self.sx),
-                                   scipy.interpolate.UnivariateSpline(self.wl, self.sy),
-                                   scipy.interpolate.UnivariateSpline(self.wl, self.shear),
-                                   scipy.interpolate.UnivariateSpline(self.wl, self.tx),
-                                   scipy.interpolate.UnivariateSpline(self.wl, self.ty)
+            self._spline_affine = [scipy.interpolate.CubicSpline(self.wl, self.rot),
+                                   scipy.interpolate.CubicSpline(self.wl, self.sx),
+                                   scipy.interpolate.CubicSpline(self.wl, self.sy),
+                                   scipy.interpolate.CubicSpline(self.wl, self.shear),
+                                   scipy.interpolate.CubicSpline(self.wl, self.tx),
+                                   scipy.interpolate.CubicSpline(self.wl, self.ty)
                                    ]
         if isinstance(wl, float):
             return AffineTransformation(*[af(wl) for af in self._spline_affine], wl)

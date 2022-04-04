@@ -5,7 +5,7 @@ Here, we describe how to create a new model file from an existing ZEMAX design.
 
 Make a copy
 -----------
-Since we are modifiyng the ZEMAX file, the first step always is to save the ZEMAX file under a new name.
+Since we are modifying the ZEMAX file, the first step always is to save the ZEMAX file under a new name.
 
 Delete MultiConfigs
 -------------------
@@ -29,3 +29,5 @@ than being vignetted somewhere else. In almost most cases, vignetting on surface
 that the ZEMAX model should be revised. To avoid vignetting, it's typically a good idea to remove all apertures except
 the one that defines the detector. The aperture on the last surface is used to determine the wavelength bounds for each
 order.
+
+TBC

@@ -7,6 +7,7 @@ Welcome to PyEchelle's documentation!
 
    installation
    usage
+   models
    benchmark
    examples
    example_direct

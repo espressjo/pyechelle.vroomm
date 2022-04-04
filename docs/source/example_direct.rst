@@ -61,10 +61,10 @@ Examples - python scripts
    :file: _static/plots/example_results/03_atmosphere_and_rvs.html
    
    
-.. automodule:: examples.04_disturber
+.. automodule:: examples.04_LocalDisturber
   :members:
 
-.. literalinclude:: ../../examples/04_disturber.py
+.. literalinclude:: ../../examples/04_LocalDisturber.py
   :language: python
   :linenos:
   :start-after: "__main__":
@@ -73,6 +73,21 @@ Examples - python scripts
   :dedent: 4
 
 .. raw:: html
-   :file: _static/plots/example_results/04_disturber.html
+   :file: _static/plots/example_results/04_LocalDisturber.html
+   
+   
+.. automodule:: examples.05_GlobalDisturber
+  :members:
+
+.. literalinclude:: ../../examples/05_GlobalDisturber.py
+  :language: python
+  :linenos:
+  :start-after: "__main__":
+  :end-at: sim.run()
+  :tab-width: 0
+  :dedent: 4
+
+.. raw:: html
+   :file: _static/plots/example_results/05_GlobalDisturber.html
    
    
