@@ -25,10 +25,10 @@ def unravel_index(index, shape):
        numba.types.Tuple((float32[:], int32[:]))(float64[:])], nogil=True, parallel=True)
 def make_alias_sampling_arrays(probability: np.ndarray):
     """
-    As described `here <https://www.keithschwarz.com/darts-dice-coins/>`_, the most efficient way to draw random
+    As described `here <https://www.keithschwarz.com/darts-dice-coins/>`__, the most efficient way to draw random
     numbers from a discrete probability distribution are alias sampling methods.
     Here, we use a slightly adapted implementation of the Vose sampling method from
-    `here <https://gist.github.com/jph00/30cfed589a8008325eae8f36e2c5b087>`_.
+    `here <https://gist.github.com/jph00/30cfed589a8008325eae8f36e2c5b087>`__.
 
     Note:
         probability needs to be normalized, so that sum(probability)==1

@@ -47,8 +47,7 @@ extensions = [
     'sphinx.ext.autosummary',  # Create neat summary tables
     'matplotlib.sphinxext.plot_directive',
     "sphinxarg.ext",
-    "sphinx_copybutton",
-    "sphinx-tabs"
+    "sphinx_copybutton"
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
@@ -134,7 +133,7 @@ class ExecDirective(Directive):
 
 def setup(app):
     app.add_directive('exec', ExecDirective)
-    app.add_javascript('https://cdn.plot.ly/plotly-latest.min.js')  # Custom JavaScript
+    app.add_js_file('https://cdn.plot.ly/plotly-latest.min.js')  # Custom JavaScript
     app.add_css_file('doc_theme.css')
 
 

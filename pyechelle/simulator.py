@@ -112,6 +112,7 @@ class Simulator:
     """ PyEchelle simulator
 
     Simulator class that contains everything needed to generate spectra.
+
     Attributes:
         spectrograph (Spectrograph): spectrograph used for simulations
         fibers (list[int]): fiber / list of fibers to be simulated

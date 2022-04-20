@@ -4,10 +4,12 @@ Implementing various spectral sources that can be used in pyechelle.
 
 .. plot::
 
-    import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
     import numpy as np
     import pyechelle.sources as sources
     from pyechelle.simulator import available_sources
+
+    available_sources.remove('CSV')
 
     fig, ax = plt.subplots(len(available_sources), 1, figsize=(9, len(available_sources) * 2.5), sharex=True)
     fig.suptitle('Supported source functions')
