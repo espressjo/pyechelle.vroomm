@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3] - 2022-04-20
+
+NOTE: HDF model files from previous versions are not compatible anymore. In case you are using any of the supported
+spectrograph models, simply delete the local copy,
+and a new version will be downloaded. For you own models, check the HDF file structure of any of the supported
+spectrographs and adjust your HFD file accordingly.
+
+### Added
+
+- Simulator class for easy scripting in python. See examples.
+- Two classes to add distortions to any spectrograph class (see documentation)
+
+### Changed
+
+- spectrograph HDF model files are slightly restructured to better work with new simulator class.
+
 ## [0.2.3] - 2022-02-20
 
 ### Added
@@ -19,7 +36,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- *--overwrite* flag, since wasn't working
+- *--overwrite* flag, since it wasn't working
 
 ## [0.2.2] - 2022-01-26
 
