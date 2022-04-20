@@ -47,7 +47,8 @@ extensions = [
     'sphinx.ext.autosummary',  # Create neat summary tables
     'matplotlib.sphinxext.plot_directive',
     "sphinxarg.ext",
-    "sphinx_copybutton"
+    "sphinx_copybutton",
+    "sphinx-tabs"
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 

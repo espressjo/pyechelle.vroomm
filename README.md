@@ -10,12 +10,33 @@ speed improvements.
 
 ### Example usage
 
+You can use PyEchelle directly from the console:
+
 ```bash
 pyechelle --spectrograph MaroonX --fiber 2-4 --sources Phoenix --phoenix_t_eff 3500 -t 10 --rv 100 -o mdwarf.fit
 ```
 
-simulates a PHOENIX M-dwarf spectrum with the given stellar parameters, and a RV shift of 100m/s for the MAROON-X
-spectrograph.
+If you rather script in python, you can do the same as above with the following python script:
+
+```python
+
+from pyechelle.simulator import Simulator
+from pyechelle.sources import Phoenix
+from pyechelle.spectrograph import ZEMAX
+
+sim = Simulator(ZEMAX("MaroonX"))
+sim.set_ccd(1)
+sim.set_fibers([2, 3, 4])
+sim.set_sources(Phoenix(t_eff=3500))
+sim.set_exposure_time(10.)
+sim.set_radial_velocities(100.)
+sim.set_output('mdwarf.fits', overwrite=True)
+sim.run()
+
+```
+
+Both times, a PHOENIX M-dwarf spectrum with the given stellar parameters, and a RV shift of 100m/s for the MAROON-X
+spectrograph is simulated.
 
 The output is a 2D raw frame (.fits) and will look similar to:
 
