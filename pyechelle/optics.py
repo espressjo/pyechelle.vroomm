@@ -221,6 +221,9 @@ class PSF:
     data: np.ndarray
     sampling: float
 
+    def __post_init__(self):
+        self.data /= np.sum(self.data)
+
     def __le__(self, other):
         return self.wavelength <= other.wavelength
 

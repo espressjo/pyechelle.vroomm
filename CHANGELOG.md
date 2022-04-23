@@ -5,17 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2022-04-23
+
+### Fixed
+
+- fixed bug that caused PSF to not be applied correctly
+
 ## [0.3] - 2022-04-20
 
 NOTE: HDF model files from previous versions are not compatible anymore. In case you are using any of the supported
 spectrograph models, simply delete the local copy,
-and a new version will be downloaded. For you own models, check the HDF file structure of any of the supported
+and a new version will be downloaded. For you own models, check the HDF file structure of the supported
 spectrographs and adjust your HFD file accordingly.
 
 ### Added
 
-- Simulator class for easy scripting in python. See examples.
-- Two classes to add distortions to any spectrograph class (see documentation)
+- Simulator class for easy scripting in python. See [examples](https://stuermer.gitlab.io/pyechelle/example_direct.html)
+  .
+- Two classes to add distortions to any spectrograph class (
+  see [documentation](https://stuermer.gitlab.io/pyechelle/models.html#perturbations))
 
 ### Changed
 
