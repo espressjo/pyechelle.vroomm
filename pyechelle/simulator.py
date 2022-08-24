@@ -170,8 +170,9 @@ class Simulator:
         self.bias = bias_value
 
     def set_read_noise(self, read_noise: float = 0.):
-        assert self.bias > 0, "read noise was specified, but no bias value is set, yet. " \
-                              "Do so before setting the read noise."
+        if read_noise > 0.0:
+            assert self.bias > 0, "read noise was specified, but no bias value is set, yet. " \
+                                  "Do so before setting the read noise."
         self.read_noise = read_noise
 
     def set_fibers(self, fiber: int | list[int]):
@@ -291,9 +292,9 @@ class Simulator:
         c.clip()
 
         # add bias / global ccd effects
-        if self.bias:
+        if self.bias > 0:
             c.add_bias(self.bias)
-        if self.read_noise:
+        if self.read_noise > 0.:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
 
@@ -335,7 +336,7 @@ def generate_parser():
     parser.add_argument('--ccd', type=int, default=1, required=False, help='Sets CCD index to be simulated.')
     parser.add_argument('-t', '--integration_time', type=float, default=1.0, required=False,
                         help=f"Integration time for the simulation in seconds [s].")
-    parser.add_argument('--fiber', type=parse_num_list, default='1', required=False,
+    parser.add_argument('--fiber', type=parse_num_list, required=False,
                         help='Fiber/Field number(s) to be simulated. Can either be a single integer, or an integer'
                              'range (e.g. 1-3) ')
     parser.add_argument('--no_blaze', action='store_true',
@@ -449,7 +450,7 @@ def generate_parser():
 
     ccd_group = parser.add_argument_group('CCD')
     ccd_group.add_argument('--bias', type=int, required=False, default=0)
-    ccd_group.add_argument('--read_noise', type=float, required=False, default=0)
+    ccd_group.add_argument('--read_noise', type=float, required=False, default=0.)
 
     parser.add_argument('--show', default=False, action='store_true',
                         help='If set, the simulated frame will be shown in a matplotlib imshow frame at the end.')
@@ -480,17 +481,21 @@ def main(args=None):
     sim.set_ccd(args.ccd)
 
     # generate flat list for all fields to simulate
-    if any(isinstance(el, list) for el in args.fiber):
-        fibers = [item for sublist in args.fiber for item in sublist]
+    if args.fiber is not None:
+        if any(isinstance(el, list) for el in args.fiber):
+            fibers = [item for sublist in args.fiber for item in sublist]
+        else:
+            fibers = args.fiber
     else:
-        fibers = args.fiber
+        fibers = sim.spectrograph.get_fibers(args.ccd)
     sim.set_fibers(fibers)
 
-    if any(isinstance(el, list) for el in args.orders):
-        requested_orders = [item for sublist in args.orders for item in sublist]
-    else:
-        requested_orders = args.orders
-    sim.set_orders(requested_orders)
+    if args.orders is not None:
+        if any(isinstance(el, list) for el in args.orders):
+            requested_orders = [item for sublist in args.orders for item in sublist]
+        else:
+            requested_orders = args.orders
+        sim.set_orders(requested_orders)
     # generate flat list of all sources to simulate
     source_names = args.sources
     if len(source_names) == 1:
@@ -514,6 +519,8 @@ def main(args=None):
     sim.set_exposure_time(args.integration_time)
     sim.set_telescope(Telescope(args.d_primary, args.d_secondary))
     sim.set_output(args.output, args.append, args.overwrite)
+    sim.set_bias(args.bias)
+    sim.set_read_noise(args.read_noise)
     sim.run()
     t2 = time.time()
     print(f"Simulation took {t2 - t1:.3f} s")
