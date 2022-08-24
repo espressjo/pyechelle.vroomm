@@ -18,6 +18,7 @@ from numba import cuda
 
 import pyechelle
 import pyechelle.slit
+from efficiency import Efficiency, CSVEfficiency, SystemEfficiency
 from pyechelle import sources
 from pyechelle.CCD import CCD
 from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda
@@ -139,6 +140,7 @@ class Simulator:
     overwrite: bool = field(init=False, default=False)
     bias: int = field(init=False, default=None)
     read_noise: float = field(init=False, default=None)
+    global_efficiency: Efficiency = field(init=False, default=None)
 
     def set_sources(self, source: Source | list[Source]):
         assert self.fibers is not None, 'Please set first the fields that you want to simulate.'
@@ -165,6 +167,10 @@ class Simulator:
         self.ccd = ccd
         assert self.ccd in self.spectrograph.get_ccd().keys(), f'You requested simulation of CCD {ccd}, ' \
                                                                f'which is not available.'
+
+    def set_efficiency(self, eff: Efficiency):
+        assert isinstance(eff, Efficiency)
+        self.global_efficiency = eff
 
     def set_bias(self, bias_value: int = 0):
         self.bias = bias_value
@@ -273,7 +279,11 @@ class Simulator:
         for f, s, atmo, rv in zip(self.fibers, self.sources, self.atmosphere, self.rvs):
             orders = self.orders if self.orders is not None else self._get_valid_orders(f)
             slit_fun = self._get_slit_function(f)
-            e = self.spectrograph.get_efficiency(f, self.ccd)
+            if self.global_efficiency is None:
+                e = self.spectrograph.get_efficiency(f, self.ccd)
+            else:
+                e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency],
+                                     'Combined Efficiency')
 
             if not self.cuda:
                 if self.max_cpu > 1:
@@ -395,9 +405,9 @@ def generate_parser():
                                 "to be in ergs/s/cm^2/cm (like Phoenix spectra) or photons (then set it via "
                                 "--csv_flux_in_photons). The wavelength unit is expected to "
                                 "be angstroms, but it can be changed via --csv_wavelength_unit")
-    csv_group.add_argument('--csv_wavelength_unit', choices=[CSV.wavelength_scaling.keys()], default='a',
+    csv_group.add_argument('--csv_wavelength_unit', choices=list(CSV.wavelength_scaling.keys()), default='a', type=str,
                            help=f"Unit of the wavelength column in the .csv file. Options are "
-                                f"{[CSV.wavelength_scaling.keys()]}")
+                                f"{list(CSV.wavelength_scaling.keys())}")
     csv_group.add_argument('--csv_list_like', type=bool, default=False, help='Set to True if spectrum is discrete.')
     csv_group.add_argument('--csv_flux_in_photons', type=bool, default=False,
                            help='Set to True if flux is given in Photons/s rather than ergs')
@@ -505,13 +515,15 @@ def main(args=None):
     source_kwargs = []
     # extract kwords specific to selected source
     for s in source_names:
-        source_args = [ss for ss in vars(args) if s.lower() in ss]
+        source_args = [ss for ss in vars(args) if ss.startswith(s.lower())]
         # create dict consisting of kword arguments and values specific to selected source
         source_kwargs.append(dict(zip([ss.replace(f"{s.lower()}_", "") for ss in source_args],
                                       [getattr(args, ss) for ss in source_args])))
 
     sim.set_sources([getattr(sources, source)(**s_args) for source, s_args in zip(source_names, source_kwargs)])
 
+    if args.eff_csv_filepath:
+        sim.set_efficiency(CSVEfficiency('global', args.eff_csv_filepath, args.eff_csv_delimiter))
     # generate flat list of whether atmosphere is added
     sim.set_atmospheres(args.atmosphere[0] if len(args.atmosphere) == 1 else args.atmosphere)
     sim.set_radial_velocities(args.rv[0] if len(args.rv) == 1 else args.rv)
