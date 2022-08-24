@@ -18,9 +18,9 @@ from numba import cuda
 
 import pyechelle
 import pyechelle.slit
-from efficiency import Efficiency, CSVEfficiency, SystemEfficiency
 from pyechelle import sources
 from pyechelle.CCD import CCD
+from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency
 from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import CSV
