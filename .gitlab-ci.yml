@@ -15,9 +15,11 @@ stages:
 # templates
 .install-deps-template: &install-deps
   before_script:
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
     - pip install poetry
     - poetry install -vv
-
 
 .test-template: &test
   <<: *install-deps
