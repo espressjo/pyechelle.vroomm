@@ -5,6 +5,7 @@ import argparse
 import distutils.util
 import inspect
 import logging
+import pathlib
 import re
 import sys
 import time
@@ -91,21 +92,27 @@ def log_elapsed_time(msg: str, t0: float) -> float:
     return t1
 
 
-def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True):
+def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: bool = False):
     """ Saves CCD image to disk
 
     Args:
         c: CCD object
         filename: filepath
         overwrite: if True, file will be overwritten if existing
+        append: if True, CCD data will be added to data in fits file
 
     Returns:
         None
     """
-
-    hdu = fits.PrimaryHDU(data=np.array(c.data, dtype=int))
+    old_file_data = np.zeros_like(c.data)
+    if append:
+        if pathlib.Path(filename).is_file():
+            old_file_data = fits.getdata(filename)
+            assert old_file_data.shape == c.data.shape, f"You tried to append data to {filename}, but the fits file contains" \
+                                                        f"data with a different shape ({old_file_data.shape})."
+    hdu = fits.PrimaryHDU(data=np.array(c.data + old_file_data, dtype=int))
     hdu_list = fits.HDUList([hdu])
-    hdu_list.writeto(filename, overwrite=overwrite)
+    hdu_list.writeto(filename, overwrite=overwrite or append)
 
 
 @dataclass
@@ -138,8 +145,8 @@ class Simulator:
     output: Path = field(init=False, default=None)
     append: bool = field(init=False, default=False)
     overwrite: bool = field(init=False, default=False)
-    bias: int = field(init=False, default=None)
-    read_noise: float = field(init=False, default=None)
+    bias: int = field(init=False, default=0)
+    read_noise: float = field(init=False, default=0.)
     global_efficiency: Efficiency = field(init=False, default=None)
 
     def set_sources(self, source: Source | list[Source]):
@@ -263,8 +270,10 @@ class Simulator:
             logger.info('Radial velocities are not specified explicitly. They are therefore set to 0.0')
             self.rvs = [0.0] * len(self.sources)
         if self.output.is_file():
-            assert self.overwrite, f'You specified to save the simulation at {self.output}, but this file exists.' \
-                                   f'If you want to overwrite, please set the overwrite flag.'
+            assert self.overwrite or self.append, f'You specified to save the simulation at {self.output}, ' \
+                                                  f'but this file exists. If you want to overwrite, ' \
+                                                  f'please set the overwrite flag. Or in case you want to append to ' \
+                                                  f'the file: please set the append flag'
         return True
 
     def run(self):
@@ -308,7 +317,7 @@ class Simulator:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
 
-        write_to_fits(c, self.output, self.overwrite)
+        write_to_fits(c, self.output, self.overwrite, self.append)
         logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
         logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
         return sum(total_simulated_photons)

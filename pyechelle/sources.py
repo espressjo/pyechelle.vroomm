@@ -346,6 +346,24 @@ class Phoenix(Source):
 
 
 class CSV(Source):
+    """
+    Spectral source based on custom .csv file
+
+    The .csv file needs to have two columns, a wavelength column and a flux column. The wavelength must be given
+    in either angstroms, nanometers, microns or meters (specified via wavelength_unit), while the flux must either be in
+    ergs/s/cm^2/cm (like Phoenix spectra) for stellar targets, or in photons/s.
+
+    Attributes:
+         filepath: path to .csv file
+         name: name of the spectrum
+         list_like: when True, no wavelength interpolation is active (useful for non-continuous spectra e.g.
+         custom line lists)
+         wavelength_unit: either 'a', 'nm', 'micron', or 'm' specifying the unit of the wavelength column
+         flux_in_photons: if True, flux column treated as photons/s otherwise ergs/s/cm^2/cm
+         stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
+         magnitude: V magnitude in case of stellar_target
+         delimiter: delimiter character of .csv file
+    """
     wavelength_scaling = {'a': 1E-4, 'nm': 1E-3, 'micron': 1, 'm': 1E-6}
 
     def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,

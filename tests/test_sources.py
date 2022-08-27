@@ -16,7 +16,7 @@ from pyechelle.spectrograph import check_url_exists
 )
 @hypothesis.settings(deadline=None)
 def test_sources(wl, bw, source_name):
-    wavelength = np.linspace(wl, wl + bw, 1000, dtype=np.float)
+    wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
     print(f"Test {source_name}...")
     if source_name == 'CSV':
         source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
