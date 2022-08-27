@@ -1,4 +1,3 @@
-image: python:3.8
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -8,29 +7,48 @@ cache:
     - .cache/pip
     - venv/
 
-before_script:
-  - python -V  # Print out python version for debugging
-  - pip install virtualenv
-  - virtualenv venv
-  - source venv/bin/activate
-  - pip install poetry
-  - poetry install
+stages:
+  - testing
+  - building
+  - deploying
 
-test:
-  script:
-    - pytest --cov
+# templates
+.install-deps-template: &install-deps
+  before_script:
+    - pip install poetry
+    - poetry --version
+    - poetry config settings.virtualenvs.in-project true
+    - poetry install -vv
 
-    #run:
-    #  script:
-    #    - python setup.py bdist_wheel
-    # an alternative approach is to install and run:
-    #    - pip install dist/*
-    # run the command here
-#  artifacts:
-#    paths:
-#      - dist/*.whl
+
+.test-template: &test
+  <<: *install-deps
+  stage: testing
+  coverage: '/TOTAL.*\s(\d+\.\d+\%)/'
+  script: pytest --cov
+  artifacts:
+    paths:
+      - tests/logs
+    when: always
+    expire_in: 1 week
+
+
+test_python3.8:
+  <<: *test
+  image: python:3.8
+
+test_python3.9:
+  <<: *test
+  image: python:3.9
+
+#test_python3.10:
+#  <<: *test
+#  image: python:3.10
+
 
 pages:
+  image: python:3.8
+  stage: building
   script:
     - pip install sphinx sphinx-rtd-theme
     - cd docs ; make html
@@ -40,3 +58,15 @@ pages:
       - public
   only:
     - master
+
+build:
+  image: python:3.8
+  stage: building
+  script: poetry build
+  artifacts:
+    paths:
+      - dist/*.whl
+
+deploy:
+  stage: deploying
+  script: echo "would upload to PyPi"
