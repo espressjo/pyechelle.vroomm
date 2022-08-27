@@ -16,8 +16,6 @@ stages:
 .install-deps-template: &install-deps
   before_script:
     - pip install poetry
-    - poetry --version
-    - source `poetry env info --path`/bin/activate
     - poetry install -vv
 
 
