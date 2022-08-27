@@ -60,6 +60,7 @@ pages:
     - master
 
 build:
+  <<: *install-deps
   image: python:3.8
   stage: building
   script: poetry build
