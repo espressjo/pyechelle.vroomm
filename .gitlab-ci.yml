@@ -47,6 +47,7 @@ test_python3.9:
 
 
 pages:
+  <<: *install-deps
   image: python:3.8
   stage: building
   script:
