@@ -7,8 +7,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
-- fiber/field shape attribute can now be either bytes or string
- 
+ - fiber/field shape attribute can now be either bytes or string
+ - updated project dependencies
+
 ## [0.3.4] - 2022-08-28
 
 ### Changed
