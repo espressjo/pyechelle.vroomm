@@ -38,6 +38,9 @@ import numba.cuda.random
 from numba import njit, float64, cuda
 from numba.types import UniTuple
 
+# single mode slit just return 'None'
+singlemode = None
+cuda_singlemode = None
 
 @njit(UniTuple(float64, 2)(float64, float64))
 def rectangular(xx, yy):
