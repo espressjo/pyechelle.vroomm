@@ -295,7 +295,8 @@ class ZEMAX(Spectrograph):
         if ccd_index not in self._field_shape.keys():
             self._field_shape[ccd_index] = {}
         if fiber not in self._field_shape[ccd_index].keys():
-            self._field_shape[ccd_index][fiber] = self.h5f[f"CCD_{ccd_index}/fiber_{fiber}"].attrs["field_shape"]
+            fs = self.h5f[f"CCD_{ccd_index}/fiber_{fiber}"].attrs["field_shape"]
+            self._field_shape[ccd_index][fiber] = fs.decode("utf-8") if isinstance(fs, bytes) else fs
         return self._field_shape[ccd_index][fiber]
 
     def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
