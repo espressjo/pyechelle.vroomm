@@ -7,6 +7,9 @@ Both, numba compiled functions and cuda device functions are implemented.
 In general, a slit function transforms a random coordinate x, y (both from the interval [0, 1]) to a random coordinate
 x', y'
 
+A special case is the 'singlemode' slit, since here, no transformation is required.
+
+
 .. plot::
 
     import matplotlib.pyplot as plt
@@ -37,6 +40,10 @@ import random
 import numba.cuda.random
 from numba import njit, float64, cuda
 from numba.types import UniTuple
+
+# single mode slit just return 'None'
+singlemode = None
+cuda_singlemode = None
 
 
 @njit(UniTuple(float64, 2)(float64, float64))

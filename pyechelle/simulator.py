@@ -22,7 +22,7 @@ import pyechelle.slit
 from pyechelle import sources
 from pyechelle.CCD import CCD
 from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency
-from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda
+from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda, make_cuda_kernel_singlemode
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import CSV
 from pyechelle.sources import Phoenix, Source
@@ -248,7 +248,10 @@ class Simulator:
         return simulated_photons
 
     def _simulate_cuda(self, orders, slit_fun, rv, integration_time, dccd, efficiency, s, c, fiber, ccd_index):
-        cuda_kernel = make_cuda_kernel(slit_fun)
+        if slit_fun is not None:  # multimode
+            cuda_kernel = make_cuda_kernel(slit_fun)
+        else:  # singlemode
+            cuda_kernel = make_cuda_kernel_singlemode()
         simulated_photons = []
         for o in np.sort(orders):
             nphot = raytrace_order_cuda(o, self.spectrograph, s, self.telescope, rv, integration_time, dccd,

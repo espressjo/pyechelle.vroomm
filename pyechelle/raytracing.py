@@ -53,6 +53,45 @@ def raytrace(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, tra
             ccd[y_int, x_int] += 1
 
 
+@numba.njit(cache=True, parallel=False, nogil=True)
+def raytrace_singlemode(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, trans_wld, transf_deriv,
+                        psfs_q, psfs_j, psf_wl, psf_wld, psf_shape, psf_sampling, ccd, pixelsize, nphotons):
+    max_y, max_x = ccd.shape
+
+    for _ in range(nphotons):
+        # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = spectrum_wl[k] if random.random() < spectrum_q[k] else spectrum_wl[spectrum_j[k]]
+
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) / trans_wld
+        idx_trans = math.floor(idx_trans_float)
+        r = (idx_trans_float - idx_trans)
+
+        # do linear interpolation of transformation matrices (for SM this is not a full matrix, but just the
+        # translation coordinates for the chief ray
+        xt = transformations[2, idx_trans] + r * transf_deriv[2, idx_trans]
+        yt = transformations[5, idx_trans] + r * transf_deriv[5, idx_trans]
+
+        # apply PSF
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # here we add random.random()-0.5, so a uniform random number in [-0.5,0.5) that is applied to the 'integer' offset dx,dy
+        # this should be equivalent of drawing from a 'piecewise constant' distribution
+        xt += (dx - psf_shape[1] / 2. + random.random() - 0.5) * psf_sampling / pixelsize
+        yt += (dy - psf_shape[0] / 2. + random.random() - 0.5) * psf_sampling / pixelsize
+        x_int = math.floor(xt)
+        y_int = math.floor(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+
+
 def raytrace_order_cpu(o, spec: Spectrograph, source: Source, slit_fun: callable,
                        telescope: Telescope, rv: float, t, ccd: CCD, fiber: int, ccd_index: int, efficiency=None,
                        n_cpu=1):
@@ -109,15 +148,27 @@ def raytrace_order_cpu(o, spec: Spectrograph, source: Source, slit_fun: callable
     psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
     if n_cpu > 1:
         ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
-        raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
-                 transformations, trans_wl, trans_wld, trans_deriv,
-                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
-                 ccd_new, float(ccd.pixelsize), slit_fun, total_photons)
-
+        if slit_fun is not None:
+            raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                     transformations, trans_wl, trans_wld, trans_deriv,
+                     psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
+                     ccd_new, float(ccd.pixelsize), slit_fun, total_photons)
+        else:
+            raytrace_singlemode(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                                transformations, trans_wl, trans_wld, trans_deriv,
+                                psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape,
+                                psf_sampling,
+                                ccd_new, float(ccd.pixelsize), total_photons)
         return ccd_new, total_photons
     else:
-        raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
-                 transformations, trans_wl, trans_wld, trans_deriv,
-                 psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
-                 ccd.data, float(ccd.pixelsize), slit_fun, total_photons)
+        if slit_fun is not None:
+            raytrace(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                     transformations, trans_wl, trans_wld, trans_deriv,
+                     psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
+                     ccd.data, float(ccd.pixelsize), slit_fun, total_photons)
+        else:
+            raytrace_singlemode(wavelength, spectrum_sampler_q, spectrum_sampler_j,
+                     transformations, trans_wl, trans_wld, trans_deriv,
+                     psf_sampler_qj[:, 0], psf_sampler_qj[:, 1], psfs_wl, psfs_wld[0], psf_shape, psf_sampling,
+                     ccd.data, float(ccd.pixelsize), total_photons)
         return total_photons
