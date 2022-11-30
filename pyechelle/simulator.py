@@ -21,7 +21,7 @@ import pyechelle
 import pyechelle.slit
 from pyechelle import sources
 from pyechelle.CCD import CCD
-from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency
+from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.raytrace_cuda import make_cuda_kernel, raytrace_order_cuda, make_cuda_kernel_singlemode
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import CSV
@@ -108,7 +108,8 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
     if append:
         if pathlib.Path(filename).is_file():
             old_file_data = fits.getdata(filename)
-            assert old_file_data.shape == c.data.shape, f"You tried to append data to {filename}, but the fits file contains" \
+            assert old_file_data.shape == c.data.shape, f"You tried to append data to {filename}, " \
+                                                        f"but the fits file contains" \
                                                         f"data with a different shape ({old_file_data.shape})."
     hdu = fits.PrimaryHDU(data=np.array(c.data + old_file_data, dtype=int))
     hdu_list = fits.HDUList([hdu])
@@ -127,7 +128,18 @@ class Simulator:
         orders (list[int]): order / list of diffraction orders to be simulated
         sources (list[Source]): spectral source / list of spectral sources per fiber (same length as fibers)
         atmosphere (list[bool]): whether to include atmospheric transmission per fiber (same length as fibers)
+        atmosphere_conditions (list[dict | None]): skycalc arguments for atmospheric conditions (same length as sources)
+        rvs (list[float]): radial velocity shifts in [m/s] for sources (same length as fibers)
+        telescope (Telescope): Telescope used for simulations (relevant for 'on-sky' sources)
+        random_seed (int): random seed for the number generator
+        cuda (bool): flat if CUDA is to be used
         max_cpu (int): number of CPUs used for simulation (if -1, max_cpu is number of available cores)
+        exp_time (float): exposure time to be simulated
+        output (Path): path to output fits file
+        append (bool): flag if simulated counts should be appended to existing image
+        overwrite (bool): flat if output file should be overwritten if existing
+        global_efficiency (Efficiency): overall efficiency curve to be considered
+         (on top of spectrograph efficiency curve and potentially atmosphere)
 
     """
     spectrograph: Spectrograph
@@ -136,6 +148,7 @@ class Simulator:
     ccd: int = field(init=False, default=None)
     sources: list[Source] = field(init=False, default=None)
     atmosphere: list[bool] = field(init=False, default=None)
+    atmosphere_conditions: list[dict | None] = field(init=False, default=None)
     rvs: list[float] = field(init=False, default=None)
     telescope: Telescope = field(init=False, default=None)
     random_seed: int = field(init=False, default=-1)
@@ -155,11 +168,15 @@ class Simulator:
         assert len(self.fibers) == len(self.sources), \
             'Number of sources needs to match the number of fields/fibers (or be 1)'
 
-    def set_atmospheres(self, atmosphere: bool | list[bool]):
+    def set_atmospheres(self, atmosphere: bool | list[bool], sky_calc_kwargs: dict | list[dict] = None):
         assert self.sources is not None, 'Please set first the sources that you want to simulate.'
         self.atmosphere = [atmosphere] * len(self.sources) if isinstance(atmosphere, bool) else atmosphere
+        self.atmosphere_conditions = [sky_calc_kwargs] * len(self.sources) if (
+                isinstance(sky_calc_kwargs, dict) or sky_calc_kwargs is None) else sky_calc_kwargs
         assert len(self.atmosphere) == len(self.sources), \
             'Number of atmosphere flags needs to match the number of sources (or be 1)'
+        assert len(self.atmosphere_conditions) == len(self.sources), \
+            'Number of atmosphere condition arguments needs to match the number of sources (or be 1)'
 
     def set_radial_velocities(self, rvs: float | list[float]):
         assert self.sources is not None, 'Please set first the sources that you want to simulate.'
@@ -269,6 +286,12 @@ class Simulator:
                         'It is set to False')
             self.atmosphere = [False] * len(self.sources)
 
+        if self.atmosphere_conditions is None:
+            if self.atmosphere:
+                logger.info('Atmospheric conditions were not specified. The default atmospheric conditions apply. '
+                            '(e.g. airmass 1)')
+            self.atmosphere_conditions = [None] * len(self.sources)
+
         if self.rvs is None:
             logger.info('Radial velocities are not specified explicitly. They are therefore set to 0.0')
             self.rvs = [0.0] * len(self.sources)
@@ -288,14 +311,25 @@ class Simulator:
         if self.cuda:
             dccd = cuda.to_device(np.zeros_like(c.data, dtype=np.uint32))
 
-        for f, s, atmo, rv in zip(self.fibers, self.sources, self.atmosphere, self.rvs):
+        for f, s, atm, atm_cond, rv in zip(self.fibers, self.sources, self.atmosphere, self.atmosphere_conditions,
+                                           self.rvs):
             orders = self.orders if self.orders is not None else self._get_valid_orders(f)
             slit_fun = self._get_slit_function(f)
             if self.global_efficiency is None:
-                e = self.spectrograph.get_efficiency(f, self.ccd)
+                if atm:
+                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd),
+                                          Atmosphere('Atmosphere', sky_calc_kwargs=atm_cond)],
+                                         'Combined Efficiency')
+                else:
+                    e = self.spectrograph.get_efficiency(f, self.ccd)
             else:
-                e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency],
-                                     'Combined Efficiency')
+                if atm:
+                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency,
+                                          Atmosphere('Atmosphere', sky_calc_kwargs=atm_cond)],
+                                         'Combined Efficiency')
+                else:
+                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency],
+                                         'Combined Efficiency')
 
             if not self.cuda:
                 if self.max_cpu > 1:

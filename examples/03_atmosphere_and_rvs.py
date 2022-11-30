@@ -8,7 +8,7 @@ if __name__ == "__main__":
     from pyechelle.simulator import Simulator
     from pyechelle.sources import Etalon, Phoenix
     from pyechelle.spectrograph import ZEMAX
-    from telescope import Telescope
+    from pyechelle.telescope import Telescope
 
     sim = Simulator(ZEMAX("MaroonX"))
     sim.set_ccd(1)
@@ -19,8 +19,8 @@ if __name__ == "__main__":
                      Phoenix(t_eff=4000, log_g=4.0),
                      Phoenix(t_eff=4000, log_g=4.0),
                      Phoenix(t_eff=4000, log_g=4.0)])
-    # activate atmospheric transmission for the three stellar targets
-    sim.set_atmospheres([False, True, True, True])
+    # activate atmospheric transmission for the three stellar targets and set airmass to 1.4
+    sim.set_atmospheres([False, True, True, True], sky_calc_kwargs={'airmass': 1.4})
     # set radial velocity of stellar target to 42 m/s
     sim.set_radial_velocities([0., 42., 42., 42.])
     sim.set_exposure_time(1.)

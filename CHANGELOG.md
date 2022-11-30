@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.5] - 2022-11-30
 
 ### Added
 
@@ -15,6 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - fiber/field shape attribute can now be either bytes or string
 - updated project dependencies
+
+### Fixed
+
+- fixed #8
 
 ## [0.3.4] - 2022-08-28
 
