@@ -256,6 +256,122 @@ class SimpleSpectrograph(Spectrograph):
         return SystemEfficiency([ConstantEfficiency(1.0)], 'System')
 
 
+class AtmosphericDispersion(Spectrograph):
+    def __init__(self, zd: float, pressure=775E2, temperature=283.15, reference_wavelength: float = 0.35,
+                 pixel_scale: float = 0.1, seeing: float = 1.0):
+        """
+        Atmospheric Dispersion
+        Args:
+            zd: zenith distance [deg]
+            pressure: air pressure [Pa]
+            temperature: air temperature [K]
+            reference_wavelength: undisturbed wavelength [micron]
+            pixel_scale: arcsec per pixel [arcsec]
+            seeing: seeing at reference_wavelength [arcsec]
+        """
+        self._ccd = {1: CCD(80, 80, pixelsize=1)}
+        self._fibers = {}
+        self._orders = {}
+        self._transformations = {}
+        self.pressure = pressure
+        self.temperature = temperature
+        self.r_wl = reference_wavelength
+        self.pixel_scale = pixel_scale
+        self.zd = zd
+        self.seeing = seeing
+        for c in self._ccd.keys():
+            self._fibers[c] = [1]
+            self._orders[c] = {}
+            for f in self._fibers.keys():
+                self._orders[c][f] = [1]
+
+    def refractive_index(self, wl: float | np.ndarray):
+        """ calculates the refractive index depending on atmospheric condition and ZD:
+        reference:
+        http://www.ls.eso.org/sci/facilities/lasilla/instruments/feros/Projects/ADC/references/refraction/index.html
+        """
+        P0 = 1013.25E2
+        T0 = 288.15
+        return (64.328 + 29498.1E-6 / (146E-6 - (1 / (wl*1000.)) ** 2) + 255.4E-6 / (41E-4 - (1 / (wl*1000.)) ** 2)) * \
+            self.pressure / self.temperature * T0 / P0
+
+    def delta_R(self, wl1):
+        return 206264.80625 / 1E6 * ((self.refractive_index(wl1) - 1) - (self.refractive_index(self.r_wl) - 1)) \
+            * np.tan(np.deg2rad(self.zd))
+
+    def get_fibers(self, ccd_index: int = 1) -> list[int]:
+        return self._fibers[ccd_index]
+
+    def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
+        return self._orders[ccd_index][fiber]
+
+    def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
+                           ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
+        if isinstance(wavelength, float):
+            return AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2. + 0.5,
+                                        self._ccd[1].n_pix_y / 2. + 0.5 + self.delta_R(
+                                            wavelength) / self.pixel_scale,
+                                        wavelength)
+        else:
+            ts = TransformationSet([AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2. + 0.5,
+                                                         self._ccd[1].n_pix_y / 2. + 0.5 + self.delta_R(
+                                                             w) / self.pixel_scale,
+                                                         w) for w in wavelength])
+            return ts.get_affine_transformations(wavelength)
+
+    @staticmethod
+    def gauss_map(size_x, size_y=None, sigma_x=5., sigma_y=None):
+        if size_y is None:
+            size_y = size_x
+        if sigma_y is None:
+            sigma_y = sigma_x
+
+        assert isinstance(size_x, int)
+        assert isinstance(size_y, int)
+
+        x0 = size_x // 2
+        y0 = size_y // 2
+
+        x = np.arange(0, size_x, dtype=float)
+        y = np.arange(0, size_y, dtype=float)[:, np.newaxis]
+
+        x -= x0
+        y -= y0
+
+        exp_part = x ** 2 / (2 * sigma_x ** 2) + y ** 2 / (2 * sigma_y ** 2)
+        return 1 / (2 * np.pi * sigma_x * sigma_y) * np.exp(-exp_part)
+
+    def seeing_disc_diameter(self, wl):
+        """ Returns seeing disc diameter in pixel for given pixel scale and seeing"""
+        seeing_wl = self.seeing * (wl/self.r_wl)**(-1./5.)
+        return (seeing_wl / self.pixel_scale) / 2.
+
+    def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
+        if wavelength is None:
+            wl = np.linspace(*self.get_wavelength_range(order, fiber, ccd_index), 20)
+            return [PSF(w, self.gauss_map(50, sigma_x=self.seeing_disc_diameter(w),
+                                          sigma_y=self.seeing_disc_diameter(w)), 1.) for w in wl]
+        else:
+            return PSF(wavelength, self.gauss_map(50, sigma_x=self.seeing_disc_diameter(wavelength),
+                                                  sigma_y=self.seeing_disc_diameter(wavelength)), 1.)
+
+    def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
+            -> tuple[float, float]:
+        return 0.29, 0.61
+
+    def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
+        if ccd_index is None:
+            return self._ccd
+        else:
+            return self._ccd[ccd_index]
+
+    def get_field_shape(self, fiber: int, ccd_index: int) -> str:
+        return 'singlemode'
+
+    def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
+        return SystemEfficiency([ConstantEfficiency(1.0)], 'System')
+
+
 class ZEMAX(Spectrograph):
     def __init__(self, path: str | Path):
         self.path = check_for_spectrograph_model(path)
@@ -476,7 +592,7 @@ class LocalDisturber(Spectrograph):
             return self.spec.get_transformation(wavelength, order, fiber, ccd_index) + self.disturber_matrix
         else:
             return self.spec.get_transformation(wavelength, order, fiber, ccd_index) + \
-                   np.expand_dims(self.disturber_matrix.as_matrix(), axis=-1)
+                np.expand_dims(self.disturber_matrix.as_matrix(), axis=-1)
 
 
 class GlobalDisturber(Spectrograph):
@@ -562,3 +678,27 @@ class GlobalDisturber(Spectrograph):
             tm[4] += self.disturber_matrix.tx
             tm[5] += self.disturber_matrix.ty
             return tm
+
+
+if __name__ == "__main__":
+    from pyechelle.sources import Constant, LineList
+
+    s = AtmosphericDispersion(70., reference_wavelength=0.35, pixel_scale=1. / 10., seeing=1.)
+    from simulator import Simulator
+    source = LineList(np.array([0.3, 0.305]))
+    sim = Simulator(s)
+    sim.set_ccd(1)
+    sim.set_fibers(1)
+    sim.set_exposure_time(1000)
+    sim.set_sources(source)
+    sim.set_cuda(True)
+    sim.set_output('test.fits', overwrite=True)
+    sim.run()
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.imshow(sim.spectrograph.get_ccd(1).data, extent=[-s.get_ccd(1).n_pix_x//2*s.pixel_scale,
+                                                         s.get_ccd(1).n_pix_x//2*s.pixel_scale,
+                                                         -s.get_ccd(1).n_pix_y//2*s.pixel_scale,
+                                                         s.get_ccd(1).n_pix_y//2*s.pixel_scale])
+    plt.show()

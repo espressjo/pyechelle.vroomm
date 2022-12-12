@@ -38,7 +38,18 @@ class ConstantEfficiency(Efficiency):
     def get_efficiency_per_order(self, wavelength, order):
         return self.get_efficiency(wavelength)
 
-
+class BandpassFilter(Efficiency):
+    def __init__(self, minwl, maxwl, name='bandpass'):
+        super().__init__(name=name)
+        self.minwl = minwl
+        self.maxwl = maxwl
+    def get_efficiency(self, wavelength):
+        e = np.ones_like(wavelength)
+        idx = np.logical_or((wavelength<self.minwl), (wavelength>self.maxwl))
+        e[idx] = 0.
+        return e
+    def get_efficiency_per_order(self, wavelength, order):
+        return self.get_efficiency(wavelength)
 class SystemEfficiency(Efficiency):
     def __init__(self, efficiencies: list[Efficiency], name: str):
         super().__init__(name)

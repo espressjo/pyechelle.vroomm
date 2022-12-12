@@ -40,6 +40,7 @@ import io
 import pathlib
 import urllib.request
 
+from astropy.modeling.physical_models import BlackBody
 import astropy.io.fits as fits
 import astropy.units as u
 import numpy as np
@@ -162,6 +163,23 @@ class Constant(Source):
     def __init__(self, intensity=0.001, **kwargs):
         super().__init__(**kwargs, name="Constant", list_like=False)
         self.intensity = intensity
+
+    def get_spectral_density(self, wavelength):
+        return np.ones_like(wavelength) * self.intensity
+
+
+class ConstantPhotons(Source):
+    """ Constant spectral density.
+
+    Implements a constant photon flux density with given intensity [photons / microns*s]
+
+    """
+
+    def __init__(self, intensity=1000, **kwargs):
+        super().__init__(**kwargs, name="ConstantPhotons", list_like=False)
+        self.intensity = intensity
+        self.flux_in_photons = True
+        self.stellar_target = False
 
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
@@ -394,3 +412,38 @@ class CSV(Source):
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.flux_data[idx]
+
+
+class LineList(Source):
+    def __init__(self, wavelengths: np.ndarray, intensities: np.ndarray | float = 1000.):
+        super().__init__(name='LineList', list_like=True)
+        self.wl_data = wavelengths
+        self.intensities = np.ones_like(wavelengths) * intensities if isinstance(intensities, float) else intensities
+        assert len(self.wl_data) == len(self.intensities), 'wavelengths and intensities do not have the same length'
+        self.flux_in_photons = True
+
+    def get_spectral_density(self, wavelength):
+        idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
+        return self.wl_data[idx], self.intensities[idx]
+
+
+class Blackbody(Source):
+    def __init__(self, temperature, magnitude, name='blackbody'):
+        super().__init__(name=name, stellar_target=True)
+        self.temperature = temperature
+        self.magnitude = magnitude
+
+        BlackBody()
+
+    def planck(self, T, wavelength):
+        h_planck = 6.62606896e-34  # J * s;
+        speed_of_light = 2.99792458e8  # m / s;
+        k_boltzmann = 1.3806504e-23  # J / K
+        a = 2.0 * h_planck * speed_of_light * speed_of_light
+        b = h_planck * speed_of_light / (wavelength * k_boltzmann * T)
+        c = 1E0  # Conversion factor for intensity
+        intensity = c * a / (pow(wavelength, 5) * (np.exp(b) - 1.0))  # (J / s ) / m ^ 3 -> (uW) / ( m ^ 2 * um )
+        return intensity
+
+    def get_spectral_density(self, wavelength):
+        return self.planck(self.temperature, wavelength / 1E6)
