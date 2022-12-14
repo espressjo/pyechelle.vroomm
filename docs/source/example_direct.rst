@@ -92,3 +92,18 @@ Examples - python scripts
    :file: _static/plots/example_results/05_GlobalDisturber.html
    
    
+.. automodule:: examples.06_atmospheric_dispersion
+  :members:
+
+.. literalinclude:: ../../examples/06_atmospheric_dispersion.py
+  :language: python
+  :linenos:
+  :start-after: "__main__":
+  :end-at: sim.run()
+  :tab-width: 0
+  :dedent: 4
+
+.. raw:: html
+   :file: _static/plots/example_results/06_atmospheric_dispersion.html
+   
+   

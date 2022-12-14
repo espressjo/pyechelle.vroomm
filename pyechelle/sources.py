@@ -14,7 +14,7 @@ Implementing various spectral sources that can be used in pyechelle.
     fig, ax = plt.subplots(len(available_sources), 1, figsize=(9, len(available_sources) * 2.5), sharex=True)
     fig.suptitle('Supported source functions')
     for i, source_name in enumerate(available_sources):
-        wavelength = np.linspace(0.5, 0.501, 1000, dtype=float)
+        wavelength = np.linspace(0.4999, 0.501, 1000, dtype=float)
         source = getattr(sources, source_name)()
         sd = source.get_spectral_density(wavelength)
         if source.list_like:
@@ -40,13 +40,13 @@ import io
 import pathlib
 import urllib.request
 
-from astropy.modeling.physical_models import BlackBody
 import astropy.io.fits as fits
 import astropy.units as u
 import numpy as np
 import pandas as pd
 import scipy.interpolate
 from joblib import Memory
+from synphot import SourceSpectrum, SpectralElement, BlackBodyNorm1D, units
 
 try:
     from astroquery.nist import Nist
@@ -364,14 +364,28 @@ class Phoenix(Source):
 
 
 class CSV(Source):
-    """
-    Spectral source based on custom .csv file
+    """ Spectral source based on custom .csv file
 
     The .csv file needs to have two columns, a wavelength column and a flux column. The wavelength must be given
     in either angstroms, nanometers, microns or meters (specified via wavelength_unit), while the flux must either be in
     ergs/s/cm^2/cm (like Phoenix spectra) for stellar targets, or in photons/s.
 
     Attributes:
+         name: name of the spectrum
+         list_like: when True, no wavelength interpolation is active (useful for non-continuous spectra e.g.
+         custom line lists)
+         flux_in_photons: if True, flux column treated as photons/s otherwise ergs/s/cm^2/cm
+         stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
+         magnitude: V magnitude in case of stellar_target
+    """
+    wavelength_scaling = {'a': 1E-4, 'nm': 1E-3, 'micron': 1, 'm': 1E-6}
+
+    def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,
+                 wavelength_unit: str = 'a', flux_in_photons: bool = False, stellar_target: bool = False,
+                 magnitude: float = 10., delimiter: str = ','):
+        """ Constructor
+
+        Args:
          filepath: path to .csv file
          name: name of the spectrum
          list_like: when True, no wavelength interpolation is active (useful for non-continuous spectra e.g.
@@ -381,12 +395,7 @@ class CSV(Source):
          stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
          magnitude: V magnitude in case of stellar_target
          delimiter: delimiter character of .csv file
-    """
-    wavelength_scaling = {'a': 1E-4, 'nm': 1E-3, 'micron': 1, 'm': 1E-6}
-
-    def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,
-                 wavelength_unit: str = 'a', flux_in_photons: bool = False, stellar_target: bool = False,
-                 magnitude: float = 10., delimiter: str = ','):
+        """
         assert wavelength_unit in self.wavelength_scaling.keys(), f'Supported wavelength units are ' \
                                                                   f'{self.wavelength_scaling.keys()}'
         if isinstance(filepath, io.TextIOWrapper):
@@ -395,10 +404,7 @@ class CSV(Source):
             filepath = pathlib.Path(filepath)
         if name is None:
             name = filepath.name
-        super().__init__(name=name)
-        self.list_like = list_like
-        self.flux_in_photons = flux_in_photons
-        self.stellar_target = stellar_target
+        super().__init__(name=name, list_like=list_like, flux_in_photons=flux_in_photons, stellar_target=stellar_target)
         self.magnitude = magnitude
         print(f'{filepath=}, {type(filepath)}')
         data = pd.read_csv(filepath, delimiter=delimiter)
@@ -415,35 +421,51 @@ class CSV(Source):
 
 
 class LineList(Source):
-    def __init__(self, wavelengths: np.ndarray, intensities: np.ndarray | float = 1000.):
+    """ Line-list spectrum
+
+    Attributes:
+        wavelengths: wavelengths [micron] of line(s)
+        intensities: intensities [photons] of line(s)
+    """
+
+    def __init__(self, wavelengths: list[float] | np.ndarray | float = 0.5,
+                 intensities: list[float] | np.ndarray | float = 1000.):
         super().__init__(name='LineList', list_like=True)
-        self.wl_data = wavelengths
-        self.intensities = np.ones_like(wavelengths) * intensities if isinstance(intensities, float) else intensities
-        assert len(self.wl_data) == len(self.intensities), 'wavelengths and intensities do not have the same length'
+        # convert always to numpy array
+        self.wavelengths = np.array([wavelengths] if isinstance(wavelengths, float) else wavelengths)
+
+        self.intensities = np.ones_like(self.wavelengths) * intensities if isinstance(intensities,
+                                                                                      float) else intensities
+        assert len(self.wavelengths) == len(self.intensities), 'wavelengths and intensities do not have the same length'
         self.flux_in_photons = True
 
     def get_spectral_density(self, wavelength):
-        idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
-        return self.wl_data[idx], self.intensities[idx]
+        idx = np.logical_and(self.wavelengths > np.min(wavelength), self.wavelengths < np.max(wavelength))
+        print(idx)
+        return self.wavelengths[idx], self.intensities[idx]
 
 
 class Blackbody(Source):
-    def __init__(self, temperature, magnitude, name='blackbody'):
-        super().__init__(name=name, stellar_target=True)
-        self.temperature = temperature
-        self.magnitude = magnitude
+    """ Blackbody spectrum
 
-        BlackBody()
+    Implements a (stellar) blackbody spectrum of given temperature and V-magnitude.
+    """
 
-    def planck(self, T, wavelength):
-        h_planck = 6.62606896e-34  # J * s;
-        speed_of_light = 2.99792458e8  # m / s;
-        k_boltzmann = 1.3806504e-23  # J / K
-        a = 2.0 * h_planck * speed_of_light * speed_of_light
-        b = h_planck * speed_of_light / (wavelength * k_boltzmann * T)
-        c = 1E0  # Conversion factor for intensity
-        intensity = c * a / (pow(wavelength, 5) * (np.exp(b) - 1.0))  # (J / s ) / m ^ 3 -> (uW) / ( m ^ 2 * um )
-        return intensity
+    def __init__(self, temperature: float = 6000, magnitude: float = 15., name='blackbody'):
+        """
+
+        Args:
+            temperature: effective temperature of blackbody [K]
+            magnitude: Johnson V magnitude of blackbody [mag]
+            name: name of the source (default: blackbody)
+        """
+        super().__init__(name=name, stellar_target=True, flux_in_photons=False)
+        self._sp = SourceSpectrum(BlackBodyNorm1D(temperature=temperature))
+        self._bp = SpectralElement.from_filter('johnson_v')
+        self._vega = SourceSpectrum.from_vega()  # For unit conversion
+        self._sp_norm = self._sp.normalize(magnitude * units.VEGAMAG, self._bp, vegaspec=self._vega)
 
     def get_spectral_density(self, wavelength):
-        return self.planck(self.temperature, wavelength / 1E6)
+        # convert input wavelength from micron to angstrom
+        # convert output from FLAM (erg/s/cm^2/A) to (microW/m^2/microns)
+        return wavelength, self._sp_norm(wavelength * 10000., flux_unit=units.FLAM).value * 1E8

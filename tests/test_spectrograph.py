@@ -1,7 +1,7 @@
 import numpy as np
 
 from pyechelle import simulator
-from pyechelle.spectrograph import LocalDisturber, SimpleSpectrograph, GlobalDisturber, ZEMAX
+from pyechelle.spectrograph import LocalDisturber, SimpleSpectrograph, GlobalDisturber, ZEMAX, AtmosphericDispersion
 
 
 def test_zemax_spectrograph():
@@ -82,3 +82,15 @@ def test_zemax_models():
                                                           f'CCD index: {ccd} ' \
                                                           f'fiber index: {f} ' \
                                                           f'order: {o}'
+
+
+def test_atmospheric_dispersion():
+    spec = AtmosphericDispersion(30)
+    for ccd in spec.get_ccd():
+        for f in spec.get_fibers(ccd):
+            for o in spec.get_orders(f, ccd):
+                assert np.any(spec.get_psf(0.5, o, f, ccd).data > 0), 'the returned PSF contains negative values'
+                assert spec.get_field_shape(f, ccd) == 'singlemode', 'the field shape should be singlemode'
+                minwl, maxwl = spec.get_wavelength_range(o, f, ccd)
+                assert spec.get_transformation(minwl, o, f, ccd).ty > 0
+                assert spec.get_transformation(maxwl, o, f, ccd).ty > 0

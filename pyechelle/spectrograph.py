@@ -257,19 +257,38 @@ class SimpleSpectrograph(Spectrograph):
 
 
 class AtmosphericDispersion(Spectrograph):
+    """
+    Atmospheric Dispersion
+
+    Simulates atmospheric dispersion from 300nm to 2microns.
+    The model does not include atmospheric transmission as an efficiency model.
+    In case you want to use this, please explicitly add the atmospheric model via the simulator.
+
+    Attributes:
+        zd: zenith distance [deg]
+        pressure: air pressure [Pa]
+        temperature: air temperature [K]
+        r_wl: undisturbed wavelength [micron]
+        pixel_scale: arcsec per pixel [arcsec]
+        seeing: seeing at reference_wavelength [arcsec]
+        ccd_size: number of pixels in X and Y direction
+    """
+
     def __init__(self, zd: float, pressure=775E2, temperature=283.15, reference_wavelength: float = 0.35,
-                 pixel_scale: float = 0.1, seeing: float = 1.0):
-        """
-        Atmospheric Dispersion
+                 pixel_scale: float = 0.1, seeing: float = 1.0, ccd_size: int = 80):
+        """ Constructor
+
         Args:
             zd: zenith distance [deg]
-            pressure: air pressure [Pa]
+            pressure: air pressue [Pa]
             temperature: air temperature [K]
             reference_wavelength: undisturbed wavelength [micron]
             pixel_scale: arcsec per pixel [arcsec]
             seeing: seeing at reference_wavelength [arcsec]
+            ccd_size: number of pixels in X and Y direction for simulated output
         """
-        self._ccd = {1: CCD(80, 80, pixelsize=1)}
+        self.ccd_size = ccd_size
+        self._ccd = {1: CCD(self.ccd_size, self.ccd_size, pixelsize=1)}
         self._fibers = {}
         self._orders = {}
         self._transformations = {}
@@ -285,18 +304,35 @@ class AtmosphericDispersion(Spectrograph):
             for f in self._fibers.keys():
                 self._orders[c][f] = [1]
 
-    def refractive_index(self, wl: float | np.ndarray):
-        """ calculates the refractive index depending on atmospheric condition and ZD:
+    def refractive_index(self, wl: float | np.ndarray) -> float | np.ndarray:
+        """ Calculates the refractive index depending on atmospheric condition and ZD
+
         reference:
         http://www.ls.eso.org/sci/facilities/lasilla/instruments/feros/Projects/ADC/references/refraction/index.html
+
+        Args:
+            wl: wavelength(s) [micron]
+
+        Returns:
+            refractive index at given wavelength for given conditions
         """
         P0 = 1013.25E2
         T0 = 288.15
-        return (64.328 + 29498.1E-6 / (146E-6 - (1 / (wl*1000.)) ** 2) + 255.4E-6 / (41E-4 - (1 / (wl*1000.)) ** 2)) * \
+        return (64.328 + 29498.1E-6 / (146E-6 - (1 / (wl * 1000.)) ** 2) + 255.4E-6 / (
+                    41E-4 - (1 / (wl * 1000.)) ** 2)) * \
             self.pressure / self.temperature * T0 / P0
 
-    def delta_R(self, wl1):
-        return 206264.80625 / 1E6 * ((self.refractive_index(wl1) - 1) - (self.refractive_index(self.r_wl) - 1)) \
+    def delta_R(self, wl: np.ndarray | float) -> float | np.ndarray:
+        """ Differential refraction
+
+        Returns difference in refraction for given wavelength(s)
+        Args:
+            wl: wavelength(s) [micron]
+
+        Returns:
+            refraction [arcsec]
+        """
+        return 206264.80625 / 1E6 * ((self.refractive_index(wl) - 1) - (self.refractive_index(self.r_wl) - 1)) \
             * np.tan(np.deg2rad(self.zd))
 
     def get_fibers(self, ccd_index: int = 1) -> list[int]:
@@ -308,13 +344,13 @@ class AtmosphericDispersion(Spectrograph):
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
                            ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
         if isinstance(wavelength, float):
-            return AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2. + 0.5,
-                                        self._ccd[1].n_pix_y / 2. + 0.5 + self.delta_R(
+            return AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2.,
+                                        self._ccd[1].n_pix_y / 2. - self.delta_R(
                                             wavelength) / self.pixel_scale,
                                         wavelength)
         else:
-            ts = TransformationSet([AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2. + 0.5,
-                                                         self._ccd[1].n_pix_y / 2. + 0.5 + self.delta_R(
+            ts = TransformationSet([AffineTransformation(0.0, 1.0, 1., 0., self._ccd[1].n_pix_x / 2.,
+                                                         self._ccd[1].n_pix_y / 2. - self.delta_R(
                                                              w) / self.pixel_scale,
                                                          w) for w in wavelength])
             return ts.get_affine_transformations(wavelength)
@@ -357,7 +393,7 @@ class AtmosphericDispersion(Spectrograph):
 
     def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
             -> tuple[float, float]:
-        return 0.29, 0.61
+        return 0.3, 2.0
 
     def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
         if ccd_index is None:
@@ -678,27 +714,3 @@ class GlobalDisturber(Spectrograph):
             tm[4] += self.disturber_matrix.tx
             tm[5] += self.disturber_matrix.ty
             return tm
-
-
-if __name__ == "__main__":
-    from pyechelle.sources import Constant, LineList
-
-    s = AtmosphericDispersion(70., reference_wavelength=0.35, pixel_scale=1. / 10., seeing=1.)
-    from simulator import Simulator
-    source = LineList(np.array([0.3, 0.305]))
-    sim = Simulator(s)
-    sim.set_ccd(1)
-    sim.set_fibers(1)
-    sim.set_exposure_time(1000)
-    sim.set_sources(source)
-    sim.set_cuda(True)
-    sim.set_output('test.fits', overwrite=True)
-    sim.run()
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.imshow(sim.spectrograph.get_ccd(1).data, extent=[-s.get_ccd(1).n_pix_x//2*s.pixel_scale,
-                                                         s.get_ccd(1).n_pix_x//2*s.pixel_scale,
-                                                         -s.get_ccd(1).n_pix_y//2*s.pixel_scale,
-                                                         s.get_ccd(1).n_pix_y//2*s.pixel_scale])
-    plt.show()

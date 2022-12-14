@@ -61,13 +61,17 @@ def parse_num_list(string_list: str) -> list:
     return list(range(int(start, 10), int(end, 10) + 1))
 
 
-def export_to_html(data, filename, include_plotlyjs=False):
+def export_to_html(data, filename, include_plotlyjs=False, width=1000, height=300, y_range_min=2000, y_range_max=3000):
     """
     Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some examples in the documentation.
     Args:
         data: 2d numpy array
         filename: output filename
         include_plotlyjs: whether plotlyjs is included in html file or not
+        width: width of the plot in pixel
+        height: height of the plot in pixel
+        y_range_min: minimum y coordinate shown in image
+        y_range_max: maximum y coordinate shown in image
 
     Returns:
         None
@@ -79,10 +83,8 @@ def export_to_html(data, filename, include_plotlyjs=False):
         hovertemplate=None,
         hoverinfo='skip'
     )
-    w = 1000
-    h = 300
-    fig.update_layout(autosize=True, width=w, height=h, margin=dict(l=0, r=0, b=0, t=0))
-    fig.update_yaxes(range=[2000, 3000])
+    fig.update_layout(autosize=True, width=width, height=height, margin=dict(l=0, r=0, b=0, t=0))
+    fig.update_yaxes(range=[y_range_min, y_range_max])
     fig.write_html(filename, include_plotlyjs=include_plotlyjs)
 
 

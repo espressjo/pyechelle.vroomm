@@ -16,4 +16,5 @@ def test_setup_simulator():
     sim.set_cuda(True)
     sim.set_exposure_time(0.01)
     sim.set_output(path='test.fits', overwrite=True)
+    sim.validate()
     # sim.run()
