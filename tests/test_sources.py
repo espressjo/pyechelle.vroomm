@@ -12,19 +12,19 @@ from pyechelle.spectrograph import check_url_exists
 @given(
     st.floats(min_value=0.3, max_value=1.5, allow_nan=False, allow_infinity=False),
     st.floats(min_value=0.0001, max_value=0.005, allow_nan=False, allow_infinity=False),
-    st.sampled_from(available_sources)
 )
-@hypothesis.settings(deadline=None)
-def test_sources(wl, bw, source_name):
-    wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
-    print(f"Test {source_name}...")
-    if source_name == 'CSV':
-        source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-                                               wavelength_unit='micron', stellar_target=False)
-    else:
-        source = getattr(sources, source_name)()
-    sd = source.get_spectral_density(wavelength)
-    assert isinstance(sd, tuple) or isinstance(sd, np.ndarray)
+@hypothesis.settings(deadline=None, max_examples=5)
+def test_sources(wl, bw):
+    for source_name in available_sources:
+        wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
+        print(f"Test {source_name}...")
+        if source_name == 'CSV':
+            source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
+                                                   wavelength_unit='micron', stellar_target=False)
+        else:
+            source = getattr(sources, source_name)()
+        sd = source.get_spectral_density(wavelength)
+        assert isinstance(sd, tuple) or isinstance(sd, np.ndarray)
 
 
 @given(
@@ -37,7 +37,6 @@ def test_rv_shift(rv):
     et = sources.Etalon()
     sd0 = et.get_spectral_density_rv(wl, 0.)
     sd1 = et.get_spectral_density_rv(wl, rv)
-    print(rv)
     assert sd0[0][0] > sd1[0][0]
     # TODO: fix this test. Right now the problem is that some edge lines are in sd0 which are not in sd1
     # if len(sd0[0]) == len(sd1[0]):

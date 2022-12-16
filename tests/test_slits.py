@@ -2,10 +2,12 @@ import inspect
 import random
 
 from numba.core.registry import CPUDispatcher
+from numba.cuda.dispatcher import CUDADispatcher
 
 import pyechelle.slit
 
 available_slits = [m[0] for m in inspect.getmembers(pyechelle.slit) if isinstance(m[1], CPUDispatcher)]
+available_cuda_slits = [m[0] for m in inspect.getmembers(pyechelle.slit) if isinstance(m[1], CUDADispatcher)]
 
 
 def test_slits_numba():

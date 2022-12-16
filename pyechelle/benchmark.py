@@ -17,10 +17,10 @@ def run_benchmark_cpu(N_CPU=None, T=None):
 
     # dry run, so everything gets compiled...
     simulator.main(
-        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{1}",
+        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.00001}", "--orders", "100-105", "--max_cpu", f"{1}",
                "--overwrite"]))
     simulator.main(
-        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.01}", "--orders", "100-105", "--max_cpu", f"{2}",
+        args=(["-s", "MaroonX", "--sources", "Constant", "-t", f"{0.00001}", "--orders", "100-105", "--max_cpu", f"{2}",
                "--overwrite"]))
 
     run = 0

@@ -11,7 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - New spectral source types: Blackbody, LineList and ConstantPhotons
 - New spectrograph
-  models: [AtmosphericDispersion](https://stuermer.gitlab.io/pyechelle/example_direct.html#atmospheric-dispersion)
+  model: [AtmosphericDispersion](https://stuermer.gitlab.io/pyechelle/example_direct.html#atmospheric-dispersion)
 
 ## [0.3.5] - 2022-11-30
 

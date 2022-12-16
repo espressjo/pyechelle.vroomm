@@ -441,7 +441,6 @@ class LineList(Source):
 
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wavelengths > np.min(wavelength), self.wavelengths < np.max(wavelength))
-        print(idx)
         return self.wavelengths[idx], self.intensities[idx]
 
 

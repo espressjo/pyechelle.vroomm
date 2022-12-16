@@ -1,7 +1,3 @@
-import os
-
-# disable jit, because it is not
-os.environ['NUMBA_DISABLE_JIT'] = '4'
 from hypothesis import given, strategies as st, settings
 from pyechelle.CCD import CCD
 import numpy as np
@@ -17,14 +13,11 @@ def test_ccd(maxx, maxy, bias, readnoise):
     assert ccd.data.shape == (maxy, maxx)
     ccd.add_bias(bias)
     assert np.mean(ccd.data) == bias
-    ccd.add_readnoise(readnoise)
-    assert np.any(ccd.data <= ccd.maxval)
-    assert np.any(ccd.data >= 0)
     ccd.data *= 0
-    ccd.add_readnoise(3)
-    assert np.any(ccd.data >= 0)
+    ccd.add_readnoise(readnoise)
+    ccd.clip()
+    assert np.all(ccd.data >= 0)
     ccd.data += ccd.maxval
     ccd.add_readnoise(3)
     ccd.clip()
-    assert np.any(ccd.data <= ccd.maxval)
-
+    assert np.all(ccd.data <= ccd.maxval)

@@ -35,6 +35,7 @@ def test_grating(alpha, beta, gpmm, peak_efficiency, name, wl, order):
     assert e.get_efficiency(wl) >= 0.0
     assert e.get_efficiency_per_order(wl, order) >= 0.0
 
+
 @given(
     st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, ),
     st.integers(min_value=1, max_value=200),
@@ -44,6 +45,7 @@ def test_tabulated_constant(wl, order):
     assert np.isclose(e.get_efficiency(wl), 0.3)
     assert np.isclose(e.get_efficiency_per_order(wl, order), 0.3)
 
+
 @given(
     st.floats(min_value=0.4, max_value=0.5, allow_nan=False, allow_infinity=False, ),
     st.integers(min_value=1, max_value=200),
@@ -52,6 +54,7 @@ def test_tabulated_linear(wl, order):
     e = eff.TabulatedEfficiency('tab', [0.4, 0.5], [0.3, 0.5])
     assert 0.29 < e.get_efficiency(wl) < 0.51
     assert 0.29 < e.get_efficiency_per_order(wl, order) < 0.51
+
 
 @given(
     st.floats(min_value=0.4, max_value=0.5, allow_nan=False, allow_infinity=False, ),
@@ -96,3 +99,10 @@ def test_tabulated():
     #                             orders=np.array([91], dtype=int))
     # assert e.get_efficiency(0.55) > 0
     # assert e.get_efficiency_per_order(0.55, 91)
+
+
+def test_bandpass():
+    e = eff.BandpassFilter(0.3, 0.4)
+    assert e.get_efficiency(0.5) == 0.
+    assert e.get_efficiency(0.35) == 1.
+    assert e.get_efficiency(0.29) == 0.

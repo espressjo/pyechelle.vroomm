@@ -1,10 +1,5 @@
 import math
-import os
-
-# disable jit, because it is not supported
 import random
-
-os.environ['NUMBA_DISABLE_JIT'] = '4'
 from hypothesis import given, strategies as st, settings
 from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
 import numpy as np

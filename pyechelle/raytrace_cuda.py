@@ -84,6 +84,7 @@ def make_cuda_kernel(slitfun):
 
     return cuda_kernel
 
+
 @memory.cache
 def make_cuda_kernel_singlemode():
     @cuda.jit()
@@ -113,8 +114,6 @@ def make_cuda_kernel_singlemode():
             xt += r * dm2
             yt += r * dm5
 
-
-
             # apply PSF
             idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
             # next 3 lines implement drawing random number via alias sampling
@@ -141,6 +140,7 @@ def make_cuda_kernel_singlemode():
                 numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
 
     return cuda_kernel
+
 
 def raytrace_order_cuda(o, spec: Spectrograph, source: Source, telescope: Telescope, rv: float, t, ccd, ps, fiber: int,
                         ccd_index: int, efficiency=None,
