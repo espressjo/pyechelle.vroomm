@@ -1,6 +1,6 @@
 import numpy as np
 from hypothesis import given, strategies as st
-from optics import AffineTransformation, PSF
+from pyechelle.optics import AffineTransformation, PSF
 
 
 @given(
