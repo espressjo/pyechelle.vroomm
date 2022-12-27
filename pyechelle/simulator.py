@@ -94,7 +94,7 @@ def log_elapsed_time(msg: str, t0: float) -> float:
     return t1
 
 
-def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: bool = False):
+def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: bool = False, dtype: np.dtype = np.uint16):
     """ Saves CCD image to disk
 
     Args:
@@ -102,6 +102,7 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
         filename: filepath
         overwrite: if True, file will be overwritten if existing
         append: if True, CCD data will be added to data in fits file
+        dtype: numpy.dtype object defining the data type of the saved FITS file, defaulting to unsigned 16-bit integers
 
     Returns:
         None
@@ -113,7 +114,7 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
             assert old_file_data.shape == c.data.shape, f"You tried to append data to {filename}, " \
                                                         f"but the fits file contains" \
                                                         f"data with a different shape ({old_file_data.shape})."
-    hdu = fits.PrimaryHDU(data=np.array(c.data + old_file_data, dtype=int))
+    hdu = fits.PrimaryHDU(data=np.array(c.data + old_file_data, dtype=dtype))
     hdu_list = fits.HDUList([hdu])
     hdu_list.writeto(filename, overwrite=overwrite or append)
 
