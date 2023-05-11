@@ -6,6 +6,7 @@ import distutils.util
 import inspect
 import logging
 import pathlib
+import random
 import re
 import sys
 import time
@@ -274,8 +275,13 @@ class Simulator:
             cuda_kernel = make_cuda_kernel_singlemode()
         simulated_photons = []
         for o in np.sort(orders):
+            if self.random_seed < 0:
+                ii16 = np.iinfo(np.uint64)
+                seed = random.randint(1, ii16.max-1)
+            else:
+                seed = self.random_seed
             nphot = raytrace_order_cuda(o, self.spectrograph, s, self.telescope, rv, integration_time, dccd,
-                                        float(c.pixelsize), fiber, ccd_index, efficiency, seed=self.random_seed,
+                                        float(c.pixelsize), fiber, ccd_index, efficiency, seed=seed,
                                         cuda_kernel=cuda_kernel)
             simulated_photons.append(nphot)
         return simulated_photons
