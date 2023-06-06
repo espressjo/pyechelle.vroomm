@@ -47,7 +47,11 @@ test_python3.10:
   image: python:3.10
   only:
     - master
-
+test_python3.11:
+  <<: *test
+  image: python:3.11
+  only:
+    - master
 
 pages:
   <<: *install-deps

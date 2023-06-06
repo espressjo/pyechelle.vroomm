@@ -11,7 +11,7 @@ documentation = "https://stuermer.gitlab.io/pyechelle/"
 include = ["models/available_models.txt"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 astropy = "^5.2"
 h5py = "^3.7.0"
 scipy = "^1.9.3"
