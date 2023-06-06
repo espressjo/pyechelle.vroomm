@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New spectral source types: Blackbody, LineList and ConstantPhotons
 - New spectrograph
   model: [AtmosphericDispersion](https://stuermer.gitlab.io/pyechelle/example_direct.html#atmospheric-dispersion)
+- Simulation metadata is now added to FITS header (fits files now contain information about simulation parameters)
+
+### Fixed
+ - fixed #9 (issue with CUDA random seed)
 
 ## [0.3.5] - 2022-11-30
 
@@ -26,7 +30,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- fixed #8
+- fixed #8 (atmospheric absorption was not applied)
 
 ## [0.3.4] - 2022-08-28
 

@@ -152,6 +152,9 @@ class Source:
         else:
             return spec_density
 
+    def __str__(self):
+        return self.name
+
 
 class Constant(Source):
     """ Constant spectral density.
@@ -166,6 +169,9 @@ class Constant(Source):
 
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
+
+    def __str__(self):
+        return self.name + f': intensity: {self.intensity}'
 
 
 class ConstantPhotons(Source):
@@ -183,6 +189,9 @@ class ConstantPhotons(Source):
 
     def get_spectral_density(self, wavelength):
         return np.ones_like(wavelength) * self.intensity
+
+    def __str__(self):
+        return self.name + f': intensity: {self.intensity}'
 
 
 class ThAr(Source):
@@ -277,6 +286,9 @@ class Etalon(Source):
             np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
         ), np.asarray(intensity, dtype=int)
 
+    def __str__(self):
+        return self.name + f': d={self.d},n={self.n},theta={self.theta}'
+
 
 class Phoenix(Source):
     """ Phoenix M-dwarf spectra.
@@ -361,6 +373,9 @@ class Phoenix(Source):
     def get_spectral_density(self, wavelength):
         idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.ip_spectra(self.wl_data[idx])
+
+    def __str__(self):
+        return self.name + f': t={self.t_eff},g={self.log_g},z={self.z},a={self.alpha},mag={self.magnitude}'
 
 
 class CSV(Source):
@@ -459,6 +474,8 @@ class Blackbody(Source):
             name: name of the source (default: blackbody)
         """
         super().__init__(name=name, stellar_target=True, flux_in_photons=False)
+        self.magnitude = magnitude
+        self.temperature = temperature
         self._sp = SourceSpectrum(BlackBodyNorm1D(temperature=temperature))
         self._bp = SpectralElement.from_filter('johnson_v')
         self._vega = SourceSpectrum.from_vega()  # For unit conversion
@@ -468,3 +485,6 @@ class Blackbody(Source):
         # convert input wavelength from micron to angstrom
         # convert output from FLAM (erg/s/cm^2/A) to (microW/m^2/microns)
         return wavelength, self._sp_norm(wavelength * 10000., flux_unit=units.FLAM).value * 1E8
+
+    def __str__(self):
+        return self.name + f'temp={self.temperature},mag={self.magnitude}'

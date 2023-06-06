@@ -11,7 +11,9 @@ import re
 import sys
 import time
 from dataclasses import field, dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import Type
 
 import numpy as np
 from astropy.io import fits
@@ -95,7 +97,9 @@ def log_elapsed_time(msg: str, t0: float) -> float:
     return t1
 
 
-def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: bool = False, dtype: np.dtype = np.uint16):
+def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: bool = False,
+                  dtype: Type | np.dtype = np.uint16,
+                  metadata: dict = None):
     """ Saves CCD image to disk
 
     Args:
@@ -104,6 +108,7 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
         overwrite: if True, file will be overwritten if existing
         append: if True, CCD data will be added to data in fits file
         dtype: numpy.dtype object defining the data type of the saved FITS file, defaulting to unsigned 16-bit integers
+        metadata: dictionary with additional metadata that should be saved to the FITS header
 
     Returns:
         None
@@ -115,7 +120,17 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
             assert old_file_data.shape == c.data.shape, f"You tried to append data to {filename}, " \
                                                         f"but the fits file contains" \
                                                         f"data with a different shape ({old_file_data.shape})."
+
     hdu = fits.PrimaryHDU(data=np.array(c.data + old_file_data, dtype=dtype))
+    # unfortunately, long HIERARCH keywords and long values exclude each other:
+    # see
+    # https://stackoverflow.com/questions/29950918/astropy-io-fits-hierarch-keywords-dont-work-with-continue-cards-bug-or-feat
+    # therefore, we add short meaningless keywords.
+    if metadata is not None:
+        for i, (key, value) in enumerate(metadata.items()):
+            print(key, value)
+            hdu.header.set(f'PYE{i}', f'{key}: {str(value)}')
+
     hdu_list = fits.HDUList([hdu])
     hdu_list.writeto(filename, overwrite=overwrite or append)
 
@@ -260,12 +275,12 @@ class Simulator:
     def _simulate_single_cpu(self, orders, fiber, ccd_index, s, slit_fun, rv, integration_time, c, efficiency):
         simulated_photons = []
         for o in np.sort(orders):
-            nphot = raytrace_order_cpu(o, self.spectrograph, s, slit_fun, self.telescope, rv,
-                                       integration_time,
-                                       c, fiber, ccd_index,
-                                       efficiency,
-                                       1)
-            simulated_photons.append(nphot)
+            n_phot = raytrace_order_cpu(o, self.spectrograph, s, slit_fun, self.telescope, rv,
+                                        integration_time,
+                                        c, fiber, ccd_index,
+                                        efficiency,
+                                        1)
+            simulated_photons.append(n_phot)
         return simulated_photons
 
     def _simulate_cuda(self, orders, slit_fun, rv, integration_time, dccd, efficiency, s, c, fiber, ccd_index):
@@ -277,7 +292,7 @@ class Simulator:
         for o in np.sort(orders):
             if self.random_seed < 0:
                 ii16 = np.iinfo(np.uint64)
-                seed = random.randint(1, ii16.max-1)
+                seed = random.randint(1, ii16.max - 1)
             else:
                 seed = self.random_seed
             nphot = raytrace_order_cuda(o, self.spectrograph, s, self.telescope, rv, integration_time, dccd,
@@ -319,26 +334,31 @@ class Simulator:
         # copy empty array to CUDA device
         if self.cuda:
             dccd = cuda.to_device(np.zeros_like(c.data, dtype=np.uint32))
+        metadata = {'pyechelle.version': pyechelle.__version__,
+                    'pyechelle.spectrograph': self.spectrograph.name,
+                    'pyechelle.cuda': self.cuda,
+                    'pyechelle.seed': self.random_seed,
+                    'pyechelle.EXPTIME': self.exp_time,
+                    'pyechelle.CCD': self.ccd,
+                    'pyechelle.bias': self.bias,
+                    'pyechelle.readnoise': self.read_noise,
+                    'pyechelle.sim_start_utc': datetime.utcnow().isoformat()}
 
         for f, s, atm, atm_cond, rv in zip(self.fibers, self.sources, self.atmosphere, self.atmosphere_conditions,
                                            self.rvs):
             orders = self.orders if self.orders is not None else self._get_valid_orders(f)
             slit_fun = self._get_slit_function(f)
-            if self.global_efficiency is None:
-                if atm:
-                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd),
-                                          Atmosphere('Atmosphere', sky_calc_kwargs=atm_cond)],
-                                         'Combined Efficiency')
-                else:
-                    e = self.spectrograph.get_efficiency(f, self.ccd)
-            else:
-                if atm:
-                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency,
-                                          Atmosphere('Atmosphere', sky_calc_kwargs=atm_cond)],
-                                         'Combined Efficiency')
-                else:
-                    e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd), self.global_efficiency],
-                                         'Combined Efficiency')
+            metadata.update({
+                f'pyechelle.fiber{f}.orders': orders,
+                f'pyechelle.fiber{f}.source': str(s),
+                f'pyechelle.fiber{f}.rv': rv,
+                f'pyechelle.fiber{f}.atmosphere': atm,
+            })
+
+            e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd),
+                                  self.global_efficiency,
+                                  Atmosphere('Atmosphere', sky_calc_kwargs=atm_cond) if atm else None],
+                                 'Combined Efficiency')
 
             if not self.cuda:
                 if self.max_cpu > 1:
@@ -362,8 +382,8 @@ class Simulator:
         if self.read_noise > 0.:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
-
-        write_to_fits(c, self.output, self.overwrite, self.append)
+        metadata.update({'pyechelle.sim_end_utc': datetime.utcnow().isoformat()})
+        write_to_fits(c, self.output, self.overwrite, self.append, dtype=np.uint16, metadata=metadata)
         logger.info(f"Total time for simulation: {t2 - t1:.3f}s.")
         logger.info(f"Total simulated photons: {sum(total_simulated_photons)}")
         return sum(total_simulated_photons)
@@ -413,7 +433,7 @@ def generate_parser():
                         help='If set, CUDA will be used for raytracing. Note: the max_cpu flag is then obsolete.')
 
     parser.add_argument('--cuda_seed', type=int, default=-1,
-                        help='Random seed for generating CUDA RNG states. If <0, then the seed is choosen randomly.')
+                        help='Random seed for generating CUDA RNG states. If <0, then the seed is chosen randomly.')
 
     parser.add_argument('--max_cpu', type=int, default=1,
                         help="Maximum number of CPU cores used. Note: The parallelization happens 'per order'."
