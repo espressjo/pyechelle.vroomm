@@ -24,7 +24,7 @@ def check_url_exists(url: str) -> bool:
         if URL exists
     """
     try:
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(url, timeout=3) as response:
             return float(response.headers['Content-length']) > 0
     except URLError:
         return False
