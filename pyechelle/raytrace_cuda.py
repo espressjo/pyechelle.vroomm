@@ -8,14 +8,13 @@ from joblib import Memory
 from numba import cuda
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64
 
-from pyechelle.optics import convert_matrix
-from pyechelle.randomgen import make_alias_sampling_arrays
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
+from raytracing import prepare_raytracing
 
 path = pathlib.Path(__file__).parent.resolve()
-cache_path = path.joinpath('.cache')
+cache_path = path.joinpath(".cache")
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
@@ -24,22 +23,46 @@ memory = Memory(cache_path, verbose=0)
 @memory.cache
 def make_cuda_kernel(slitfun):
     @cuda.jit()
-    def cuda_kernel(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, trans_wld,
-                    transf_deriv, psfs_q, psfs_j, psf_wl, psf_wld, psf_shape, psf_sampling, ccd,
-                    pixelsize, rng_states, nphotons):
+    def cuda_kernel(
+        spectrum_wl,
+        spectrum_q,
+        spectrum_j,
+        transformations,
+        trans_wl,
+        trans_wld,
+        transf_deriv,
+        psfs_q,
+        psfs_j,
+        psf_wl,
+        psf_wld,
+        psf_shape,
+        psf_sampling,
+        ccd,
+        pixelsize,
+        rng_states,
+        nphotons,
+    ):
         max_y, max_x = ccd.shape
         thread_id = cuda.grid(1)
 
         for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
             # sample from spectrum
-            k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
-            wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] \
+            k = int(
+                math.floor(
+                    xoroshiro128p_uniform_float64(rng_states, thread_id)
+                    * len(spectrum_j)
+                )
+            )
+            wl = (
+                spectrum_wl[k]
+                if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
                 else spectrum_wl[spectrum_j[k]]
+            )
 
             # find index for transformation
             idx_trans_float = (wl - trans_wl[0]) / trans_wld
             idx_trans = int(math.floor(idx_trans_float))
-            r = (idx_trans_float - idx_trans)
+            r = idx_trans_float - idx_trans
 
             # do linear interpolation of transformation matrices
             # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -64,8 +87,16 @@ def make_cuda_kernel(slitfun):
             # apply PSF
             idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
             # next 3 lines implement drawing random number via alias sampling
-            k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(psfs_j[idx_psf])))
-            if not xoroshiro128p_uniform_float64(rng_states, thread_id) < psfs_q[idx_psf][k]:
+            k = int(
+                math.floor(
+                    xoroshiro128p_uniform_float64(rng_states, thread_id)
+                    * len(psfs_j[idx_psf])
+                )
+            )
+            if (
+                not xoroshiro128p_uniform_float64(rng_states, thread_id)
+                < psfs_q[idx_psf][k]
+            ):
                 k = psfs_j[idx_psf][k]
 
             # unravel 2d index
@@ -74,8 +105,8 @@ def make_cuda_kernel(slitfun):
             dx = k % psf_shape[0]
 
             # dx, dy = unravel_index(k, psf_shape)
-            xt += (dx - psf_shape[1] / 2.) * psf_sampling / pixelsize
-            yt += (dy - psf_shape[0] / 2.) * psf_sampling / pixelsize
+            xt += (dx - psf_shape[1] / 2.0) * psf_sampling / pixelsize
+            yt += (dy - psf_shape[0] / 2.0) * psf_sampling / pixelsize
             x_int = int(math.floor(xt))
             y_int = int(math.floor(yt))
 
@@ -88,22 +119,46 @@ def make_cuda_kernel(slitfun):
 @memory.cache
 def make_cuda_kernel_singlemode():
     @cuda.jit()
-    def cuda_kernel(spectrum_wl, spectrum_q, spectrum_j, transformations, trans_wl, trans_wld,
-                    transf_deriv, psfs_q, psfs_j, psf_wl, psf_wld, psf_shape, psf_sampling, ccd,
-                    pixelsize, rng_states, nphotons):
+    def cuda_kernel(
+        spectrum_wl,
+        spectrum_q,
+        spectrum_j,
+        transformations,
+        trans_wl,
+        trans_wld,
+        transf_deriv,
+        psfs_q,
+        psfs_j,
+        psf_wl,
+        psf_wld,
+        psf_shape,
+        psf_sampling,
+        ccd,
+        pixelsize,
+        rng_states,
+        nphotons,
+    ):
         max_y, max_x = ccd.shape
         thread_id = cuda.grid(1)
 
         for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
             # sample from spectrum
-            k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(spectrum_j)))
-            wl = spectrum_wl[k] if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k] \
+            k = int(
+                math.floor(
+                    xoroshiro128p_uniform_float64(rng_states, thread_id)
+                    * len(spectrum_j)
+                )
+            )
+            wl = (
+                spectrum_wl[k]
+                if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
                 else spectrum_wl[spectrum_j[k]]
+            )
 
             # find index for transformation
             idx_trans_float = (wl - trans_wl[0]) / trans_wld
             idx_trans = int(math.floor(idx_trans_float))
-            r = (idx_trans_float - idx_trans)
+            r = idx_trans_float - idx_trans
 
             # do linear interpolation of transformation matrices
             xt = transformations[2, idx_trans]
@@ -117,8 +172,16 @@ def make_cuda_kernel_singlemode():
             # apply PSF
             idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
             # next 3 lines implement drawing random number via alias sampling
-            k = int(math.floor(xoroshiro128p_uniform_float64(rng_states, thread_id) * len(psfs_j[idx_psf])))
-            if not xoroshiro128p_uniform_float64(rng_states, thread_id) < psfs_q[idx_psf][k]:
+            k = int(
+                math.floor(
+                    xoroshiro128p_uniform_float64(rng_states, thread_id)
+                    * len(psfs_j[idx_psf])
+                )
+            )
+            if (
+                not xoroshiro128p_uniform_float64(rng_states, thread_id)
+                < psfs_q[idx_psf][k]
+            ):
                 k = psfs_j[idx_psf][k]
 
             # unravel 2d index
@@ -131,8 +194,8 @@ def make_cuda_kernel_singlemode():
             dx_psf = xoroshiro128p_uniform_float64(rng_states, thread_id)
             dy_psf = xoroshiro128p_uniform_float64(rng_states, thread_id)
 
-            xt += (dx - psf_shape[1] / 2. + dx_psf - 0.5) * psf_sampling / pixelsize
-            yt += (dy - psf_shape[0] / 2. + dy_psf - 0.5) * psf_sampling / pixelsize
+            xt += (dx - psf_shape[1] / 2.0 + dx_psf - 0.5) * psf_sampling / pixelsize
+            yt += (dy - psf_shape[0] / 2.0 + dy_psf - 0.5) * psf_sampling / pixelsize
             x_int = int(math.floor(xt))
             y_int = int(math.floor(yt))
 
@@ -142,71 +205,60 @@ def make_cuda_kernel_singlemode():
     return cuda_kernel
 
 
-def raytrace_order_cuda(o, spec: Spectrograph, source: Source, telescope: Telescope, rv: float, t, ccd, ps, fiber: int,
-                        ccd_index: int, efficiency=None,
-                        seed=-1, cuda_kernel=None):
-    wavelength = np.linspace(*spec.get_wavelength_range(o, fiber, ccd_index), num=100000)
-
-    # get spectral density per order
-    spectral_density = source.get_spectral_density_rv(wavelength, rv)
-    # if source returns own wavelength vector, use that for further calculations instead of default grid
-    if isinstance(spectral_density, tuple):
-        wavelength, spectral_density = spectral_density
-
-    # for stellar targets calculate collected flux by telescope area
-    if source.stellar_target:
-        spectral_density *= telescope.area
-
-    # get efficiency per order
-    if efficiency is not None:
-        eff = efficiency.get_efficiency_per_order(wavelength=wavelength, order=o)
-        effective_density = eff * spectral_density
-    else:
-        effective_density = spectral_density
-
-    # calculate photon flux
-    if source.flux_in_photons:
-        flux = effective_density
-    else:
-        ch_factor = 5.03E12  # convert microwatts / micrometer to photons / s per wavelength interval
-        wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
-        flux = effective_density * wavelength * wl_diffs * ch_factor
-
-    flux_photons = flux * t
-    total_photons = int(np.sum(flux_photons))
-    print(f'Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     '
-          f'Number of photons: {total_photons}')
-
-    minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
-    trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = convert_matrix(np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index)))
-    # derivatives for simple linear interpolation
-    trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
-
-    psf_sampler_qj = np.array(
-        [make_alias_sampling_arrays(p.data.T.ravel()) for p in spec.get_psf(None, o, fiber, ccd_index)])
-
-    psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
-    psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
-
-    spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(np.asarray(flux_photons / np.sum(flux_photons),
-                                                                                   dtype=np.float32))
-
-    psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
+def raytrace_order_cuda(
+    o,
+    spec: Spectrograph,
+    source: Source,
+    telescope: Telescope,
+    rv: float,
+    t,
+    ccd,
+    ps,
+    fiber: int,
+    ccd_index: int,
+    efficiency=None,
+    seed=-1,
+    cuda_kernel=None,
+):
+    (
+        psf_sampler_qj,
+        psf_sampling,
+        psf_shape,
+        psfs_wl,
+        psfs_wld,
+        spectrum_sampler_j,
+        spectrum_sampler_q,
+        total_photons,
+        trans_deriv,
+        trans_wl,
+        trans_wld,
+        transformations,
+        wavelength,
+    ) = prepare_raytracing(
+        o, fiber, ccd_index, efficiency, rv, source, spec, telescope, t
+    )
 
     threads_per_block = 128
     blocks = 64
     rng_states = create_xoroshiro128p_states(threads_per_block * blocks, seed=seed)
 
-    cuda_kernel[threads_per_block, blocks](np.ascontiguousarray(wavelength), np.ascontiguousarray(spectrum_sampler_q),
-                                           np.ascontiguousarray(spectrum_sampler_j),
-                                           np.ascontiguousarray(transformations), np.ascontiguousarray(trans_wl),
-                                           trans_wld, np.ascontiguousarray(trans_deriv),
-                                           np.ascontiguousarray(psf_sampler_qj[:, 0]),
-                                           np.ascontiguousarray(psf_sampler_qj[:, 1]), np.ascontiguousarray(psfs_wl),
-                                           psfs_wld[0],
-                                           np.ascontiguousarray(psf_shape), psf_sampling,
-                                           ccd, float(ps), rng_states,
-                                           total_photons)
+    cuda_kernel[threads_per_block, blocks](
+        np.ascontiguousarray(wavelength),
+        np.ascontiguousarray(spectrum_sampler_q),
+        np.ascontiguousarray(spectrum_sampler_j),
+        np.ascontiguousarray(transformations),
+        np.ascontiguousarray(trans_wl),
+        trans_wld,
+        np.ascontiguousarray(trans_deriv),
+        np.ascontiguousarray(psf_sampler_qj[:, 0]),
+        np.ascontiguousarray(psf_sampler_qj[:, 1]),
+        np.ascontiguousarray(psfs_wl),
+        psfs_wld[0],
+        np.ascontiguousarray(psf_shape),
+        psf_sampling,
+        ccd,
+        float(ps),
+        rng_states,
+        total_photons,
+    )
     return total_photons

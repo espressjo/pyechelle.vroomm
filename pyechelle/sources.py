@@ -175,7 +175,7 @@ class ConstantPhotons(Source):
 
     """
 
-    def __init__(self, intensity=1000, **kwargs):
+    def __init__(self, intensity=1E8, **kwargs):
         super().__init__(**kwargs, name="ConstantPhotons", list_like=False)
         self.intensity = intensity
         self.flux_in_photons = True
