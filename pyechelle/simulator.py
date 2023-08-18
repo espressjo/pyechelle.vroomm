@@ -291,7 +291,7 @@ class Simulator:
         simulated_photons = []
         for o in np.sort(orders):
             if self.random_seed < 0:
-                ii16 = np.iinfo(np.uint64)
+                ii16 = np.iinfo(np.uint32)
                 seed = random.randint(1, ii16.max - 1)
             else:
                 seed = self.random_seed
