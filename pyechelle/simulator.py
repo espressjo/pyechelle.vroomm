@@ -128,7 +128,6 @@ def write_to_fits(c: CCD, filename: str | Path, overwrite: bool = True, append: 
     # therefore, we add short meaningless keywords.
     if metadata is not None:
         for i, (key, value) in enumerate(metadata.items()):
-            print(key, value)
             hdu.header.set(f'PYE{i}', f'{key}: {str(value)}')
 
     hdu_list = fits.HDUList([hdu])
