@@ -43,7 +43,7 @@ def check_url_exists(url: str) -> bool:
     if url.lower().startswith('ftp:'):
         return check_FTP_url_exists(url)
     try:
-        with urllib.request.urlopen(url, timeout=3) as response:
+        with urllib.request.urlopen(url, timeout=10) as response:
             return float(response.headers['Content-length']) > 0
     except URLError:
         return False
