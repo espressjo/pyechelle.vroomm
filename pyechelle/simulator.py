@@ -353,6 +353,7 @@ class Simulator:
                 f'pyechelle.fiber{f}.rv': rv,
                 f'pyechelle.fiber{f}.atmosphere': atm,
             })
+            #TODO: add also atmospheric keywords to fits header
 
             e = SystemEfficiency([self.spectrograph.get_efficiency(f, self.ccd),
                                   self.global_efficiency,
