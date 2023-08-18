@@ -56,20 +56,22 @@ class BandpassFilter(Efficiency):
 
 
 class SystemEfficiency(Efficiency):
-    def __init__(self, efficiencies: list[Efficiency], name: str):
+    def __init__(self, efficiencies: list[Efficiency | None], name: str):
         super().__init__(name)
         self.efficiencies = efficiencies
 
     def get_efficiency(self, wavelength):
         e = np.ones_like(wavelength)
         for ef in self.efficiencies:
-            e *= ef.get_efficiency(wavelength)
+            if ef is not None:
+                e *= ef.get_efficiency(wavelength)
         return e
 
     def get_efficiency_per_order(self, wavelength, order):
         e = np.ones_like(wavelength)
         for ef in self.efficiencies:
-            e *= ef.get_efficiency_per_order(wavelength, order)
+            if ef is not None:
+                e *= ef.get_efficiency_per_order(wavelength, order)
         return e
 
     def add_efficiency(self, efficiency):

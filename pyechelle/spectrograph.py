@@ -200,9 +200,13 @@ class Spectrograph:
         """
         raise NotImplementedError
 
+    def __str__(self):
+        return self.name
+
 
 class SimpleSpectrograph(Spectrograph):
-    def __init__(self):
+    def __init__(self, name: str = 'SimpleSpectrograph'):
+        self.name = name
         self._ccd = {1: CCD()}
         self._fibers = {}
         self._orders = {}
@@ -294,7 +298,8 @@ class AtmosphericDispersion(Spectrograph):
     """
 
     def __init__(self, zd: float, pressure=775E2, temperature=283.15, reference_wavelength: float = 0.35,
-                 pixel_scale: float = 0.1, seeing: float = 1.0, ccd_size: int = 80):
+                 pixel_scale: float = 0.1, seeing: float = 1.0, ccd_size: int = 80,
+                 name: str = 'AtmosphericDispersion'):
         """ Constructor
 
         Args:
@@ -305,7 +310,9 @@ class AtmosphericDispersion(Spectrograph):
             pixel_scale: arcsec per pixel [arcsec]
             seeing: seeing at reference_wavelength [arcsec]
             ccd_size: number of pixels in X and Y direction for simulated output
+            name: name of the spectrograph model
         """
+        self.name = name
         self.ccd_size = ccd_size
         self._ccd = {1: CCD(self.ccd_size, self.ccd_size, pixelsize=1)}
         self._fibers = {}
@@ -338,7 +345,7 @@ class AtmosphericDispersion(Spectrograph):
         P0 = 1013.25E2
         T0 = 288.15
         return (64.328 + 29498.1E-6 / (146E-6 - (1 / (wl * 1000.)) ** 2) + 255.4E-6 / (
-                    41E-4 - (1 / (wl * 1000.)) ** 2)) * \
+                41E-4 - (1 / (wl * 1000.)) ** 2)) * \
             self.pressure / self.temperature * T0 / P0
 
     def delta_R(self, wl: np.ndarray | float) -> float | np.ndarray:
@@ -398,7 +405,7 @@ class AtmosphericDispersion(Spectrograph):
 
     def seeing_disc_diameter(self, wl):
         """ Returns seeing disc diameter in pixel for given pixel scale and seeing"""
-        seeing_wl = self.seeing * (wl/self.r_wl)**(-1./5.)
+        seeing_wl = self.seeing * (wl / self.r_wl) ** (-1. / 5.)
         return (seeing_wl / self.pixel_scale) / 2.
 
     def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
@@ -428,7 +435,8 @@ class AtmosphericDispersion(Spectrograph):
 
 
 class ZEMAX(Spectrograph):
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, name: str = 'ZEMAX Model'):
+        self.name = name
         self.path = check_for_spectrograph_model(path)
         self._CCDs = {}
         self._ccd_keys = []
@@ -602,6 +610,9 @@ class ZEMAX(Spectrograph):
         if self._h5f:
             self._h5f.close()
 
+    def __str__(self):
+        return self.name + f': {self.path.name}'
+
 
 class InteractiveZEMAX(Spectrograph):
 
@@ -634,8 +645,10 @@ class InteractiveZEMAX(Spectrograph):
 
 class LocalDisturber(Spectrograph):
 
-    def __init__(self, spec: Spectrograph, d_tx=0., d_ty=0., d_rot=0., d_shear=0., d_sx=0., d_sy=0.):
+    def __init__(self, spec: Spectrograph, d_tx=0., d_ty=0., d_rot=0., d_shear=0., d_sx=0., d_sy=0.,
+                 name: str = 'LocalDisturber'):
         self.spec = spec
+        self.name = name
         for method in dir(Spectrograph):
             if method.startswith('get_') and method != 'get_transformation':
                 setattr(self, method, getattr(self.spec, method))
@@ -649,11 +662,21 @@ class LocalDisturber(Spectrograph):
             return self.spec.get_transformation(wavelength, order, fiber, ccd_index) + \
                 np.expand_dims(self.disturber_matrix.as_matrix(), axis=-1)
 
+    def __str__(self):
+        return self.name + f'({str(self.spec)}): d_tx:{self.disturber_matrix.tx},' \
+                           f'd_ty:{self.disturber_matrix.ty},' \
+                           f'd_rot:{self.disturber_matrix.rot},' \
+                           f'd_shear:{self.disturber_matrix.shear},' \
+                           f'd_sx:{self.disturber_matrix.sx},' \
+                           f'd_sy:{self.disturber_matrix.sy}'
+
 
 class GlobalDisturber(Spectrograph):
     def __init__(self, spec: Spectrograph, tx: float = 0., ty: float = 0., rot: float = 0., shear: float = 0.,
-                 sx: float = 1., sy: float = 1., reference_x: float = None, reference_y: float = None):
+                 sx: float = 1., sy: float = 1., reference_x: float = None, reference_y: float = None,
+                 name: str = 'GlobalDisturber'):
         self.spec = spec
+        self.name = name
         for method in dir(Spectrograph):
             if method.startswith('get_') and method != 'get_transformation':
                 setattr(self, method, getattr(self.spec, method))
@@ -733,3 +756,11 @@ class GlobalDisturber(Spectrograph):
             tm[4] += self.disturber_matrix.tx
             tm[5] += self.disturber_matrix.ty
             return tm
+
+    def __str__(self):
+        return self.name + f'({str(self.spec)}): d_tx:{self.disturber_matrix.tx},' \
+                           f'd_ty:{self.disturber_matrix.ty},' \
+                           f'd_rot:{self.disturber_matrix.rot},' \
+                           f'd_shear:{self.disturber_matrix.shear},' \
+                           f'd_sx:{self.disturber_matrix.sx},' \
+                           f'd_sy:{self.disturber_matrix.sy}'
