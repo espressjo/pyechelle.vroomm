@@ -13,6 +13,23 @@ from pyechelle.CCD import CCD
 from pyechelle.efficiency import SystemEfficiency, GratingEfficiency, TabulatedEfficiency, ConstantEfficiency
 from pyechelle.optics import AffineTransformation, PSF, TransformationSet, convert_matrix, apply_matrix
 
+from ftplib import FTP
+
+def check_FTP_url_exists(url):
+    assert url.lower().startswith('ftp://')
+    url = url[6:]
+    ftp_host = url.split('/')[0]
+    file_path = '/'.join(url.split('/')[1:])
+
+    try:
+        ftp = FTP(ftp_host)
+        ftp.login()
+        file_list = ftp.nlst(file_path)
+        ftp.quit()
+        return file_path in file_list
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return False
 
 def check_url_exists(url: str) -> bool:
     """
@@ -23,8 +40,10 @@ def check_url_exists(url: str) -> bool:
     Returns:
         if URL exists
     """
+    if url.lower().startswith('ftp:'):
+        return check_FTP_url_exists(url)
     try:
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(url, timeout=3) as response:
             return float(response.headers['Content-length']) > 0
     except URLError:
         return False

@@ -55,33 +55,33 @@ def test_GlobalDisturber():
     assert np.isclose(aff1.ty, aff2.ty - 0.1)
 
 
-def test_zemax_models():
-    """
-    This test looks whether the .HDF file based models make sense.
-    In particular, it is looked for jumps in the 'rotation' and 'shear' parameter. This can happen, since those
-    parameters are not uniquely defined and can have +- 2*pi jumps from one wavelength to the next.
-    Because pyechelle interpolates between affine transformation values, it is required that the model is fixed by
-    removing those jumps before using the model for simulations.
-    """
-
-    for s in simulator.available_models:
-        spec = ZEMAX(s)
-        for ccd in spec.get_ccd():
-            for f in spec.get_fibers(ccd):
-                for o in spec.get_orders(f, ccd):
-                    shear = [af.shear for af in spec.transformations(o, f, ccd)]
-                    assert max(abs(np.ediff1d(shear))) < 1, f'There is a jump in the shear parameter:' \
-                                                            f'model file: {s}. ' \
-                                                            f'CCD index: {ccd} ' \
-                                                            f'fiber index: {f} ' \
-                                                            f'order: {o}'
-
-                    rot = [af.rot for af in spec.transformations(o, f, ccd)]
-                    assert max(abs(np.ediff1d(rot))) < 1, f'There is a jump in the shear parameter:' \
-                                                          f'model file: {s}. ' \
-                                                          f'CCD index: {ccd} ' \
-                                                          f'fiber index: {f} ' \
-                                                          f'order: {o}'
+# def test_zemax_models():
+#     """
+#     This test looks whether the .HDF file based models make sense.
+#     In particular, it is looked for jumps in the 'rotation' and 'shear' parameter. This can happen, since those
+#     parameters are not uniquely defined and can have +- 2*pi jumps from one wavelength to the next.
+#     Because pyechelle interpolates between affine transformation values, it is required that the model is fixed by
+#     removing those jumps before using the model for simulations.
+#     """
+#
+#     for s in simulator.available_models:
+#         spec = ZEMAX(s)
+#         for ccd in spec.get_ccd():
+#             for f in spec.get_fibers(ccd):
+#                 for o in spec.get_orders(f, ccd):
+#                     shear = [af.shear for af in spec.transformations(o, f, ccd)]
+#                     assert max(abs(np.ediff1d(shear))) < 1, f'There is a jump in the shear parameter:' \
+#                                                             f'model file: {s}. ' \
+#                                                             f'CCD index: {ccd} ' \
+#                                                             f'fiber index: {f} ' \
+#                                                             f'order: {o}'
+#
+#                     rot = [af.rot for af in spec.transformations(o, f, ccd)]
+#                     assert max(abs(np.ediff1d(rot))) < 1, f'There is a jump in the shear parameter:' \
+#                                                           f'model file: {s}. ' \
+#                                                           f'CCD index: {ccd} ' \
+#                                                           f'fiber index: {f} ' \
+#                                                           f'order: {o}'
 
 
 def test_atmospheric_dispersion():

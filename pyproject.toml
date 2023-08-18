@@ -39,8 +39,10 @@ Sphinx = "^5.3.0"
 poetryup = "^0.12.7"
 pytest-env = "^0.8.2"
 setuptools = "^68.0.0"
+pytest-timeout = "^2.1.0"
 
 [tool.pytest.ini_options]
+timeout = "300"
 env = [
     "NUMBA_DISABLE_JIT=4",
 ]
