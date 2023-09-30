@@ -10,7 +10,139 @@ from dataclasses import dataclass, field
 
 import numba
 import numpy as np
-import scipy.interpolate
+from scipy.interpolate import CubicSpline
+
+
+def correct_phase_jumps(data):
+    return (data + np.pi) % (2 * np.pi) - np.pi
+
+
+def _center_and_normalize_points(points):
+    """Center and normalize image points.
+
+    The points are transformed in a two-step procedure that is expressed
+    as a transformation matrix. The matrix of the resulting points is usually
+    better conditioned than the matrix of the original points.
+
+    Center the image points, such that the new coordinate system has its
+    origin at the centroid of the image points.
+
+    Normalize the image points, such that the mean distance from the points
+    to the origin of the coordinate system is sqrt(D).
+
+    If the points are all identical, the returned values will contain nan.
+
+    Parameters
+    ----------
+    points : (N, D) array
+        The coordinates of the image points.
+
+    Returns
+    -------
+    matrix : (D+1, D+1) array_like
+        The transformation matrix to obtain the new points.
+    new_points : (N, D) array
+        The transformed image points.
+
+    References
+    ----------
+    .. [1] Hartley, Richard I. "In defense of the eight-point algorithm."
+           Pattern Analysis and Machine Intelligence, IEEE Transactions on 19.6
+           (1997): 580-593.
+
+    """
+    n, d = points.shape
+    centroid = np.mean(points, axis=0)
+
+    centered = points - centroid
+    rms = np.sqrt(np.sum(centered ** 2) / n)
+
+    # if all the points are the same, the transformation matrix cannot be
+    # created. We return an equivalent matrix with np.nans as sentinel values.
+    # This obviates the need for try/except blocks in functions calling this
+    # one, and those are only needed when actual 0 is reached, rather than some
+    # small value; ie, we don't need to worry about numerical stability here,
+    # only actual 0.
+    if rms == 0:
+        return np.full((d + 1, d + 1), np.nan), np.full_like(points, np.nan)
+
+    norm_factor = np.sqrt(d) / rms
+
+    part_matrix = norm_factor * np.concatenate(
+        (np.eye(d), -centroid[:, np.newaxis]), axis=1
+    )
+    matrix = np.concatenate(
+        (part_matrix, [[0, ] * d + [1]]), axis=0
+    )
+
+    points_h = np.row_stack([points.T, np.ones(n)])
+
+    new_points_h = (matrix @ points_h).T
+
+    new_points = new_points_h[:, :d]
+    new_points /= new_points_h[:, d:]
+
+    return matrix, new_points
+
+
+def find_affine(src, dst):
+    coeffs = range(6)
+    src = np.asarray(src)
+    dst = np.asarray(dst)
+    n, d = src.shape
+
+    src_matrix, src = _center_and_normalize_points(src)
+    dst_matrix, dst = _center_and_normalize_points(dst)
+    if not np.all(np.isfinite(src_matrix + dst_matrix)):
+        raise ValueError("Culdn't calculate matrix")
+
+    # params: a0, a1, a2, b0, b1, b2, c0, c1
+    A = np.zeros((n * d, (d + 1) ** 2))
+    # fill the A matrix with the appropriate block matrices; see docstring
+    # for 2D example — this can be generalised to more blocks in the 3D and
+    # higher-dimensional cases.
+    for ddim in range(d):
+        A[ddim * n: (ddim + 1) * n, ddim * (d + 1): ddim * (d + 1) + d] = src
+        A[ddim * n: (ddim + 1) * n, ddim * (d + 1) + d] = 1
+        A[ddim * n: (ddim + 1) * n, -d - 1:-1] = src
+        A[ddim * n: (ddim + 1) * n, -1] = -1
+        A[ddim * n: (ddim + 1) * n, -d - 1:] *= -dst[:, ddim:(ddim + 1)]
+
+    # Select relevant columns, depending on params
+    A = A[:, list(coeffs) + [-1]]
+    _, _, V = np.linalg.svd(A)
+
+    # if the last element of the vector corresponding to the smallest
+    # singular value is close to zero, this implies a degenerate case
+    # because it is a rank-defective transform, which would map points
+    # to a line rather than a plane.
+    if np.isclose(V[-1, -1], 0):
+        raise ValueError("Culdn't calculate matrix")
+
+    H = np.zeros((d + 1, d + 1))
+    # solution is right singular vector that corresponds to smallest
+    # singular value
+    H.flat[list(coeffs) + [-1]] = - V[-1, :-1] / V[-1, -1]
+    H[d, d] = 1
+
+    # De-center and de-normalize
+    H = np.linalg.inv(dst_matrix) @ H @ src_matrix
+
+    # Small errors can creep in if points are not exact, causing the last
+    # element of H to deviate from unity. Correct for that here.
+    H /= H[-1, -1]
+
+    return H
+
+
+def decompose_affine_matrix(m):
+    scale_x, scale_y = np.sqrt(np.sum(m ** 2, axis=0))[:2]
+    rotation = math.atan2(m[1, 0], m[0, 0])
+
+    beta = math.atan2(- m[0, 1], m[1, 1])
+    shear = beta - rotation
+    tx, ty = m[0:2, 2]
+    return rotation, scale_x, scale_y, shear, tx, ty
 
 
 @dataclass
@@ -117,6 +249,9 @@ class AffineTransformation:
         self.ty -= other.ty
         return self
 
+    def __eq__(self, other):
+        return np.isclose(self.as_matrix(), other.as_matrix()).all()
+
     def __mul__(self, other):
         assert isinstance(other, tuple), "You can only multiply an affine matrix with a tuple of length 2 (x," \
                                          "y coordinate) "
@@ -167,12 +302,12 @@ class TransformationSet:
 
     def get_affine_transformations(self, wl: float | np.ndarray) -> AffineTransformation | np.ndarray:
         if self._spline_affine is None:
-            self._spline_affine = [scipy.interpolate.CubicSpline(self.wl, self.rot),
-                                   scipy.interpolate.CubicSpline(self.wl, self.sx),
-                                   scipy.interpolate.CubicSpline(self.wl, self.sy),
-                                   scipy.interpolate.CubicSpline(self.wl, self.shear),
-                                   scipy.interpolate.CubicSpline(self.wl, self.tx),
-                                   scipy.interpolate.CubicSpline(self.wl, self.ty)
+            self._spline_affine = [CubicSpline(self.wl, self.rot),
+                                   CubicSpline(self.wl, self.sx),
+                                   CubicSpline(self.wl, self.sy),
+                                   CubicSpline(self.wl, self.shear),
+                                   CubicSpline(self.wl, self.tx),
+                                   CubicSpline(self.wl, self.ty)
                                    ]
         if isinstance(wl, float):
             return AffineTransformation(*[af(wl) for af in self._spline_affine], wl)
@@ -240,3 +375,34 @@ class PSF:
                 res += letters[i]
             res += '\n'
         return res
+
+    def __eq__(self, other):
+        equal_wavelength = self.wavelength == other.wavelength
+        if not equal_wavelength:
+            print(f"Wavelength data is different ({self.wavelength} vs. {other.wavelength})")
+        equal_sampling = self.sampling == other.sampling
+        if not equal_sampling:
+            print(f"Data sampling is different ({self.sampling} vs. {other.sampling})")
+        equal_data = np.array_equal(self.data, other.data)
+        if not equal_data:
+            print(f"Data is different ({self.data} vs. {other.data})")
+        return equal_wavelength and equal_sampling and equal_wavelength
+
+    def check(self, threshold=1E-3):
+        """Checks PSF for consistency.
+
+        Checks if the PSF has 'high' flux on the outer edge of its sampling area. Significant flux on the border of
+        the PSF means that the sampling area of the PSF is most likely not large enough. This could lead to an
+        artificial cutoff of the PSF. As a result, spectra would be 'sharper' than they are in reality.
+
+        TODO:
+            Right now, the function merely gives an indication whether the PSF is sampled correctly or not. Ideally,
+            the threshold should be adapted to the pixel size of the CCD to determine the spill-over per pixel.
+
+        Args:
+            threshold (float): threshold up to which the PSF is considered OK
+
+        Returns:
+            True if check is OK False if flux is higher than threshold
+        """
+        return sum(self.data[0]) + sum(self.data[-1]) + sum(self.data[:, 0]) + sum(self.data[:, -1]) < threshold

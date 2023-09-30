@@ -72,3 +72,21 @@ class CCD:
             self.data[self.data < 0] = 0
         if np.any(self.data > self.maxval):
             self.data[self.data > self.maxval] = self.maxval
+
+    def __eq__(self, other):
+        equal_pixel = (self.n_pix_x == other.n_pix_x) and (self.n_pix_y == other.n_pix_y)
+        if not equal_pixel:
+            print(f"The number of pixels differs ({self.n_pix_x}x{self.n_pix_y} vs. {other.n_pix_x}x{other.n_pix_y}")
+        equal_pixelsize = self.pixelsize == other.pixelsize
+        if not equal_pixelsize:
+            print(f"The pixel size differs {self.pixelsize} vs. {other.pixelsize}")
+        equal_maxval = self.maxval == other.maxval
+        if not equal_maxval:
+            print(f"The maxval differs {self.maxval} vs. {other.maxval}")
+        equal_identifier = self.identifier == other.identifier
+        if not equal_identifier:
+            print(f"The identifier differs {self.identifier} vs. {other.identifier}")
+        equal_data = np.array_equal(self.data, other.data)
+        if not equal_data:
+            print(f"The data differs: {self.data} vs. {other.data}")
+        return equal_pixel and equal_pixelsize and equal_maxval and equal_identifier and equal_data

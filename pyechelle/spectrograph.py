@@ -2,16 +2,30 @@ from __future__ import annotations
 
 import logging
 import urllib.request
+from collections import namedtuple
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import URLError
 
 import h5py
 import numpy as np
+from matplotlib import pyplot as plt
+
+try:
+    import zospy
+    from zospy.functions.lde import find_surface_by_comment
+    from zospy.zpcore import OpticStudioSystem
+except ImportError:
+    pass
+except RuntimeError:
+    pass
+except:
+    pass
 
 from pyechelle.CCD import CCD
 from pyechelle.efficiency import SystemEfficiency, GratingEfficiency, TabulatedEfficiency, ConstantEfficiency
-from pyechelle.optics import AffineTransformation, PSF, TransformationSet, convert_matrix, apply_matrix
+from pyechelle.optics import AffineTransformation, PSF, TransformationSet, convert_matrix, apply_matrix, find_affine, \
+    decompose_affine_matrix
 
 from ftplib import FTP
 
@@ -49,30 +63,43 @@ def check_url_exists(url: str) -> bool:
         return False
 
 
-def check_for_spectrograph_model(model_name: str, download=True):
+def check_for_spectrograph_model(model_name: str | Path, download=True):
     """
     Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
     spectrograph model is valid (this is mainly for testing purpose).
 
     Args:
-        model_name: name of spectrograph model. See models/available_models.txt for valid names
+        model_name: name of spectrograph model or path to .hdf file. See models/available_models.txt for valid names
         download: download flag
 
     Returns:
 
     """
-    file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
-    if not file_path.is_file():
-        url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
-        if download:
-            print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
-            Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
-            with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
-                data = response.read()
-                out_file.write(data)
-        else:
-            check_url_exists(url)
-    return file_path
+    if isinstance(model_name, Path):
+        return model_name
+    else:
+        if model_name.endswith(".hdf"):
+            model_name = model_name.rstrip(".hdf")
+
+        # look in models folder
+        file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
+        # if it doesn't exist look in current working directory
+        if not file_path.is_file():
+            file_path = Path.cwd().resolve().joinpath(f"{model_name}.hdf")
+        # if it doesn't exist try to download
+        if not file_path.is_file():
+            url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
+            if download:
+                print(f"Spectrograph model {model_name} not found locally. Trying to download from {url}...")
+                Path(Path(__file__).resolve().parent.joinpath("models")).mkdir(parents=False, exist_ok=True)
+                file_path = Path(__file__).resolve().parent.joinpath("models").joinpath(f"{model_name}.hdf")
+                with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
+                    data = response.read()
+                    out_file.write(data)
+            else:
+                check_url_exists(url)
+        logging.info(f"Using the model file {file_path.absolute()}")
+        return file_path
 
 
 @dataclass
@@ -200,8 +227,56 @@ class Spectrograph:
         """
         raise NotImplementedError
 
-    def __str__(self):
-        return self.name
+    def __eq__(self, other: Spectrograph):
+        equal = True
+        equal_ccd = self.get_ccd() == other.get_ccd()
+        if not equal_ccd:
+            print(f"CCDs are equal: {equal_ccd}")
+            equal = False
+        for c in self.get_ccd().keys():
+            equal_fields = self.get_fibers(c) == other.get_fibers(c)
+            if not equal_fields:
+                print(f"Fields for CCD {c} are equal: {equal_fields}")
+                equal = False
+            for f in self.get_fibers(c):
+                # test field shapes
+                equal_field_shapes = self.get_field_shape(f, c) == other.get_field_shape(f, c)
+                if not equal_field_shapes:
+                    print(f"Field shapes for CCD {c} and fiber {f} are equal: {equal_field_shapes}")
+                    equal = False
+                # test orders
+                equal_orders = self.get_orders(f, c) == other.get_orders(f, c)
+                if not equal_orders:
+                    print(f"Orders for CCD {c} and fiber {f} are equal: {equal_orders}")
+                    equal = False
+                for o in self.get_orders(f, c):
+                    # test wavelength range
+                    equal_wavelength_range = self.get_wavelength_range(o, f, c) == other.get_wavelength_range(o, f, c)
+                    if not equal_wavelength_range:
+                        print(
+                            f"Wavelength range for CCD {c} and fiber {f} and order {o} are equal: {equal_wavelength_range}")
+                        equal = False
+                    # test transformations
+                    test_wl = np.linspace(*self.get_wavelength_range(o, f, c), 100)
+
+                    s_transf = self.get_transformation(test_wl, o, f, c)
+                    o_transf = other.get_transformation(test_wl, o, f, c)
+                    equal_transf = (s_transf == o_transf).all()
+                    if not equal_transf:
+                        print(
+                            f"Transformations for CCD {c} and fiber {f} and order {o} are equal: {equal_transf}")
+                        equal = False
+                    # test PSFs
+                    equal_psf = True
+                    for wl in test_wl:
+                        s_psfs = self.get_psf(wl, o, f, c)
+                        o_psfs = other.get_psf(wl, o, f, c)
+                        equal_psf = equal_psf and (s_psfs == o_psfs)
+                    if not equal_psf:
+                        print(
+                            f"PSFs for CCD {c} and fiber {f} and order {o} are equal: {equal_psf}")
+                        equal = False
+        return equal
 
 
 class SimpleSpectrograph(Spectrograph):
@@ -334,7 +409,7 @@ class AtmosphericDispersion(Spectrograph):
         """ Calculates the refractive index depending on atmospheric condition and ZD
 
         reference:
-        http://www.ls.eso.org/sci/facilities/lasilla/instruments/feros/Projects/ADC/references/refraction/index.html
+        https://www.ls.eso.org/sci/facilities/lasilla/instruments/feros/Projects/ADC/references/refraction/index.html
 
         Args:
             wl: wavelength(s) [micron]
@@ -342,11 +417,11 @@ class AtmosphericDispersion(Spectrograph):
         Returns:
             refractive index at given wavelength for given conditions
         """
-        P0 = 1013.25E2
-        T0 = 288.15
+        p0 = 1013.25E2
+        t0 = 288.15
         return (64.328 + 29498.1E-6 / (146E-6 - (1 / (wl * 1000.)) ** 2) + 255.4E-6 / (
                 41E-4 - (1 / (wl * 1000.)) ** 2)) * \
-            self.pressure / self.temperature * T0 / P0
+            self.pressure / self.temperature * t0 / p0
 
     def delta_R(self, wl: np.ndarray | float) -> float | np.ndarray:
         """ Differential refraction
@@ -381,28 +456,6 @@ class AtmosphericDispersion(Spectrograph):
                                                          w) for w in wavelength])
             return ts.get_affine_transformations(wavelength)
 
-    @staticmethod
-    def gauss_map(size_x, size_y=None, sigma_x=5., sigma_y=None):
-        if size_y is None:
-            size_y = size_x
-        if sigma_y is None:
-            sigma_y = sigma_x
-
-        assert isinstance(size_x, int)
-        assert isinstance(size_y, int)
-
-        x0 = size_x // 2
-        y0 = size_y // 2
-
-        x = np.arange(0, size_x, dtype=float)
-        y = np.arange(0, size_y, dtype=float)[:, np.newaxis]
-
-        x -= x0
-        y -= y0
-
-        exp_part = x ** 2 / (2 * sigma_x ** 2) + y ** 2 / (2 * sigma_y ** 2)
-        return 1 / (2 * np.pi * sigma_x * sigma_y) * np.exp(-exp_part)
-
     def seeing_disc_diameter(self, wl):
         """ Returns seeing disc diameter in pixel for given pixel scale and seeing"""
         seeing_wl = self.seeing * (wl / self.r_wl) ** (-1. / 5.)
@@ -411,11 +464,11 @@ class AtmosphericDispersion(Spectrograph):
     def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
         if wavelength is None:
             wl = np.linspace(*self.get_wavelength_range(order, fiber, ccd_index), 20)
-            return [PSF(w, self.gauss_map(50, sigma_x=self.seeing_disc_diameter(w),
-                                          sigma_y=self.seeing_disc_diameter(w)), 1.) for w in wl]
+            return [PSF(w, SimpleSpectrograph.gauss_map(50, sigma_x=self.seeing_disc_diameter(w),
+                                                        sigma_y=self.seeing_disc_diameter(w)), 1.) for w in wl]
         else:
-            return PSF(wavelength, self.gauss_map(50, sigma_x=self.seeing_disc_diameter(wavelength),
-                                                  sigma_y=self.seeing_disc_diameter(wavelength)), 1.)
+            return PSF(wavelength, SimpleSpectrograph.gauss_map(50, sigma_x=self.seeing_disc_diameter(wavelength),
+                                                                sigma_y=self.seeing_disc_diameter(wavelength)), 1.)
 
     def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) \
             -> tuple[float, float]:
@@ -588,9 +641,13 @@ class ZEMAX(Spectrograph):
         return self._CCDs[ccd_index]
 
     def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
-        ge = GratingEfficiency(self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
-                               self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
-                               self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['gpmm'])
+        try:
+            ge = GratingEfficiency(self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
+                                   self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['blaze'],
+                                   self.h5f[f"CCD_{ccd_index}/Spectrograph"].attrs['gpmm'])
+        except KeyError:
+            logging.warning("No information about the blaze and other grating parameters are found in the .hdf file.")
+            ge = ConstantEfficiency('Spectrograph', eff=1.)
 
         if ccd_index not in self._efficiency.keys():
             self._efficiency[ccd_index] = {}
@@ -614,30 +671,426 @@ class ZEMAX(Spectrograph):
         return self.name + f': {self.path.name}'
 
 
+FieldPoint = namedtuple("FieldPoint", ["x", "y"])
+
+
+@dataclass
+class Field:
+    """
+    Spectrograph field/fiber
+
+    Used to simplify field specifications in ZEMAX. Handles the conversion from 'normal' coordinates to 'normalized'
+    coordinates as required by ZEMAX.
+    """
+    center: FieldPoint
+    field_size: tuple[float, float]
+    name: str
+    shape: str = 'circle'
+
+    def __post_init__(self):
+        self.points = [self.center,
+                       FieldPoint(self.center.x + self.field_size[0] / 2., self.center.y + self.field_size[1] / 2.),
+                       FieldPoint(self.center.x - self.field_size[0] / 2., self.center.y + self.field_size[1] / 2.),
+                       FieldPoint(self.center.x - self.field_size[0] / 2., self.center.y - self.field_size[1] / 2.),
+                       FieldPoint(self.center.x + self.field_size[0] / 2., self.center.y - self.field_size[1] / 2.)]
+
+        self.normalized_points = [FieldPoint(p.x / self.maxX, p.y / self.maxY) for p in self.points]
+
+    @property
+    def maxX(self):
+        return np.max(np.abs(self.points)[:, 0])
+
+    @property
+    def maxY(self):
+        return np.max(np.abs(self.points)[:, 1])
+
+    def push_to_zos(self, oss: OpticStudioSystem):
+        """
+        Deletes all current fields in the ZEMAX system and replaces them with the fives
+        points defining the current field.
+        Args:
+            oss: OpticStudioSystem design
+
+        Returns:
+
+        """
+        oss.SystemData.Fields.DeleteAllFields()
+        oss.SystemData.Fields.Normalization = zospy.constants.SystemData.FieldNormalizationType.Rectangular
+        for p in self.points[1:]:  # skip the [0., 0.] field, because it is not deleted by DeleteAllFields() !
+            oss.SystemData.Fields.AddField(p.x, p.y, 1.0)
+
+
 class InteractiveZEMAX(Spectrograph):
+    """
+    Interactive ZEMAX
+
+    Class that interacts with ZEMAX and pulls the required information from the ZEMAX model.
+    Can be used in conjunction with HDFBuilder to generate an .hdf spectrograph model file.
+
+    You can connect to ZEMAX either via an interactive extension to a running instance
+    (make sure you've activated to accept connections from extensions in OpticStudio) or
+    via a standalone process. For performance reasons, the latter is recommended.
+
+    """
+
+    def __init__(self, name: str, zemax_filepath: str | Path | None = None):
+        """
+        Constructor
+        Args:
+            name: name of the spectrograph
+            zemax_filepath: path to .zmx / .zos spectrograph file. If None, a connection to a running OpticStudio
+             session via an extension is attempted (make sure to accept external connection in OpticStudio).
+
+        """
+        self.name = name
+        self._fields: list[Field] = []
+        self._ccd = {}
+        self._orders = {}
+        self.logger = logging.getLogger("InteractiveZEMAX")
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        self._zos = zospy.ZOS()
+        self._zos.wakeup()
+        if zemax_filepath is None:
+            self._zos.connect_as_extension()
+            self._oss = self._zos.get_primary_system()
+        else:
+            if isinstance(zemax_filepath, str):
+                zemax_filepath = Path(zemax_filepath)
+                if not zemax_filepath.is_file():
+                    raise FileNotFoundError("ZEMAX file is not found.")
+            self._zos.create_new_application()
+            self._oss = self._zos.get_primary_system()
+            self._oss.load(str(zemax_filepath))
+
+        self._lde = self._oss.LDE
+
+        self._zmx_grating = None
+        self._blaze = None  # blaze angle in degrees
+        self._theta = None  # theta angles in degrees
+        self._gamma = None  # gamma angles in degrees
+        self._groves_per_micron = None  # groves per micron as in ZEMAX
+        self._current_order = None  # current diffraction order
+        self._current_field = None
+
+        self._psf_setting_sampling_image = '64x64'
+        self._psf_setting_sampling_pupil = '64x64'
+        self._psf_setting_image_delta = 0.25
+
+    def psf_settings(self, image_sampling: str = "64x64", pupil_sampling="64x64", image_delta: float = 0.25):
+        """ Globally sets PSF settings in ZEMAX
+
+        Sets image/pupil sampling and data spacing / image delta of PSF in ZEMAX.
+        Note: the PSF image has then a total size of image_sampling * image_delta (in microns).
+        Make sure the PSF image_sampling is 'large enough' to not artificially cut the PSF wings.
+        Args:
+            image_sampling (str): image sampling of PSF. Must be "32x32", "64x64", "128x128", "256x256", "512x512",
+                                  "1024x1024" or "2048x2048"
+            pupil_sampling (str): pupil sampling of PSF. Must be "32x32", "64x64", "128x128", "256x256", "512x512",
+                                  "1024x1024" or "2048x2048"
+            image_delta (float): image delta (step size) in microns
+
+        Returns:
+
+        """
+        available_modes = ["32x32", "64x64", "128x128", "256x256", "512x512", "1024x1024", "2048x2048"]
+        assert image_sampling in available_modes, f'image_sampling must be in {available_modes}'
+        assert pupil_sampling in available_modes, f'pupil_sampling must be in {available_modes}'
+
+        self._psf_setting_sampling_image = image_sampling
+        self._psf_setting_sampling_pupil = pupil_sampling
+        self._psf_setting_image_delta = image_delta
+
+    def _zos_set_grating(self, surface: int | str = 'Echelle'):
+        if isinstance(surface, str):
+            surface_name = surface
+            surface = find_surface_by_comment(self._lde, surface)[0].SurfaceNumber
+            self.logger.info(f'Found Echelle grating, named "{surface_name}" at surface {surface}')
+
+        self._zmx_grating = self._lde.GetSurfaceAt(surface)
+        self._groves_per_micron = self._zmx_grating.GetCellAt(12).DoubleValue  # groves per micron as in ZEMAX
+        self._current_order = self._zmx_grating.GetCellAt(13)  # current diffraction order
+        self._order_sign = -1 if self._current_order.DoubleValue < 0 else 1
+
+    def _zos_set_current_order(self, order: int):
+        """ Set current diffraction order
+
+        Args:
+            order (int): Set current diffraction order. Signs are ignored.
+
+        Returns:
+
+        """
+        self._current_order.DoubleValue = self._order_sign * abs(order)
+
+    def _blaze_wl(self, order: int = None) -> float:
+        """ Blaze wavelength [nm]
+
+        Args:
+            order (int): diffraction order, if None, self._current_order will be used
+
+        Returns:
+            blaze wavelength [nm]
+        """
+        if order is None:
+            order = self._current_order.DoubleValue
+        alpha_rad = np.deg2rad(self._blaze) + np.deg2rad(self._theta)
+        beta_rad = np.deg2rad(self._blaze) - np.deg2rad(self._theta)
+        grp = 1. / self._groves_per_micron
+        c0 = grp * np.cos(np.deg2rad(self._gamma))
+        c1 = c0 * (np.sin(alpha_rad) + np.sin(beta_rad))
+        return abs(c1 / order)
+
+    def _FSR(self, order: int = None) -> tuple[float, float]:
+        """ Free spectral range
+
+        Args:
+            order (int): diffraction order, if None, self._current_order is used
+
+        Returns:
+            lower and upper limit of free spectral range
+        """
+        if order is None:
+            order = self._current_order.DoubleValue
+        bwl = self._blaze_wl(order)
+        wl1 = bwl - bwl / order / 2.
+        wl2 = bwl + bwl / order / 2.
+
+        return min(wl1, wl2), max(wl1, wl2)
+
+    def _zos_walk_to_detector_edge(self, direction: int = -1, initial_step=0.001):
+        """
+        Walks in wavelength to the edge of the detector to determine boundary wavelengths of current diffraction order.
+        Args:
+            direction (int): Either 1 or -1. Defines direction in which wavelength are tested (1 -> larger wavelengths)
+            initial_step (float): initial step size (default=1nm)
+        Returns:
+
+        """
+        assert direction == 1 or direction == -1, 'direction needs to be 1 or -1'
+        n_surf = self._oss.LDE.NumberOfSurfaces - 1
+        c_wl = self._oss.SystemData.Wavelengths.GetWavelength(1)
+
+        backup_wl = c_wl.Wavelength
+
+        vignetted = False  # initially not vignetted
+        step = initial_step  # initial step is 1 nm
+        while (not vignetted) or (step > 0.000001):
+
+            if vignetted:
+                self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength += (-step + step / 5.) * direction
+                step /= 5.
+            else:
+                self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength += step * direction
+            raytrace = self._oss.Tools.OpenBatchRayTrace()
+            [success, error, vignetted, xo, yo, zo, lo, mo, no, l20, m20, n20, opd,
+             intensity] = raytrace.SingleRayNormUnpol(
+                zospy.constants.Tools.RayTrace.RaysType.Real, -1, 1,
+                self._fields[self._current_field - 1].normalized_points[0].x,
+                self._fields[self._current_field - 1].normalized_points[0].y, 0, 0, False)
+            raytrace.RunAndWaitForCompletion()
+            raytrace.Close()
+            if error or not success:
+                raise ValueError(f"There was an error while tracing wavelength "
+                                 f"{self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength} micron. "
+                                 f"Probably, something with the ZEMAX file is wrong.")
+        if not vignetted == n_surf:
+            self.logger.warning(f"WARNING: Vignetting occurred at surface {vignetted} for wavelength {c_wl.Wavelength} "
+                                f"and order {self._current_order.DoubleValue}")
+        vignetted_wavelength = c_wl.Wavelength
+        c_wl.Wavelength = backup_wl
+        return vignetted_wavelength
+
+    def _check_ccd(self, ccd_index: int):
+        """ Checks CCD size for consistency with ZEMAX file
+
+        Args:
+            ccd_index (int): CCD index
+
+        Returns:
+
+        """
+        zos_ccd = self._lde.GetSurfaceAt(self._lde.NumberOfSurfaces)
+        xw = zos_ccd.ApertureData.CurrentTypeSettings._S_RectangularAperture.XHalfWidth
+        yw = zos_ccd.ApertureData.CurrentTypeSettings._S_RectangularAperture.YHalfWidth
+
+        assert self._ccd[ccd_index].n_pix_x * self._ccd[ccd_index].pixelsize / 2000. <= xw, \
+            f'Your CCD specification of {self._ccd[ccd_index].n_pix_x} pix with {self._ccd[ccd_index].pixelsize} ' \
+            f'micron pixel size ' \
+            f'(={self._ccd[ccd_index].n_pix_x * self._ccd[ccd_index].pixelsize / 2000.} mm CCD half width) is ' \
+            f'larger than the rectangular aperture in the ZEMAX file ({xw}mm). Please set the aperture in the' \
+            f' ZEMAX file correctly, or adjust the CCD specifications'
+
+        assert self._ccd[ccd_index].n_pix_y * self._ccd[ccd_index].pixelsize / 2000. <= yw, \
+            f'Your CCD specification of {self._ccd[ccd_index].n_pix_y} pix with {self._ccd[ccd_index].pixelsize} ' \
+            f'micron pixel size ' \
+            f'(={self._ccd[ccd_index].n_pix_y * self._ccd[ccd_index].pixelsize / 2000.} mm CCD half width) are ' \
+            f'is larger than ' \
+            f'the rectangular aperture in the ZEMAX file ({yw}mm). Please set the aperture in the ZEMAX file ' \
+            f'correctly, or adjust the CCD specifications'
+
+    def set_grating(self, surface: int | str = 'Echelle', blaze: float = None, theta: float = 0, gamma: float = 0):
+        """ Sets grating specification
+
+        Defines the grating specifications incl. all relevant optical parameter.
+
+        Args:
+            surface: ZEMAX grating surface number (or when a str is passed, the surface will be searched by comment)
+            blaze: blaze angle [deg]
+            theta: theta angle [deg]
+            gamma: gamma angle [deg]
+
+        Returns:
+
+        """
+        assert blaze is not None, "Blaze angle needs to be specified."
+        self._zos_set_grating(surface)
+        self._blaze = blaze
+        self._theta = theta
+        self._gamma = gamma
+
+    def add_ccd(self, ccd_idx: int, ccd: CCD):
+        if not self._ccd:
+            self._ccd.update({ccd_idx: ccd})
+        else:
+            raise ValueError("For the interactive ZEMAX model, you can't add more than one CCD object.")
+        self._check_ccd(ccd_idx)
+
+    def _check_field(self):
+        pass
+
+    def add_field(self, x: float, y: float, width: float, height: float, shape: str = 'circular',
+                  name: str | None = None):
+        """ Add field/fiber to ZEMAX model
+
+        Adds a field/fiber point to the current ZEMAX model. When specifying 'singlemode' as field type,
+        use a small width and height for the field (e.g. 5 micron). The actual size will later be ignored,
+        but to calculate the transformation matrices, it is still important, that we use a finite size.
+
+        Args:
+            x (float): x field coordinate as in ZEMAX [mm]
+            y (float): y field coordinate as in ZEMAX [mm]
+            width (float): width of the field [microns]
+            height (float): height of the field [microns]
+            shape (str): shape of the fiber, e.g. 'circular', 'octagonal', 'hexagonal', 'rectangular' or 'singlemode'.
+            name (str): (Optional) name of the field/fiber
+
+        Returns:
+
+        """
+        if name is None:
+            name = f'field_{len(self._fields) + 1}'
+        self._fields.append(Field(FieldPoint(x, y), (width / 1000., height / 1000.), name, shape))
+        self._check_field()
 
     def get_fibers(self, ccd_index: int = 1) -> list[int]:
-        pass
+        return [i + 1 for i in range(len(self._fields))]
+
+    def set_orders(self, ccd_index: int, field: int, orders: list[int]):
+        if ccd_index not in self._orders.keys():
+            self._orders[ccd_index] = {}
+        self._orders[ccd_index][field] = orders
 
     def get_orders(self, fiber: int = 1, ccd_index: int = 1) -> list[int]:
-        pass
+        return self._orders[ccd_index][fiber]
+
+    def _zos_set_current_field(self, field: int = 1):
+
+        if self._current_field is None or self._current_field != field:
+            self._fields[field - 1].push_to_zos(self._oss)
+            self._current_field = field
 
     def get_transformation(self, wavelength: float | np.ndarray, order: int, fiber: int = 1,
                            ccd_index: int = 1) -> AffineTransformation | list[AffineTransformation]:
-        pass
+        assert ccd_index == 1, 'In the interactive mode, there is only one CCD index supported'
+        self._zos_set_current_field(fiber)
+        self._zos_set_current_order(order)
+
+        self.logger.debug(f"Get transformation matrix for {wavelength=}, {order=}, {fiber=}")
+        if isinstance(wavelength, float):
+            single_wavelength = True
+            wavelength = [wavelength]
+        else:
+            single_wavelength = False
+        at = []
+        for wl in wavelength:
+            self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength = wl
+            ins = []
+            out = []
+            for norm_point in self._fields[fiber - 1].normalized_points:
+                norm_x, norm_y = norm_point
+                ins.append([norm_x, norm_y])
+
+                # Pull the operand value. This will pull the value without affecting the Merit Function
+                x = self._oss.MFE.GetOperandValue(zospy.constants.Editors.MFE.MeritOperandType.REAX,
+                                                  self._oss.LDE.NumberOfSurfaces, 1, norm_x, norm_y, 0, 0, 0, 0)
+                y = self._oss.MFE.GetOperandValue(zospy.constants.Editors.MFE.MeritOperandType.REAY,
+                                                  self._oss.LDE.NumberOfSurfaces, 1, norm_x, norm_y, 0, 0, 0, 0)
+                out.append([x, y])
+            ins = np.array(ins)
+
+            ins[:, 0] -= np.min(ins[:, 0])
+            ins[:, 1] -= np.min(ins[:, 1])
+
+            ins[:, 0] /= np.max(ins[:, 0])
+            ins[:, 1] /= np.max(ins[:, 1])
+
+            out = np.array(out)
+            out /= (self.get_ccd(1).pixelsize / 1000.)
+            out += self.get_ccd(1).n_pix_x / 2.
+
+            at.append(AffineTransformation(*decompose_affine_matrix(find_affine(ins, out)), wavelength=wl))
+        if single_wavelength:
+            return at[0]
+        else:
+            ts = TransformationSet(at)
+            return ts.get_affine_transformations(wavelength)
 
     def get_psf(self, wavelength: float | None, order: int, fiber: int = 1, ccd_index: int = 1) -> PSF | list[PSF]:
-        pass
+        self.logger.debug(f"Retrieve PSF at {wavelength=},{order=}, {fiber=}")
+        self._zos_set_current_field(fiber)
+        self._zos_set_current_order(order)
+        if isinstance(wavelength, float):
+            self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength = wavelength
+            psf_data = zospy.analyses.psf.huygens_psf(self._oss, self._psf_setting_sampling_image,
+                                                      self._psf_setting_sampling_pupil,
+                                                      image_delta=self._psf_setting_image_delta,
+                                                      wavelength=1,
+                                                      field=1,
+                                                      oncomplete='Close')
+            psf = PSF(wavelength=wavelength, data=psf_data.Data.values, sampling=self._psf_setting_image_delta)
+            if not psf.check(threshold=1E-3):
+                self.logger.warning(f'PSF at {wavelength=}, {order=} for field/fiber {fiber=} has more than 1E-3 flux '
+                                    f'at its border. Consider to increase sampling.')
+            return psf
+        else:
+            """TODO: check wavelength range of current order, then do N psfs """
+            raise NotImplementedError
 
     def get_wavelength_range(self, order: int | None = None, fiber: int | None = None, ccd_index: int | None = None) -> \
             tuple[float, float]:
-        pass
+        self.logger.debug(f"Get wavelength range for {order=}, {fiber=}")
+        if order is None:
+            raise NotImplementedError("This is not yet implemented.")
+        else:
+            self._zos_set_current_order(order)
+            self._zos_set_current_field(fiber)
+            c_wl = self._oss.SystemData.Wavelengths.GetWavelength(1)
+            c_wl.Wavelength = self._blaze_wl()
+            max_wl = self._zos_walk_to_detector_edge(1)
+            min_wl = self._zos_walk_to_detector_edge(-1)
+            self.logger.info(f'Wavelength boundaries for order {self._current_order.DoubleValue}: '
+                             f'{min_wl} - {max_wl} micron')
+            return min_wl, max_wl
 
     def get_ccd(self, ccd_index: int | None = None) -> CCD | dict[int, CCD]:
-        pass
+        if ccd_index is None:
+            return self._ccd
+        else:
+            return self._ccd[ccd_index]
 
     def get_field_shape(self, fiber: int, ccd_index: int) -> str:
-        pass
+        return self._fields[fiber - 1].shape
 
     def get_efficiency(self, fiber: int, ccd_index: int) -> SystemEfficiency:
         pass
@@ -757,10 +1210,55 @@ class GlobalDisturber(Spectrograph):
             tm[5] += self.disturber_matrix.ty
             return tm
 
-    def __str__(self):
-        return self.name + f'({str(self.spec)}): d_tx:{self.disturber_matrix.tx},' \
-                           f'd_ty:{self.disturber_matrix.ty},' \
-                           f'd_rot:{self.disturber_matrix.rot},' \
-                           f'd_shear:{self.disturber_matrix.shear},' \
-                           f'd_sx:{self.disturber_matrix.sx},' \
-                           f'd_sy:{self.disturber_matrix.sy}'
+
+def show_fields(fields: list[Field]):
+    from matplotlib.patches import Rectangle
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    for i, f in enumerate(fields):
+        color = plt.cm.tab10(i)
+        ax.scatter(*f.center, label=f.name, c=color)
+
+        if f.shape == 'rectangular':
+            rec = Rectangle((f.center.x - f.field_size[0] / 2., f.center.y - f.field_size[1] / 2),
+                            f.field_size[0], f.field_size[1], fill=False, color=color)
+            ax.add_patch(rec)
+
+        else:
+            raise NotImplementedError('Field shape not implemented for plotting')
+    # Set the x and y limits
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    ax.set_xlim((min(xlim[0], ylim[0]), max(xlim[1], ylim[1])))
+    ax.set_ylim((min(xlim[0], ylim[0]), max(xlim[1], ylim[1])))
+
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+
+    # draw lines
+    for i, f in enumerate(fields):
+        color = plt.cm.tab10(i)
+        # draw center lines
+        ax.hlines(f.center.y, *ylim, linestyle='--', colors='k', linewidths=0.5)
+        ax.vlines(f.center.x, *xlim, linestyle='--', colors='k', linewidths=0.5)
+
+        ax.hlines(f.center.y + f.field_size[1] / 2 + 10, f.center.x - f.field_size[0] / 2,
+                  f.center.x + f.field_size[0] / 2,
+                  linestyle='--', colors=color, linewidths=0.5)
+        ax.vlines(f.center.x + f.field_size[0] / 2 + 10, f.center.y - f.field_size[1] / 2,
+                  f.center.y + f.field_size[1] / 2,
+                  linestyle='--', colors=color, linewidths=0.5)
+
+        # draw extent
+        ax.text(f.center.x, f.center.y + f.field_size[1] / 2 + 8, f'{f.field_size[0]:.1f}', backgroundcolor='white',
+                fontsize=7, ha='center', va='bottom', color=color)
+        ax.text(f.center.x + f.field_size[0] / 2 + 8, f.center.y, f'{f.field_size[1]:.1f}', rotation='vertical',
+                backgroundcolor='white', fontsize=7, ha='left', va='center', color=color)
+        ax.text(xlim[0] + 10, f.center.y, f'{f.center.y:.1f}', va='bottom', color=color)
+
+    plt.xlabel('X [micron]')
+    plt.ylabel('Y [micron]')
+
+    plt.legend()
+    plt.show()
