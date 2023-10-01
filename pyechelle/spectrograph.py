@@ -29,6 +29,7 @@ from pyechelle.optics import AffineTransformation, PSF, TransformationSet, conve
 
 from ftplib import FTP
 
+
 def check_FTP_url_exists(url):
     assert url.lower().startswith('ftp://')
     url = url[6:]
@@ -44,6 +45,7 @@ def check_FTP_url_exists(url):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return False
+
 
 def check_url_exists(url: str) -> bool:
     """
@@ -63,7 +65,7 @@ def check_url_exists(url: str) -> bool:
         return False
 
 
-def check_for_spectrograph_model(model_name: str | Path, download=True):
+def check_for_spectrograph_model(model_name: str | Path, download=True) -> Path:
     """
     Check if spectrograph model exists locally. Otherwise: Download if download is true (default) or check if URL to
     spectrograph model is valid (this is mainly for testing purpose).
@@ -73,7 +75,7 @@ def check_for_spectrograph_model(model_name: str | Path, download=True):
         download: download flag
 
     Returns:
-
+        path to spectrograph model
     """
     if isinstance(model_name, Path):
         return model_name
@@ -163,7 +165,7 @@ class Spectrograph:
             wavelength: wavelength [micron] or None
             order: diffraction order
             fiber: fiber index
-            ccd_index: ccd index
+            ccd_index: CCD index
 
         Returns:
             PSF(s)
@@ -280,6 +282,14 @@ class Spectrograph:
 
 
 class SimpleSpectrograph(Spectrograph):
+    """ Simple spectrograph model
+
+    This is a simple spectrograph model that can be used for testing purposes and to demonstrate how a Spectrograph
+    model should be implemented.
+    It has one CCD, one fiber, one order, and a simple affine transformation.
+    The PSF is a Gaussian with a sigma of 3 pixels in X and 10 pixels in Y.
+
+    """
     def __init__(self, name: str = 'SimpleSpectrograph'):
         self.name = name
         self._ccd = {1: CCD()}
@@ -488,6 +498,10 @@ class AtmosphericDispersion(Spectrograph):
 
 
 class ZEMAX(Spectrograph):
+    """ ZEMAX spectrograph model
+
+    This is a spectrograph model that can be used to read in an HDF model and use it for simulations.
+    """
     def __init__(self, path: str | Path, name: str = 'ZEMAX Model'):
         self.name = name
         self.path = check_for_spectrograph_model(path)
@@ -736,6 +750,7 @@ class InteractiveZEMAX(Spectrograph):
     def __init__(self, name: str, zemax_filepath: str | Path | None = None):
         """
         Constructor
+
         Args:
             name: name of the spectrograph
             zemax_filepath: path to .zmx / .zos spectrograph file. If None, a connection to a running OpticStudio
@@ -783,6 +798,7 @@ class InteractiveZEMAX(Spectrograph):
         Sets image/pupil sampling and data spacing / image delta of PSF in ZEMAX.
         Note: the PSF image has then a total size of image_sampling * image_delta (in microns).
         Make sure the PSF image_sampling is 'large enough' to not artificially cut the PSF wings.
+
         Args:
             image_sampling (str): image sampling of PSF. Must be "32x32", "64x64", "128x128", "256x256", "512x512",
                                   "1024x1024" or "2048x2048"
@@ -1097,6 +1113,16 @@ class InteractiveZEMAX(Spectrograph):
 
 
 class LocalDisturber(Spectrograph):
+    """ Local Disturber
+
+    Class that adds a local disturbance to a spectrograph. The disturbance is defined by a 2D affine transformation
+    matrix. The disturbance is added to the transformation matrix of the spectrograph.
+
+    The disturbance is added locally, which means that for instance a given rotation would rotate the fiber/field
+    inplace around the center of the field. This is different to a global disturbance, where the rotation would be
+    around the center of the CCD.
+    See also [Perturbations](https://stuermer.gitlab.io/pyechelle/models.html#perturbations) for more information.
+    """
 
     def __init__(self, spec: Spectrograph, d_tx=0., d_ty=0., d_rot=0., d_shear=0., d_sx=0., d_sy=0.,
                  name: str = 'LocalDisturber'):
@@ -1125,6 +1151,14 @@ class LocalDisturber(Spectrograph):
 
 
 class GlobalDisturber(Spectrograph):
+    """ Global Disturber
+
+    Class that adds a global disturbance to a spectrograph. The disturbance is defined by a 2D affine transformation
+    matrix. The disturbance is added to the transformation matrix of the spectrograph.
+
+    The disturbance acts on the positions of the traced fibers/fields on the CCD.
+    See also [Perturbations](https://stuermer.gitlab.io/pyechelle/models.html#perturbations) for more information.
+    """
     def __init__(self, spec: Spectrograph, tx: float = 0., ty: float = 0., rot: float = 0., shear: float = 0.,
                  sx: float = 1., sy: float = 1., reference_x: float = None, reference_y: float = None,
                  name: str = 'GlobalDisturber'):

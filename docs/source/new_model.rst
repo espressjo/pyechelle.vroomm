@@ -7,16 +7,21 @@ Make a copy
 -----------
 Since we are modifying the ZEMAX file, the first step always is to save the ZEMAX file under a new name.
 
-Check apertures
----------------
+Check apertures & PSF settings
+------------------------------
 When tracing, it is important that the rays end up on the last surface which is assumed to be the detector, rather
-than being vignetted somewhere else. In almost most cases, vignetting on surfaces prior to the detector is an indication
+than being vignetted somewhere else. In almost all cases, vignetting on surfaces prior to the detector is an indication
 that the ZEMAX model should be revised. To avoid vignetting, it's typically a good idea to remove all apertures except
 the one that defines the detector. The aperture on the last surface is used to determine the wavelength bounds for each
 diffraction order.
 
 The code will warn you in case that during tracing, the rays are vignetted on a
 surface other than the detector.
+
+Within ZEMAX, you should also adjust the PSF settings to something reasonable. Set the image delta to something like 1/3
+of the CCD pixel size and make the image sampling big enough to fully capture the PSF.
+Again, the code will warn you if the PSF spills over the sampled area, but it's better to avoid this in the first
+place and check manually at a few wavelengths.
 
 Use InteractiveZEMAX spectrograph + HDFBuilder
 ----------------------------------------------

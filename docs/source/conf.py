@@ -14,11 +14,14 @@ import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 import sys
+from datetime import date
 from io import StringIO
 from os.path import basename
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
+
+import pyechelle
 
 sys.path.insert(0, os.path.abspath('../..'))
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -26,11 +29,11 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # -- Project information -----------------------------------------------------
 
 project = 'PyEchelle'
-copyright = '2021, Julian Stuermer'
+copyright = f'{date.today().year} Julian Stuermer'
 author = 'Julian Stuermer'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.7'
+release = pyechelle.__version__
 
 # -- General configuration ---------------------------------------------------
 

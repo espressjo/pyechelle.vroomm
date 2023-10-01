@@ -8,7 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.3.7] - unreleased
 
 ### Added
-- Simulation metadata is now added to FITS header (fits files now contain information about simulation parameters)
+
+- two new classes
+  [InteractiveZemax](https://stuermer.gitlab.io/pyechelle/_autosummary/pyechelle.spectrograph.InteractiveZEMAX.html#pyechelle.spectrograph.InteractiveZEMAX)
+  and
+  [HDFBuilder](https://stuermer.gitlab.io/pyechelle/_autosummary/pyechelle.hdfbuilder.HDFBuilder.html#pyechelle.hdfbuilder.HDFBuilder),
+  which can be used to generate .hdf model files the ZEMAX design from any spectrograph
+  (see: [How to create a new spectrograph model](https://stuermer.gitlab.io/pyechelle/new_model.html))
+- Simulation metadata is now added to FITS header (.fits files now contain information about simulation parameters)
+
 
 ### Fixed
  - fixed #9 (issue with CUDA random seed)
@@ -21,7 +29,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New spectral source types: Blackbody, LineList and ConstantPhotons
 - New spectrograph
   model: [AtmosphericDispersion](https://stuermer.gitlab.io/pyechelle/example_direct.html#atmospheric-dispersion)
-- added HDFBuilder, a class to generate .hdf model files from any spectrograph class/model
+- added python 3.11 support
 
 ## [0.3.5] - 2022-11-30
 
