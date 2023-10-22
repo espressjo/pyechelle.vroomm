@@ -196,4 +196,4 @@ class Atmosphere(Efficiency):
         # since we are in constant resolution mode ("wgrid_mode": "fixed_spectral_resolution")
         ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
 
-        return ip(wavelength)
+        return ip(wavelength * 1000.)
