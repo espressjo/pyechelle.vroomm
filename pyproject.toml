@@ -33,7 +33,7 @@ matplotlib = [
 ]
 synphot = "^1.2.1"
 numba = "^0.58.1"
-zospy = { version = "^1.1.1", optional = true, markers = "python_version >= '3.9' and platform_system == 'Windows'" }
+zospy = { version = "^1.1.1", markers = "python_version >= '3.9' and python_version < '3.12' and platform_system == 'Windows'" }
 
 [tool.poetry.group.dev.dependencies]
 hypothesis = "^6.88.1"
