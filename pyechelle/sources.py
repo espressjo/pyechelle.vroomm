@@ -107,9 +107,8 @@ def calc_flux_scale(source_wavelength, source_spectral_density, mag):
 
     idx = np.logical_and(source_wavelength > lower_wl_limit, source_wavelength < upper_wl_limit)
 
-    step = np.ediff1d(source_wavelength[idx], source_wavelength[idx][-1] - source_wavelength[idx][-2])
-    total_flux = np.sum(source_spectral_density[idx] * v_filter_interp(source_wavelength[idx]) * step)
-
+    # calculate total flux in filter
+    total_flux = np.trapz(source_spectral_density[idx] * v_filter_interp(source_wavelength[idx]), source_wavelength[idx])
     return pow(10, mag / (-2.5)) * v_zp / total_flux
 
 
@@ -167,7 +166,7 @@ class Constant(Source):
         super().__init__(**kwargs, name="Constant", list_like=False)
         self.intensity = intensity
 
-    def get_spectral_density(self, wavelength):
+    def get_spectral_density(self, wavelength: np.ndarray | float) -> np.ndarray | float:
         return np.ones_like(wavelength) * self.intensity
 
     def __str__(self):
@@ -182,12 +181,10 @@ class ConstantPhotons(Source):
     """
 
     def __init__(self, intensity=1E8, **kwargs):
-        super().__init__(**kwargs, name="ConstantPhotons", list_like=False)
+        super().__init__(**kwargs, name="ConstantPhotons", list_like=False, flux_in_photons=True, stellar_target=False)
         self.intensity = intensity
-        self.flux_in_photons = True
-        self.stellar_target = False
 
-    def get_spectral_density(self, wavelength):
+    def get_spectral_density(self, wavelength: np.ndarray | float) -> np.ndarray | float:
         return np.ones_like(wavelength) * self.intensity
 
     def __str__(self):
@@ -202,21 +199,33 @@ class ThAr(Source):
 
     Attributes:
          scale (float): relative intensity scaling factor between the Thorium and the Argon lines.
-
+         lamp_brightness (float): overall brigthness scaling factor.
     """
 
-    def __init__(self, argon_to_thorium_factor=10):
-        super().__init__(name='ThAr', list_like=True)
-        self.flux_in_photons = True
+    def __init__(self, argon_to_thorium_factor=10, lamp_brightness=1.):
+        super().__init__(name='ThAr', list_like=True, flux_in_photons=True)
         self.scale = argon_to_thorium_factor
+        self.lamp_brightness = lamp_brightness
 
-    def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, 'Th')
-        arwl, arint = pull_catalogue_lines(minwl, maxwl, 'Ar')
-        arint *= self.scale
-        return np.hstack((thwl / 10000., arwl / 10000.)), np.hstack((thint, arint))
+    def get_spectral_density(self, wavelength: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """ Get spectral density
+        
+        Args:
+            wavelength: wavelength [micron]
+
+        Returns:
+            (tuple) line catalogue wavelength and relative intensities. wavelength is in [microns].
+            Intensities are in photons/s.
+        """
+        # determine wavelength range
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        ar_wl, ar_int = pull_catalogue_lines(min_wl, max_wl, 'Ar')
+        ar_int *= self.scale * self.lamp_brightness  # scale argon line intensities
+        th_int *= self.lamp_brightness
+        return np.hstack((th_wl / 10000., ar_wl / 10000.)), np.hstack((th_int, ar_int))
 
 
 class ThNe(Source):
@@ -226,23 +235,49 @@ class ThNe(Source):
     Uses NIST vacuum catalogue wavelength as source.
 
     Attributes:
-         scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
+         ne_scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
+         lamp_brightness (float): overall brigthness scaling factor.
 
     """
 
-    def __init__(self, neon_to_thorium_factor=10):
-        super().__init__(name='ThNe', list_like=True)
+    def __init__(self, neon_to_thorium_factor=10, lamp_brightness=1.):
+        super().__init__(name='ThNe', list_like=True, flux_in_photons=True)
+        self.ne_scale = neon_to_thorium_factor
+        self.lamp_brightness = lamp_brightness
+
+    def get_spectral_density(self, wavelength: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        ne_wl, ne_int = pull_catalogue_lines(min_wl, max_wl, 'Ne')
+        ne_int *= self.ne_scale * self.lamp_brightness
+        th_int *= self.lamp_brightness
+
+        return np.hstack((th_wl / 10000., ne_wl / 10000.)), np.hstack((th_int, ne_int))
+
+
+class ThXe(Source):
+    """ Thorium-Xenon lamp
+
+    Implements a Thorium Xenon arc-lamp.
+    Uses NIST vacuum catalogue wavelength as source.
+
+    """
+
+    def __init__(self, xe_scaling=1, lamp_brightness=1.):
+        super().__init__(name='ThXe', list_like=True, flux_in_photons=True)
         self.flux_in_photons = True
-        self.scale = neon_to_thorium_factor
+        self.xe_scaling = xe_scaling
+        self.lamp_brightness = lamp_brightness
 
     def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, 'Th')
-        newl, neint = pull_catalogue_lines(minwl, maxwl, 'Ne')
-        neint *= self.scale
-
-        return np.hstack((thwl / 10000., newl / 10000.)), np.hstack((thint, neint))
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        xe_wl, xe_int = pull_catalogue_lines(min_wl, max_wl, 'Xe')
+        xe_int *= self.xe_scaling * self.lamp_brightness
+        th_int *= self.lamp_brightness
+        return np.hstack((th_wl / 10000., xe_wl / 10000.)), np.hstack((th_int, xe_int))
 
 
 class Etalon(Source):
