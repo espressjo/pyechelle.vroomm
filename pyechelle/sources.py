@@ -54,16 +54,14 @@ except ImportError:
     Nist = None
 
 path = pathlib.Path(__file__).parent.resolve()
-cache_path = path.joinpath(".cache")
+cache_path = path.joinpath('.cache')
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
 
 
 @memory.cache
-def pull_catalogue_lines(
-    min_wl: float, max_wl: float, catalogue: str = "Th", wavelength_type: str = "vacuum"
-):
+def pull_catalogue_lines(min_wl: float, max_wl: float, catalogue: str = 'Th', wavelength_type: str = 'vacuum'):
     """
     Reads NIST catalogue lines between min_wl and max_wl of catalogue.
 
@@ -77,84 +75,29 @@ def pull_catalogue_lines(
         (tuple) line catalogue wavelength and relative intensities. wavelength is in [angstrom]
     """
     try:
-        table_lines = Nist.query(
-            min_wl * u.micron,
-            max_wl * u.micron,
-            linename=catalogue,
-            output_order="wavelength",
-            wavelength_type=wavelength_type,
-        )[["Ritz", "Rel."]]
+        table_lines = Nist.query(min_wl * u.micron, max_wl * u.micron, linename=catalogue, output_order='wavelength',
+                                 wavelength_type=wavelength_type)[['Ritz', 'Rel.']]
         df = table_lines.filled(0).to_pandas()
-        df["Rel."] = pd.to_numeric(df["Rel."], downcast="float", errors="coerce")
-        df["Ritz"] = pd.to_numeric(df["Ritz"], downcast="float", errors="coerce")
+        df['Rel.'] = pd.to_numeric(df['Rel.'], downcast='float', errors='coerce')
+        df['Ritz'] = pd.to_numeric(df['Ritz'], downcast='float', errors='coerce')
         df.dropna(inplace=True)
-        idx = np.logical_and(df["Rel."] > 0, df["Ritz"] > 0)
-        return df["Ritz"].values[idx], df["Rel."].values[idx]
+        idx = np.logical_and(df['Rel.'] > 0, df['Ritz'] > 0)
+        return df['Ritz'].values[idx], df['Rel.'].values[idx]
     except Exception as e:
         print(e)
-        print(
-            f"Warning: Couldn't retrieve {catalogue} catalogue data between {min_wl} and {max_wl} micron"
-        )
+        print(f"Warning: Couldn't retrieve {catalogue} catalogue data between {min_wl} and {max_wl} micron")
         return np.array([]), np.array([])
 
 
 def calc_flux_scale(source_wavelength, source_spectral_density, mag):
     # V - band-filter
-    v_filter_wl = [
-        0.47,
-        0.48,
-        0.49,
-        0.5,
-        0.51,
-        0.52,
-        0.53,
-        0.54,
-        0.55,
-        0.56,
-        0.57,
-        0.58,
-        0.59,
-        0.6,
-        0.61,
-        0.62,
-        0.63,
-        0.64,
-        0.65,
-        0.66,
-        0.67,
-        0.68,
-        0.69,
-        0.7,
-    ]
-    v_filter_tp = [
-        0,
-        0.03,
-        0.163,
-        0.458,
-        0.78,
-        0.967,
-        1,
-        0.973,
-        0.898,
-        0.792,
-        0.684,
-        0.574,
-        0.461,
-        0.359,
-        0.27,
-        0.197,
-        0.135,
-        0.081,
-        0.045,
-        0.025,
-        0.017,
-        0.013,
-        0.009,
-        0,
-    ]
+    v_filter_wl = [0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6,
+                   0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7]
+    v_filter_tp = [0, 0.03, 0.163, 0.458, 0.78, 0.967, 1, 0.973, 0.898, 0.792, 0.684, 0.574, 0.461,
+                   0.359, 0.27, 0.197, 0.135, 0.081, 0.045, 0.025, 0.017, 0.013, 0.009, 0]
 
     # Reference flux obtained from integration of vega over bessel filter (units are microwatts/m^2*micrometer)
-    v_zp = 3.68e-02
+    v_zp = 3.68E-02
 
     v_filter_interp = scipy.interpolate.interp1d(v_filter_wl, v_filter_tp)
 
@@ -162,22 +105,15 @@ def calc_flux_scale(source_wavelength, source_spectral_density, mag):
     lower_wl_limit = max(np.min(source_wavelength), np.min(v_filter_wl))
     upper_wl_limit = min(np.max(source_wavelength), np.max(v_filter_wl))
 
-    idx = np.logical_and(
-        source_wavelength > lower_wl_limit, source_wavelength < upper_wl_limit
-    )
+    idx = np.logical_and(source_wavelength > lower_wl_limit, source_wavelength < upper_wl_limit)
 
-    step = np.ediff1d(
-        source_wavelength[idx], source_wavelength[idx][-1] - source_wavelength[idx][-2]
-    )
-    total_flux = np.sum(
-        source_spectral_density[idx] * v_filter_interp(source_wavelength[idx]) * step
-    )
-
+    # calculate total flux in filter
+    total_flux = np.trapz(source_spectral_density[idx] * v_filter_interp(source_wavelength[idx]), source_wavelength[idx])
     return pow(10, mag / (-2.5)) * v_zp / total_flux
 
 
 class Source:
-    """A spectral source.
+    """ A spectral source.
 
     This class should be subclassed to implement different spectral sources.
 
@@ -191,15 +127,8 @@ class Source:
 
     """
 
-    def __init__(
-        self,
-        min_wl=599.8,
-        max_wl=600.42,
-        name="",
-        list_like=False,
-        flux_in_photons=False,
-        stellar_target=False,
-    ):
+    def __init__(self, min_wl=599.8, max_wl=600.42, name="", list_like=False, flux_in_photons=False,
+                 stellar_target=False):
         self.name = name
         self.min_wl = min_wl
         self.max_wl = max_wl
@@ -210,8 +139,8 @@ class Source:
     def get_spectral_density(self, wavelength):
         raise NotImplementedError()
 
-    def get_spectral_density_rv(self, wavelength, rv=0.0):
-        c = 299792458.0  # m/s
+    def get_spectral_density_rv(self, wavelength, rv=0.):
+        c = 299792458.  # m/s
         rv_shifted = wavelength * ((c - rv) / c)
 
         spec_density = self.get_spectral_density(rv_shifted)
@@ -227,7 +156,7 @@ class Source:
 
 
 class Constant(Source):
-    """Constant spectral density.
+    """ Constant spectral density.
 
     Implements a constant spectral density with given intensity [microW / microns*s]
 
@@ -237,86 +166,122 @@ class Constant(Source):
         super().__init__(**kwargs, name="Constant", list_like=False)
         self.intensity = intensity
 
-    def get_spectral_density(self, wavelength):
+    def get_spectral_density(self, wavelength: np.ndarray | float) -> np.ndarray | float:
         return np.ones_like(wavelength) * self.intensity
 
     def __str__(self):
-        return self.name + f": intensity: {self.intensity}"
+        return self.name + f': intensity: {self.intensity}'
 
 
 class ConstantPhotons(Source):
-    """Constant spectral density.
+    """ Constant spectral density.
 
     Implements a constant photon flux density with given intensity [photons / microns*s]
 
     """
 
-    def __init__(self, intensity=1e8, **kwargs):
-        super().__init__(**kwargs, name="ConstantPhotons", list_like=False)
+    def __init__(self, intensity=1E8, **kwargs):
+        super().__init__(**kwargs, name="ConstantPhotons", list_like=False, flux_in_photons=True, stellar_target=False)
         self.intensity = intensity
-        self.flux_in_photons = True
-        self.stellar_target = False
 
-    def get_spectral_density(self, wavelength):
+    def get_spectral_density(self, wavelength: np.ndarray | float) -> np.ndarray | float:
         return np.ones_like(wavelength) * self.intensity
 
     def __str__(self):
-        return self.name + f": intensity: {self.intensity}"
+        return self.name + f': intensity: {self.intensity}'
 
 
 class ThAr(Source):
-    """Thorium-Argon lamp
+    """ Thorium-Argon lamp
 
     Implements a Thorium Argon arc-lamp.
     Uses NIST vacuum catalogue wavelength as source.
 
     Attributes:
          scale (float): relative intensity scaling factor between the Thorium and the Argon lines.
-
+         lamp_brightness (float): overall brigthness scaling factor.
     """
 
-    def __init__(self, argon_to_thorium_factor=10):
-        super().__init__(name="ThAr", list_like=True)
-        self.flux_in_photons = True
+    def __init__(self, argon_to_thorium_factor=10, lamp_brightness=1.):
+        super().__init__(name='ThAr', list_like=True, flux_in_photons=True)
         self.scale = argon_to_thorium_factor
+        self.lamp_brightness = lamp_brightness
 
-    def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, "Th")
-        arwl, arint = pull_catalogue_lines(minwl, maxwl, "Ar")
-        arint *= self.scale
-        return np.hstack((thwl / 10000.0, arwl / 10000.0)), np.hstack((thint, arint))
+    def get_spectral_density(self, wavelength: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """ Get spectral density
+        
+        Args:
+            wavelength: wavelength [micron]
+
+        Returns:
+            (tuple) line catalogue wavelength and relative intensities. wavelength is in [microns].
+            Intensities are in photons/s.
+        """
+        # determine wavelength range
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        ar_wl, ar_int = pull_catalogue_lines(min_wl, max_wl, 'Ar')
+        ar_int *= self.scale * self.lamp_brightness  # scale argon line intensities
+        th_int *= self.lamp_brightness
+        return np.hstack((th_wl / 10000., ar_wl / 10000.)), np.hstack((th_int, ar_int))
 
 
 class ThNe(Source):
-    """Thorium-Neon lamp
+    """ Thorium-Neon lamp
 
     Implements a Thorium Neon arc-lamp.
     Uses NIST vacuum catalogue wavelength as source.
 
     Attributes:
-         scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
+         ne_scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
+         lamp_brightness (float): overall brigthness scaling factor.
 
     """
 
-    def __init__(self, neon_to_thorium_factor=10):
-        super().__init__(name="ThNe", list_like=True)
+    def __init__(self, neon_to_thorium_factor=10, lamp_brightness=1.):
+        super().__init__(name='ThNe', list_like=True, flux_in_photons=True)
+        self.ne_scale = neon_to_thorium_factor
+        self.lamp_brightness = lamp_brightness
+
+    def get_spectral_density(self, wavelength: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        ne_wl, ne_int = pull_catalogue_lines(min_wl, max_wl, 'Ne')
+        ne_int *= self.ne_scale * self.lamp_brightness
+        th_int *= self.lamp_brightness
+
+        return np.hstack((th_wl / 10000., ne_wl / 10000.)), np.hstack((th_int, ne_int))
+
+
+class ThXe(Source):
+    """ Thorium-Xenon lamp
+
+    Implements a Thorium Xenon arc-lamp.
+    Uses NIST vacuum catalogue wavelength as source.
+
+    """
+
+    def __init__(self, xe_scaling=1, lamp_brightness=1.):
+        super().__init__(name='ThXe', list_like=True, flux_in_photons=True)
         self.flux_in_photons = True
-        self.scale = neon_to_thorium_factor
+        self.xe_scaling = xe_scaling
+        self.lamp_brightness = lamp_brightness
 
     def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, "Th")
-        newl, neint = pull_catalogue_lines(minwl, maxwl, "Ne")
-        neint *= self.scale
-
-        return np.hstack((thwl / 10000.0, newl / 10000.0)), np.hstack((thint, neint))
+        min_wl = np.min(wavelength)
+        max_wl = np.max(wavelength)
+        th_wl, th_int = pull_catalogue_lines(min_wl, max_wl, 'Th')
+        xe_wl, xe_int = pull_catalogue_lines(min_wl, max_wl, 'Xe')
+        xe_int *= self.xe_scaling * self.lamp_brightness
+        th_int *= self.lamp_brightness
+        return np.hstack((th_wl / 10000., xe_wl / 10000.)), np.hstack((th_int, xe_int))
 
 
 class Etalon(Source):
-    r"""Fabry-Perot etalon.
+    r""" Fabry-Perot etalon.
 
     Implements spectrum of an ideal (i.e. dispersion-free) Fabry-Perot etalon.
     This means, the peak wavelength are at:
@@ -351,19 +316,17 @@ class Etalon(Source):
     def get_spectral_density(self, wavelength):
         self.min_m = np.ceil(2e3 * self.d * np.cos(self.theta) / np.max(wavelength))
         self.max_m = np.floor(2e3 * self.d * np.cos(self.theta) / np.min(wavelength))
-        intensity = np.ones_like(
-            np.arange(self.min_m, self.max_m), dtype=float
-        ) * float(self.n_photons)
+        intensity = np.ones_like(np.arange(self.min_m, self.max_m), dtype=float) * float(self.n_photons)
         return self.peak_wavelength_etalon(
             np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
         ), np.asarray(intensity, dtype=int)
 
     def __str__(self):
-        return self.name + f": d={self.d},n={self.n},theta={self.theta}"
+        return self.name + f': d={self.d},n={self.n},theta={self.theta}'
 
 
 class Phoenix(Source):
-    """Phoenix M-dwarf spectra.
+    """ Phoenix M-dwarf spectra.
 
     This class provides a convenient handling of PHOENIX M-dwarf spectra.
     For a given set of effective Temperature, log g, metalicity and alpha, it downloads the spectrum from PHOENIX ftp
@@ -379,21 +342,21 @@ class Phoenix(Source):
         alpha (float): abundance of alpha elements [α/Fe]
 
     """
-
     valid_t = [*list(range(2300, 7000, 100)), *list((range(7000, 12200, 200)))]
     valid_g = [*list(np.arange(0, 6, 0.5))]
     valid_z = [*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))]
-    valid_a = [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
+    valid_a = [-0.2, 0., 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
 
-    def __init__(self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, **kwargs):
-        assert t_eff in self.valid_t, f"Not a valid effective Temperature {t_eff}"
-        assert log_g in self.valid_g, f"Not a valid log g value {log_g}"
-        assert alpha in self.valid_a, f"Not a valid alpha value {alpha}"
-        assert z in self.valid_z, f"Not a valid metalicity value {z}"
-        if not np.isclose(alpha, 0.0):
-            assert 3500.0 <= t_eff <= 8000.0 and -3.0 <= z <= 0.0, (
-                "PHOENIX parameters are not valid. Please check them " "again. "
-            )
+    def __init__(
+            self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, **kwargs
+    ):
+        assert t_eff in self.valid_t, f'Not a valid effective Temperature {t_eff}'
+        assert log_g in self.valid_g, f'Not a valid log g value {log_g}'
+        assert alpha in self.valid_a, f'Not a valid alpha value {alpha}'
+        assert z in self.valid_z, f'Not a valid metalicity value {z}'
+        if not np.isclose(alpha, 0.):
+            assert 3500. <= t_eff <= 8000. and -3. <= z <= 0., 'PHOENIX parameters are not valid. Please check them ' \
+                                                               'again. '
         self.t_eff = t_eff
         self.log_g = log_g
         self.z = z
@@ -402,13 +365,12 @@ class Phoenix(Source):
         super().__init__(**kwargs, name="phoenix")
         self.stellar_target = True
 
-        wavelength_path = cache_path.joinpath("WAVE_PHOENIX-ACES-AGSS-COND-2011.fits")
+        wavelength_path = cache_path.joinpath('WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')
 
         if not wavelength_path.is_file():
             print("Download Phoenix wavelength file...")
-            with urllib.request.urlopen(self.get_wavelength_url()) as response, open(
-                wavelength_path, "wb"
-            ) as out_file:
+            with urllib.request.urlopen(self.get_wavelength_url()) as response, open(wavelength_path,
+                                                                                     "wb") as out_file:
                 data = response.read()
                 out_file.write(data)
 
@@ -418,19 +380,13 @@ class Phoenix(Source):
 
         if not spectrum_path.is_file():
             print(f"Download Phoenix spectrum from {url}...")
-            with urllib.request.urlopen(url) as response, open(
-                spectrum_path, "wb"
-            ) as out_file:
+            with urllib.request.urlopen(url) as response, open(spectrum_path, "wb") as out_file:
                 print("Trying to download:" + url)
                 data = response.read()
                 out_file.write(data)
 
-        self.spectrum_data = 0.1 * fits.getdata(
-            spectrum_path
-        )  # convert ergs/s/cm^2/cm to uW/m^2/um
-        self.spectrum_data *= calc_flux_scale(
-            self.wl_data, self.spectrum_data, self.magnitude
-        )
+        self.spectrum_data = 0.1 * fits.getdata(spectrum_path)  # convert ergs/s/cm^2/cm to uW/m^2/um
+        self.spectrum_data *= calc_flux_scale(self.wl_data, self.spectrum_data, self.magnitude)
         self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
 
     @staticmethod
@@ -440,7 +396,7 @@ class Phoenix(Source):
     @staticmethod
     def get_spectrum_url(t_eff, alpha, log_g, z):
         zstring = f"{'+' if z > 0 else '-'}{abs(z):2.1f}"
-        alphastring = "" if np.isclose(alpha, 0.0) else f".Alpha={alpha:+2.2f}"
+        alphastring = f"" if np.isclose(alpha, 0.) else f".Alpha={alpha:+2.2f}"
 
         url = (
             f"ftp://phoenix.astro.physik.uni-goettingen.de/"
@@ -450,20 +406,15 @@ class Phoenix(Source):
         return url
 
     def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength)
-        )
+        idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.ip_spectra(self.wl_data[idx])
 
     def __str__(self):
-        return (
-            self.name
-            + f": t={self.t_eff},g={self.log_g},z={self.z},a={self.alpha},mag={self.magnitude}"
-        )
+        return self.name + f': t={self.t_eff},g={self.log_g},z={self.z},a={self.alpha},mag={self.magnitude}'
 
 
 class CSV(Source):
-    """Spectral source based on custom .csv file
+    """ Spectral source based on custom .csv file
 
     The .csv file needs to have two columns, a wavelength column and a flux column. The wavelength must be given
     in either angstroms, nanometers, microns or meters (specified via wavelength_unit), while the flux must either be in
@@ -477,21 +428,12 @@ class CSV(Source):
          stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
          magnitude: V magnitude in case of stellar_target
     """
+    wavelength_scaling = {'a': 1E-4, 'nm': 1E-3, 'micron': 1, 'm': 1E-6}
 
-    wavelength_scaling = {"a": 1e-4, "nm": 1e-3, "micron": 1, "m": 1e-6}
-
-    def __init__(
-        self,
-        filepath: str | pathlib.Path,
-        name: str | None = None,
-        list_like: bool = False,
-        wavelength_unit: str = "a",
-        flux_in_photons: bool = False,
-        stellar_target: bool = False,
-        magnitude: float = 10.0,
-        delimiter: str = ",",
-    ):
-        """Constructor
+    def __init__(self, filepath: str | pathlib.Path, name: str | None = None, list_like: bool = False,
+                 wavelength_unit: str = 'a', flux_in_photons: bool = False, stellar_target: bool = False,
+                 magnitude: float = 10., delimiter: str = ','):
+        """ Constructor
 
         Args:
          filepath: path to .csv file
@@ -504,85 +446,61 @@ class CSV(Source):
          magnitude: V magnitude in case of stellar_target
          delimiter: delimiter character of .csv file
         """
-        assert wavelength_unit in self.wavelength_scaling.keys(), (
-            f"Supported wavelength units are " f"{self.wavelength_scaling.keys()}"
-        )
+        assert wavelength_unit in self.wavelength_scaling.keys(), f'Supported wavelength units are ' \
+                                                                  f'{self.wavelength_scaling.keys()}'
         if isinstance(filepath, io.TextIOWrapper):
             filepath = filepath.name
         if isinstance(filepath, str):
             filepath = pathlib.Path(filepath)
         if name is None:
             name = filepath.name
-        super().__init__(
-            name=name,
-            list_like=list_like,
-            flux_in_photons=flux_in_photons,
-            stellar_target=stellar_target,
-        )
+        super().__init__(name=name, list_like=list_like, flux_in_photons=flux_in_photons, stellar_target=stellar_target)
         self.magnitude = magnitude
-        print(f"{filepath=}, {type(filepath)}")
+        print(f'{filepath=}, {type(filepath)}')
         data = pd.read_csv(filepath, delimiter=delimiter)
 
         self.wl_data = data.iloc[:, 0].values * self.wavelength_scaling[wavelength_unit]
         self.flux_data = data.iloc[:, 1].values
         if not flux_in_photons:
             self.flux_data *= 0.1  # convert ergs/s/cm^2/cm to uW/m^2/um
-            self.flux_data *= calc_flux_scale(
-                self.wl_data, self.flux_data, self.magnitude
-            )
+            self.flux_data *= calc_flux_scale(self.wl_data, self.flux_data, self.magnitude)
 
     def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength)
-        )
+        idx = np.logical_and(self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength))
         return self.wl_data[idx], self.flux_data[idx]
 
 
 class LineList(Source):
-    """Line-list spectrum
+    """ Line-list spectrum
 
     Attributes:
         wavelengths: wavelengths [micron] of line(s)
         intensities: intensities [photons] of line(s)
     """
 
-    def __init__(
-        self,
-        wavelengths: list[float] | np.ndarray | float = 0.5,
-        intensities: list[float] | np.ndarray | float = 1000.0,
-    ):
-        super().__init__(name="LineList", list_like=True)
+    def __init__(self, wavelengths: list[float] | np.ndarray | float = 0.5,
+                 intensities: list[float] | np.ndarray | float = 1000.):
+        super().__init__(name='LineList', list_like=True)
         # convert always to numpy array
-        self.wavelengths = np.array(
-            [wavelengths] if isinstance(wavelengths, float) else wavelengths
-        )
+        self.wavelengths = np.array([wavelengths] if isinstance(wavelengths, float) else wavelengths)
 
-        self.intensities = (
-            np.ones_like(self.wavelengths) * intensities
-            if isinstance(intensities, float)
-            else intensities
-        )
-        assert len(self.wavelengths) == len(
-            self.intensities
-        ), "wavelengths and intensities do not have the same length"
+        self.intensities = np.ones_like(self.wavelengths) * intensities if isinstance(intensities,
+                                                                                      float) else intensities
+        assert len(self.wavelengths) == len(self.intensities), 'wavelengths and intensities do not have the same length'
         self.flux_in_photons = True
 
     def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wavelengths > np.min(wavelength), self.wavelengths < np.max(wavelength)
-        )
+        idx = np.logical_and(self.wavelengths > np.min(wavelength), self.wavelengths < np.max(wavelength))
         return self.wavelengths[idx], self.intensities[idx]
 
 
 class Blackbody(Source):
-    """Blackbody spectrum
+    """ Blackbody spectrum
 
     Implements a (stellar) blackbody spectrum of given temperature and V-magnitude.
     """
 
-    def __init__(
-        self, temperature: float = 6000, magnitude: float = 15.0, name="blackbody"
-    ):
+    def __init__(self, temperature: float = 6000, magnitude: float = 15., name='blackbody'):
         """
 
         Args:
@@ -594,18 +512,14 @@ class Blackbody(Source):
         self.magnitude = magnitude
         self.temperature = temperature
         self._sp = SourceSpectrum(BlackBodyNorm1D(temperature=temperature))
-        self._bp = SpectralElement.from_filter("johnson_v")
+        self._bp = SpectralElement.from_filter('johnson_v')
         self._vega = SourceSpectrum.from_vega()  # For unit conversion
-        self._sp_norm = self._sp.normalize(
-            magnitude * units.VEGAMAG, self._bp, vegaspec=self._vega
-        )
+        self._sp_norm = self._sp.normalize(magnitude * units.VEGAMAG, self._bp, vegaspec=self._vega)
 
     def get_spectral_density(self, wavelength):
         # convert input wavelength from micron to angstrom
         # convert output from FLAM (erg/s/cm^2/A) to (microW/m^2/microns)
-        return wavelength, self._sp_norm(
-            wavelength * 10000.0, flux_unit=units.FLAM
-        ).value * 1e8
+        return wavelength, self._sp_norm(wavelength * 10000., flux_unit=units.FLAM).value * 1E8
 
     def __str__(self):
-        return self.name + f"temp={self.temperature},mag={self.magnitude}"
+        return self.name + f'temp={self.temperature},mag={self.magnitude}'
