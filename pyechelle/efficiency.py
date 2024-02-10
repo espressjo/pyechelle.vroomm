@@ -10,7 +10,7 @@ from numpy import sin, cos, tan, arcsin
 from scipy.interpolate import interp1d
 
 path = pathlib.Path(__file__).parent.resolve()
-cache_path = path.joinpath('.cache')
+cache_path = path.joinpath(".cache")
 # create data directory if it doesn't exist:
 pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
@@ -28,7 +28,7 @@ class Efficiency:
 
 
 class ConstantEfficiency(Efficiency):
-    def __init__(self, name, eff=1.):
+    def __init__(self, name, eff=1.0):
         super().__init__(name)
         self.eff = eff
 
@@ -40,7 +40,7 @@ class ConstantEfficiency(Efficiency):
 
 
 class BandpassFilter(Efficiency):
-    def __init__(self, minwl, maxwl, name='bandpass'):
+    def __init__(self, minwl, maxwl, name="bandpass"):
         super().__init__(name=name)
         self.minwl = minwl
         self.maxwl = maxwl
@@ -48,7 +48,7 @@ class BandpassFilter(Efficiency):
     def get_efficiency(self, wavelength):
         e = np.ones_like(wavelength)
         idx = np.logical_or((wavelength < self.minwl), (wavelength > self.maxwl))
-        e[idx] = 0.
+        e[idx] = 0.0
         return e
 
     def get_efficiency_per_order(self, wavelength, order):
@@ -94,9 +94,9 @@ class GratingEfficiency(Efficiency):
         # fsr = blaze_wavelength / order
 
         x = (
-                order
-                * (cos(self.alpha) / cos(self.alpha - self.blaze))
-                * (cos(self.blaze) - sin(self.blaze) / tan((self.alpha + bb) / 2.0))
+            order
+            * (cos(self.alpha) / cos(self.alpha - self.blaze))
+            * (cos(self.blaze) - sin(self.blaze) / tan((self.alpha + bb) / 2.0))
         )
         sinc = np.sinc(x)
 
@@ -124,21 +124,44 @@ class TabulatedEfficiency(Efficiency):
                 self.ip = lambda x: efficiency
             # do linear interpolation if only 2 points
             elif len(wavelength) == 2:
-                self.ip = interp1d(wavelength, efficiency, kind="linear", fill_value=0., bounds_error=False)
+                self.ip = interp1d(
+                    wavelength,
+                    efficiency,
+                    kind="linear",
+                    fill_value=0.0,
+                    bounds_error=False,
+                )
             # do linear interpolation if only 2 points
             elif len(wavelength) == 3:
-                self.ip = interp1d(wavelength, efficiency, kind="quadratic", fill_value=0., bounds_error=False)
+                self.ip = interp1d(
+                    wavelength,
+                    efficiency,
+                    kind="quadratic",
+                    fill_value=0.0,
+                    bounds_error=False,
+                )
             # do cubic interpolation if >= 4 points
             else:
-                self.ip = interp1d(wavelength, efficiency, kind="cubic", fill_value=0., bounds_error=False)
+                self.ip = interp1d(
+                    wavelength,
+                    efficiency,
+                    kind="cubic",
+                    fill_value=0.0,
+                    bounds_error=False,
+                )
             self.ip_per_order = self.ip
         else:
             self.ip_per_order = {}
 
             for o in np.unique(orders):
                 idx = orders == o
-                self.ip_per_order[o] = interp1d(wavelength[idx], efficiency[idx], kind="cubic", fill_value=0.0,
-                                                bounds_error=False)
+                self.ip_per_order[o] = interp1d(
+                    wavelength[idx],
+                    efficiency[idx],
+                    kind="cubic",
+                    fill_value=0.0,
+                    bounds_error=False,
+                )
 
             y = np.zeros_like(wavelength)
             for o in np.unique(orders):
@@ -169,7 +192,7 @@ class Atmosphere(Efficiency):
     def __init__(self, name, sky_calc_kwargs=None):
         super().__init__(name)
         # set default atmosphere arguments to high-resolution
-        self.kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
+        self.kwargs = {"wres": 1e6, "wgrid_mode": "fixed_spectral_resolution"}
         if sky_calc_kwargs is not None:
             self.kwargs.update(sky_calc_kwargs)
 
@@ -182,18 +205,23 @@ class Atmosphere(Efficiency):
     @staticmethod
     @memory.cache
     def get_atmosphere_data(wavelength, sky_calc_kwargs=None):
-        kwargs = {"wres": 1E6, "wgrid_mode": "fixed_spectral_resolution"}
+        kwargs = {"wres": 1e6, "wgrid_mode": "fixed_spectral_resolution"}
         if sky_calc_kwargs is not None:
             kwargs.update(sky_calc_kwargs)
         sky = skycalc_ipy.SkyCalc()
         sky.update(kwargs)  # set sky arguments
-        wmin = np.min(wavelength) * 1000.
-        wmax = np.max(wavelength) * 1000.
-        sky.update({'wmin': wmin, 'wmax': wmax})
+        wmin = np.min(wavelength) * 1000.0
+        wmax = np.max(wavelength) * 1000.0
+        sky.update({"wmin": wmin, "wmax": wmax})
 
         tbl = sky.get_sky_spectrum()
         # extrapolate is needed because tbl['lam'].data might not contain exact wavelength limits,
         # since we are in constant resolution mode ("wgrid_mode": "fixed_spectral_resolution")
-        ip = interp1d(tbl['lam'].data, tbl['trans'].data, assume_sorted=True, fill_value="extrapolate")
+        ip = interp1d(
+            tbl["lam"].data,
+            tbl["trans"].data,
+            assume_sorted=True,
+            fill_value="extrapolate",
+        )
 
-        return ip(wavelength * 1000.)
+        return ip(wavelength * 1000.0)

@@ -42,7 +42,7 @@ class HDFBuilder(contextlib.ExitStack):
         self.h5f = self.enter_context(h5py.File(path, self.mode))
 
     def save_to_hdf(
-            self, n_transformation_per_order: int = 50, n_psfs_per_order: int = 15
+        self, n_transformation_per_order: int = 50, n_psfs_per_order: int = 15
     ):
         for ccd_idx, ccd in self.spec.get_ccd().items():
             self._save_spectrograph_info_to_hdf(ccd_number=ccd_idx)
@@ -59,7 +59,13 @@ class HDFBuilder(contextlib.ExitStack):
                     )
                     transformations = self.spec.get_transformation(wls, o, f, ccd_idx).T
                     transformations[:, 3] = correct_phase_jumps(transformations[:, 3])
-                    self._save_transformation_to_hdf(wls, transformations, order=o, fiber_number=f, ccd_number=ccd_idx)
+                    self._save_transformation_to_hdf(
+                        wls,
+                        transformations,
+                        order=o,
+                        fiber_number=f,
+                        ccd_number=ccd_idx,
+                    )
 
                     wls_psf = np.linspace(
                         *wavelength_range,
@@ -69,7 +75,7 @@ class HDFBuilder(contextlib.ExitStack):
                     self._save_psfs_to_hdf(wls_psf, psfs, f, o, ccd_idx)
 
     def _save_field_shape_to_hdf(
-            self, ccd_number: int, fiber_number: int, field_shape: str
+        self, ccd_number: int, fiber_number: int, field_shape: str
     ):
         try:
             fiber_group = self.h5f.require_group(
@@ -108,14 +114,15 @@ class HDFBuilder(contextlib.ExitStack):
             pass
 
         try:
-            spectrograph_group.attrs.create("gpmm", self.spec._groves_per_micron * 1000.)
+            spectrograph_group.attrs.create(
+                "gpmm", self.spec._groves_per_micron * 1000.0
+            )
         except AttributeError:
             pass
 
     def _save_psfs_to_hdf(
-            self, wl_psfs, psfs, fiber_number: int, order: int, ccd_number: int
+        self, wl_psfs, psfs, fiber_number: int, order: int, ccd_number: int
     ):
-
         try:
             psf_order_group = self.h5f.require_group(
                 f"CCD_{ccd_number}/fiber_{fiber_number}/psf_order_{abs(order)}"
@@ -134,12 +141,12 @@ class HDFBuilder(contextlib.ExitStack):
             dataset.attrs.create("dataSpacing", psf.sampling)
 
     def _save_transformation_to_hdf(
-            self,
-            wavelengths: np.ndarray,
-            transformations: np.ndarray,
-            order: int,
-            fiber_number: int = 1,
-            ccd_number: int = 1,
+        self,
+        wavelengths: np.ndarray,
+        transformations: np.ndarray,
+        order: int,
+        fiber_number: int = 1,
+        ccd_number: int = 1,
     ):
         try:
             fiber_group = self.h5f.require_group(

@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-logger = logging.getLogger('CCD')
+logger = logging.getLogger("CCD")
 
 
 @dataclass
 class CCD:
-    """ A CCD detector
+    """A CCD detector
 
     Attributes:
         data (np.ndarray): data array (uint) that will be filled by the simulator
@@ -26,18 +26,19 @@ class CCD:
         identifier (str): identifier of the CCD. This will also end up in the .fits header.
 
     """
+
     n_pix_x: int = 4096
     n_pix_y: int = 4096
     maxval: int = 65536
-    pixelsize: float = 9.
-    identifier: str = 'detector'
+    pixelsize: float = 9.0
+    identifier: str = "detector"
     data: np.ndarray = field(init=False)
 
     def __post_init__(self):
         self.data = np.zeros((self.n_pix_y, self.n_pix_x), dtype=np.uint32)
 
-    def add_readnoise(self, std: float = 3.):
-        """ Adds readnoise to the detector counts
+    def add_readnoise(self, std: float = 3.0):
+        """Adds readnoise to the detector counts
 
         Args:
             std: standard deviation of readnoise in counts
@@ -45,7 +46,9 @@ class CCD:
         Returns:
             None
         """
-        self.data = self.data + np.asarray(np.random.normal(0., std, self.data.shape).round(0), dtype=np.int32)
+        self.data = self.data + np.asarray(
+            np.random.normal(0.0, std, self.data.shape).round(0), dtype=np.int32
+        )
 
     def add_bias(self, value: int = 1000):
         """Adds a bias value to the detector counts
@@ -59,7 +62,7 @@ class CCD:
         self.data += value
 
     def clip(self):
-        """ Clips CCD data
+        """Clips CCD data
 
         Clips data if any count value is larger than self.maxval
 
@@ -67,16 +70,22 @@ class CCD:
             None
         """
         if np.any(self.data < 0):
-            logger.warning('There is data <0 which will be clipped. Make sure you e.g. apply the bias before the '
-                           'readnoise.')
+            logger.warning(
+                "There is data <0 which will be clipped. Make sure you e.g. apply the bias before the "
+                "readnoise."
+            )
             self.data[self.data < 0] = 0
         if np.any(self.data > self.maxval):
             self.data[self.data > self.maxval] = self.maxval
 
     def __eq__(self, other):
-        equal_pixel = (self.n_pix_x == other.n_pix_x) and (self.n_pix_y == other.n_pix_y)
+        equal_pixel = (self.n_pix_x == other.n_pix_x) and (
+            self.n_pix_y == other.n_pix_y
+        )
         if not equal_pixel:
-            print(f"The number of pixels differs ({self.n_pix_x}x{self.n_pix_y} vs. {other.n_pix_x}x{other.n_pix_y}")
+            print(
+                f"The number of pixels differs ({self.n_pix_x}x{self.n_pix_y} vs. {other.n_pix_x}x{other.n_pix_y}"
+            )
         equal_pixelsize = self.pixelsize == other.pixelsize
         if not equal_pixelsize:
             print(f"The pixel size differs {self.pixelsize} vs. {other.pixelsize}")
@@ -89,4 +98,10 @@ class CCD:
         equal_data = np.array_equal(self.data, other.data)
         if not equal_data:
             print(f"The data differs: {self.data} vs. {other.data}")
-        return equal_pixel and equal_pixelsize and equal_maxval and equal_identifier and equal_data
+        return (
+            equal_pixel
+            and equal_pixelsize
+            and equal_maxval
+            and equal_identifier
+            and equal_data
+        )

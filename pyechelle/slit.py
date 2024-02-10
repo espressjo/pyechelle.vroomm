@@ -48,29 +48,26 @@ cuda_singlemode = None
 
 @njit(UniTuple(float64, 2)(float64, float64))
 def rectangular(xx, yy):
-    """ Rectangular transformation
-    """
+    """Rectangular transformation"""
     return xx, yy
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
 def circular(xx, yy):
-    """ Circular transformation
-    """
-    r = math.sqrt(xx) / 2.
+    """Circular transformation"""
+    r = math.sqrt(xx) / 2.0
     phi = yy * math.pi * 2
     return r * math.cos(phi) + 0.5, r * math.sin(phi) + 0.5
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
 def octagonal(r1, r2):
-    """ Octagonal transformation
-    """
-    phi = 0.
+    """Octagonal transformation"""
+    phi = 0.0
     s1 = math.sqrt(r1)
-    phi_segment = 2. * math.pi / 8
+    phi_segment = 2.0 * math.pi / 8
 
-    b = [1., 0.]
+    b = [1.0, 0.0]
     c = [math.cos(phi_segment), math.sin(phi_segment)]
     x = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
     y = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
@@ -81,18 +78,17 @@ def octagonal(r1, r2):
     sin_values = math.sin(arg_values)
     x_new = x * cos_values - y * sin_values
     y_new = x * sin_values + y * cos_values
-    return x_new / 2. + 0.5, y_new / 2. + 0.5
+    return x_new / 2.0 + 0.5, y_new / 2.0 + 0.5
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
 def hexagonal(r1, r2):
-    """ Hexagonal transformation
-    """
-    phi = 0.
+    """Hexagonal transformation"""
+    phi = 0.0
     s1 = math.sqrt(r1)
-    phi_segment = 2. * math.pi / 6
+    phi_segment = 2.0 * math.pi / 6
 
-    b = [1., 0.]
+    b = [1.0, 0.0]
     c = [math.cos(phi_segment), math.sin(phi_segment)]
     x = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
     y = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
@@ -103,7 +99,7 @@ def hexagonal(r1, r2):
     sin_values = math.sin(arg_values)
     xnew = x * cos_values - y * sin_values
     ynew = x * sin_values + y * cos_values
-    return xnew / 2. + 0.5, ynew / 2. + 0.5
+    return xnew / 2.0 + 0.5, ynew / 2.0 + 0.5
 
 
 @cuda.jit(inline=True, device=True)
@@ -113,42 +109,50 @@ def cuda_rectangular(x, y, rng_states, thread_id):
 
 @cuda.jit(inline=True, device=True)
 def cuda_circular(x, y, rng_states, thread_id):
-    r = math.sqrt(x) / 2.
+    r = math.sqrt(x) / 2.0
     phi = y * math.pi * 2
     return r * math.cos(phi) + 0.5, r * math.sin(phi) + 0.5
 
 
 @cuda.jit(inline=True, device=True)
 def cuda_octagonal(r1, r2, rng_states, thread_id):
-    phi = 0.
+    phi = 0.0
     s1 = math.sqrt(r1)
-    phi_segment = 2. * math.pi / 8.
+    phi_segment = 2.0 * math.pi / 8.0
 
-    b = (1., 0.)
+    b = (1.0, 0.0)
     c = (math.cos(phi_segment), math.sin(phi_segment))
     xx = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
     yy = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
 
-    segments = math.floor(numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.)
+    segments = math.floor(
+        numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
+    )
     arg_values = phi_segment * segments + phi
     cos_values = math.cos(arg_values)
     sin_values = math.sin(arg_values)
-    return (xx * cos_values - yy * sin_values) / 2. + 0.5, (xx * sin_values + yy * cos_values) / 2. + 0.5
+    return (xx * cos_values - yy * sin_values) / 2.0 + 0.5, (
+        xx * sin_values + yy * cos_values
+    ) / 2.0 + 0.5
 
 
 @cuda.jit(inline=True, device=True)
 def cuda_hexagonal(r1, r2, rng_states, thread_id):
-    phi = 0.
+    phi = 0.0
     s1 = math.sqrt(r1)
-    phi_segment = 2. * math.pi / 6.
+    phi_segment = 2.0 * math.pi / 6.0
 
-    b = (1., 0.)
+    b = (1.0, 0.0)
     c = (math.cos(phi_segment), math.sin(phi_segment))
     xx = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
     yy = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
 
-    segments = math.floor(numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.)
+    segments = math.floor(
+        numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
+    )
     arg_values = phi_segment * segments + phi
     cos_values = math.cos(arg_values)
     sin_values = math.sin(arg_values)
-    return (xx * cos_values - yy * sin_values) / 2. + 0.5, (xx * sin_values + yy * cos_values) / 2. + 0.5
+    return (xx * cos_values - yy * sin_values) / 2.0 + 0.5, (
+        xx * sin_values + yy * cos_values
+    ) / 2.0 + 0.5

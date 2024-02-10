@@ -12,20 +12,21 @@ from dataclasses import dataclass
 
 @dataclass
 class Telescope:
-    """ Telescope class
+    """Telescope class
 
     Attributes:
         d_primary (float): diameter of primary mirror [m]
         d_secondary (float): diameter of secondary mirror [m]
     """
+
     d_primary: float
-    d_secondary: float = 0.
+    d_secondary: float = 0.0
 
     @property
     def area(self) -> float:
-        """ Effective collecting area
+        """Effective collecting area
 
         Returns:
             effective collecting area of the telescope [m^2]
         """
-        return (self.d_primary ** 2 - self.d_secondary ** 2) / 4. * math.pi
+        return (self.d_primary**2 - self.d_secondary**2) / 4.0 * math.pi

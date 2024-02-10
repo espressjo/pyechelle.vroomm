@@ -55,7 +55,7 @@ def _center_and_normalize_points(points):
     centroid = np.mean(points, axis=0)
 
     centered = points - centroid
-    rms = np.sqrt(np.sum(centered ** 2) / n)
+    rms = np.sqrt(np.sum(centered**2) / n)
 
     # if all the points are the same, the transformation matrix cannot be
     # created. We return an equivalent matrix with np.nans as sentinel values.
@@ -72,7 +72,17 @@ def _center_and_normalize_points(points):
         (np.eye(d), -centroid[:, np.newaxis]), axis=1
     )
     matrix = np.concatenate(
-        (part_matrix, [[0, ] * d + [1]]), axis=0
+        (
+            part_matrix,
+            [
+                [
+                    0,
+                ]
+                * d
+                + [1]
+            ],
+        ),
+        axis=0,
     )
 
     points_h = np.row_stack([points.T, np.ones(n)])
@@ -102,11 +112,11 @@ def find_affine(src, dst):
     # for 2D example — this can be generalised to more blocks in the 3D and
     # higher-dimensional cases.
     for ddim in range(d):
-        A[ddim * n: (ddim + 1) * n, ddim * (d + 1): ddim * (d + 1) + d] = src
-        A[ddim * n: (ddim + 1) * n, ddim * (d + 1) + d] = 1
-        A[ddim * n: (ddim + 1) * n, -d - 1:-1] = src
-        A[ddim * n: (ddim + 1) * n, -1] = -1
-        A[ddim * n: (ddim + 1) * n, -d - 1:] *= -dst[:, ddim:(ddim + 1)]
+        A[ddim * n : (ddim + 1) * n, ddim * (d + 1) : ddim * (d + 1) + d] = src
+        A[ddim * n : (ddim + 1) * n, ddim * (d + 1) + d] = 1
+        A[ddim * n : (ddim + 1) * n, -d - 1 : -1] = src
+        A[ddim * n : (ddim + 1) * n, -1] = -1
+        A[ddim * n : (ddim + 1) * n, -d - 1 :] *= -dst[:, ddim : (ddim + 1)]
 
     # Select relevant columns, depending on params
     A = A[:, list(coeffs) + [-1]]
@@ -122,7 +132,7 @@ def find_affine(src, dst):
     H = np.zeros((d + 1, d + 1))
     # solution is right singular vector that corresponds to smallest
     # singular value
-    H.flat[list(coeffs) + [-1]] = - V[-1, :-1] / V[-1, -1]
+    H.flat[list(coeffs) + [-1]] = -V[-1, :-1] / V[-1, -1]
     H[d, d] = 1
 
     # De-center and de-normalize
@@ -136,10 +146,10 @@ def find_affine(src, dst):
 
 
 def decompose_affine_matrix(m):
-    scale_x, scale_y = np.sqrt(np.sum(m ** 2, axis=0))[:2]
+    scale_x, scale_y = np.sqrt(np.sum(m**2, axis=0))[:2]
     rotation = math.atan2(m[1, 0], m[0, 0])
 
-    beta = math.atan2(- m[0, 1], m[1, 1])
+    beta = math.atan2(-m[0, 1], m[1, 1])
     shear = beta - rotation
     tx, ty = m[0:2, 2]
     return rotation, scale_x, scale_y, shear, tx, ty
@@ -183,6 +193,7 @@ class AffineTransformation:
         ty (float): translation in y-direction
         wavelength (float | None): wavelength [micron] of affine transformation matrix
     """
+
     rot: float
     sx: float
     sy: float
@@ -206,13 +217,15 @@ class AffineTransformation:
             wl = other.wavelength
         if self.wavelength and other.wavelength is None:
             wl = self.wavelength
-        return AffineTransformation(self.rot + other.rot,
-                                    self.sx + other.sx,
-                                    self.sy + other.sy,
-                                    self.shear + other.shear,
-                                    self.tx + other.tx,
-                                    self.ty + other.ty,
-                                    wl)
+        return AffineTransformation(
+            self.rot + other.rot,
+            self.sx + other.sx,
+            self.sy + other.sy,
+            self.shear + other.shear,
+            self.tx + other.tx,
+            self.ty + other.ty,
+            wl,
+        )
 
     def __sub__(self, other):
         wl = None
@@ -223,13 +236,15 @@ class AffineTransformation:
             wl = other.wavelength
         if self.wavelength and other.wavelength is None:
             wl = self.wavelength
-        return AffineTransformation(self.rot - other.rot,
-                                    self.sx - other.sx,
-                                    self.sy - other.sy,
-                                    self.shear - other.shear,
-                                    self.tx - other.tx,
-                                    self.ty - other.ty,
-                                    wl)
+        return AffineTransformation(
+            self.rot - other.rot,
+            self.sx - other.sx,
+            self.sy - other.sy,
+            self.shear - other.shear,
+            self.tx - other.tx,
+            self.ty - other.ty,
+            wl,
+        )
 
     def __iadd__(self, other):
         assert np.isclose(other.wavelength, self.wavelength)
@@ -253,11 +268,23 @@ class AffineTransformation:
         return np.isclose(self.as_matrix(), other.as_matrix()).all()
 
     def __mul__(self, other):
-        assert isinstance(other, tuple), "You can only multiply an affine matrix with a tuple of length 2 (x," \
-                                         "y coordinate) "
-        assert len(other) == 2, "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
-        x_new = self.sx * math.cos(self.rot) * other[0] - self.sy * math.sin(self.rot + self.shear) * other[1] + self.tx
-        y_new = self.sx * math.sin(self.rot) * other[0] + self.sy * math.cos(self.rot + self.shear) * other[1] + self.ty
+        assert isinstance(other, tuple), (
+            "You can only multiply an affine matrix with a tuple of length 2 (x,"
+            "y coordinate) "
+        )
+        assert (
+            len(other) == 2
+        ), "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
+        x_new = (
+            self.sx * math.cos(self.rot) * other[0]
+            - self.sy * math.sin(self.rot + self.shear) * other[1]
+            + self.tx
+        )
+        y_new = (
+            self.sx * math.sin(self.rot) * other[0]
+            + self.sy * math.cos(self.rot + self.shear) * other[1]
+            + self.ty
+        )
         return x_new, y_new
 
     def as_matrix(self) -> tuple:
@@ -300,15 +327,18 @@ class TransformationSet:
 
         self.wl = np.array([at.wavelength for at in self.affine_transformations])
 
-    def get_affine_transformations(self, wl: float | np.ndarray) -> AffineTransformation | np.ndarray:
+    def get_affine_transformations(
+        self, wl: float | np.ndarray
+    ) -> AffineTransformation | np.ndarray:
         if self._spline_affine is None:
-            self._spline_affine = [CubicSpline(self.wl, self.rot),
-                                   CubicSpline(self.wl, self.sx),
-                                   CubicSpline(self.wl, self.sy),
-                                   CubicSpline(self.wl, self.shear),
-                                   CubicSpline(self.wl, self.tx),
-                                   CubicSpline(self.wl, self.ty)
-                                   ]
+            self._spline_affine = [
+                CubicSpline(self.wl, self.rot),
+                CubicSpline(self.wl, self.sx),
+                CubicSpline(self.wl, self.sy),
+                CubicSpline(self.wl, self.shear),
+                CubicSpline(self.wl, self.tx),
+                CubicSpline(self.wl, self.ty),
+            ]
         if isinstance(wl, float):
             return AffineTransformation(*[af(wl) for af in self._spline_affine], wl)
         else:
@@ -317,27 +347,35 @@ class TransformationSet:
 
 def convert_matrix(input: AffineTransformation | np.ndarray) -> np.ndarray:
     if isinstance(input, AffineTransformation):
-        return np.array([input.sx * math.cos(input.rot),
-                         -input.sy * math.sin(input.rot + input.shear),
-                         input.tx,
-                         input.sx * math.sin(input.rot),
-                         input.sy * math.cos(input.rot + input.shear),
-                         input.ty])
+        return np.array(
+            [
+                input.sx * math.cos(input.rot),
+                -input.sy * math.sin(input.rot + input.shear),
+                input.tx,
+                input.sx * math.sin(input.rot),
+                input.sy * math.cos(input.rot + input.shear),
+                input.ty,
+            ]
+        )
     else:
         assert isinstance(input, np.ndarray)
-        return np.array([
-            input[1] * np.cos(input[0]),
-            -input[2] * np.sin(input[0] + input[3]),
-            input[4],
-            input[1] * np.sin(input[0]),
-            input[2] * np.cos(input[0] + input[3]),
-            input[5]])
+        return np.array(
+            [
+                input[1] * np.cos(input[0]),
+                -input[2] * np.sin(input[0] + input[3]),
+                input[4],
+                input[1] * np.sin(input[0]),
+                input[2] * np.cos(input[0] + input[3]),
+                input[5],
+            ]
+        )
 
 
 @numba.njit
 def apply_matrix(matrix, coords):
-    return matrix[0] * coords[0] + matrix[1] * coords[1] + matrix[2], \
-           matrix[3] * coords[0] + matrix[4] * coords[1] + matrix[5]
+    return matrix[0] * coords[0] + matrix[1] * coords[1] + matrix[2], matrix[
+        3
+    ] * coords[0] + matrix[4] * coords[1] + matrix[5]
 
 
 @dataclass
@@ -352,6 +390,7 @@ class PSF:
         sampling (float): physical size of the sampling of data [micron]
 
     """
+
     wavelength: float
     data: np.ndarray
     sampling: float
@@ -366,20 +405,22 @@ class PSF:
         return self.wavelength < other.wavelength
 
     def __str__(self):
-        res = f'PSF@\n{self.wavelength:.4f}micron\n'
-        letters = ['.', ':', 'o', 'x', '#', '@']
+        res = f"PSF@\n{self.wavelength:.4f}micron\n"
+        letters = [".", ":", "o", "x", "#", "@"]
         norm = np.max(self.data)
         for d in self.data:
             for dd in d:
                 i = int(math.floor(dd / norm / 0.2))
                 res += letters[i]
-            res += '\n'
+            res += "\n"
         return res
 
     def __eq__(self, other):
         equal_wavelength = self.wavelength == other.wavelength
         if not equal_wavelength:
-            print(f"Wavelength data is different ({self.wavelength} vs. {other.wavelength})")
+            print(
+                f"Wavelength data is different ({self.wavelength} vs. {other.wavelength})"
+            )
         equal_sampling = self.sampling == other.sampling
         if not equal_sampling:
             print(f"Data sampling is different ({self.sampling} vs. {other.sampling})")
@@ -388,7 +429,7 @@ class PSF:
             print(f"Data is different ({self.data} vs. {other.data})")
         return equal_wavelength and equal_sampling and equal_wavelength
 
-    def check(self, threshold=1E-3):
+    def check(self, threshold=1e-3):
         """Checks PSF for consistency.
 
         Checks if the PSF has 'high' flux on the outer edge of its sampling area. Significant flux on the border of
@@ -405,4 +446,10 @@ class PSF:
         Returns:
             True if check is OK False if flux is higher than threshold
         """
-        return sum(self.data[0]) + sum(self.data[-1]) + sum(self.data[:, 0]) + sum(self.data[:, -1]) < threshold
+        return (
+            sum(self.data[0])
+            + sum(self.data[-1])
+            + sum(self.data[:, 0])
+            + sum(self.data[:, -1])
+            < threshold
+        )
