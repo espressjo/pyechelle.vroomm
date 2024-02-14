@@ -32,11 +32,6 @@ stages:
     when: always
     expire_in: 1 month
 
-test_python3.8:
-  <<: *test
-  image: python:3.8
-  only:
-  - master
 test_python3.9:
   <<: *test
   image: python:3.9
@@ -60,7 +55,7 @@ test_python3.12:
 
 pages:
   <<: *install-deps
-  image: python:3.8
+  image: python:3.9
   stage: building
   script:
     - pip install sphinx sphinx-rtd-theme
@@ -74,7 +69,7 @@ pages:
 
 build:
   <<: *install-deps
-  image: python:3.8
+  image: python:3.9
   stage: building
   script: poetry build
   artifacts:

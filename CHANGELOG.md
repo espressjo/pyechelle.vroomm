@@ -16,7 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which can be used to generate .hdf model files the ZEMAX design from any spectrograph
   (see: [How to create a new spectrograph model](https://stuermer.gitlab.io/pyechelle/new_model.html))
 - Simulation metadata is now added to FITS header (.fits files now contain information about simulation parameters)
-- python 3.12 support
+- added python 3.12 support, removed python 3.8 support
 
 ### Fixed
  - fixed #9 (issue with CUDA random seed)
