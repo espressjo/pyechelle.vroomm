@@ -5,7 +5,7 @@ from numba import int32, float32, njit, float64
 
 @njit()
 def unravel_index(index, shape):
-    """ Unravels the index of a flat array
+    """Unravels the index of a flat array
     Converts a flat index into a tuple of coordinate arrays. More or less equivalent to numpy.unravel_index()
     Args:
         index: An integer array whose elements are indices into the flattened version of an array of dimensions shape.
@@ -21,8 +21,14 @@ def unravel_index(index, shape):
     return out[::-1]
 
 
-@njit([numba.types.Tuple((float32[:], int32[:]))(float32[:]),
-       numba.types.Tuple((float32[:], int32[:]))(float64[:])], nogil=True, parallel=True)
+@njit(
+    [
+        numba.types.Tuple((float32[:], int32[:]))(float32[:]),
+        numba.types.Tuple((float32[:], int32[:]))(float64[:]),
+    ],
+    nogil=True,
+    parallel=True,
+)
 def make_alias_sampling_arrays(probability: np.ndarray):
     """
     As described `here <https://www.keithschwarz.com/darts-dice-coins/>`__, the most efficient way to draw random

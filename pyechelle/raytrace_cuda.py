@@ -8,10 +8,10 @@ from joblib import Memory
 from numba import cuda
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64
 
+from pyechelle.raytracing import prepare_raytracing
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
-from pyechelle.raytracing import prepare_raytracing
 
 path = pathlib.Path(__file__).parent.resolve()
 cache_path = path.joinpath(".cache")

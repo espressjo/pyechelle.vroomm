@@ -7,7 +7,9 @@ def extract_version() -> str:
     """Returns either the version of installed package or the one
     found in nearby pyproject.toml"""
     with suppress(FileNotFoundError, StopIteration):
-        with open(Path(__file__).parent.parent / "pyproject.toml", encoding="utf-8") as pyproject_toml:
+        with open(
+            Path(__file__).parent.parent / "pyproject.toml", encoding="utf-8"
+        ) as pyproject_toml:
             version = (
                 next(line for line in pyproject_toml if line.startswith("version"))
                 .split("=")[1]
@@ -18,4 +20,3 @@ def extract_version() -> str:
 
 
 __version__ = extract_version()
-
