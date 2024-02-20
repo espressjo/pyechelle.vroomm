@@ -269,6 +269,42 @@ class Spectrograph:
         """
         raise NotImplementedError
 
+    def get_spot_positions(
+            self, wavelengths: np.ndarray, order: int, fiber: int = 1, ccd_index: int = 1
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Get spot positions for given wavelengths
+
+        This function returns an estimate of the spot positions on the CCD for given wavelengths.
+        Note: This is an estimate only. There is no way to calculate the exact spot position a priori. However,
+        this function might be useful to e.g. generate a good initial guess for the wavelength calibration.
+
+        Args:
+            wavelengths: wavelengths [micron]
+            order: diffraction order
+            fiber: fiber index
+            ccd_index: CCD index
+
+        Returns:
+            spot positions in x and y direction
+        """
+        x, y = [], []
+        for wl in wavelengths:
+            # get transformation matrices and multiply with center of field
+            m = self.get_transformation(wl, order, fiber, ccd_index)
+            xx, yy = m * (0.5, 0.5)
+            # get PSF
+            psf = self.get_psf(wl, order, fiber, ccd_index)
+            # calculate barycenter of PSF in units of CCD pixels using scipy center_of_mass and convert to pixel units
+            center_of_mass = scipy.ndimage.center_of_mass(psf.data)
+            dy_psf, dx_psf = (
+                    (center_of_mass - np.array(psf.data.shape) / 2.0)
+                    * psf.sampling
+                    / self.get_ccd(ccd_index).pixelsize
+            )
+            x.append(xx + dx_psf - 0.5)
+            y.append(yy + dy_psf - 0.5)
+        return np.array(x), np.array(y)
+
     def __eq__(self, other: Spectrograph):
         equal = True
         equal_ccd = self.get_ccd() == other.get_ccd()

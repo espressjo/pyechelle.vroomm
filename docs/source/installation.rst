@@ -22,7 +22,7 @@ Install from source
     git clone https://gitlab.com/Stuermer/pyechelle.git
 
 
-After that you can either install `Poetry <https://python-poetry.org/>`_ and use it inside the pyechelle directory to
+After that, the easiest way to install the package is to first install `Poetry <https://python-poetry.org/>`_ and use it inside the pyechelle directory to
 automatically install the dependencies of PyEchelle:
 
 .. code-block:: bash
@@ -30,5 +30,6 @@ automatically install the dependencies of PyEchelle:
     poetry install
 
 
-or you can use pip/conda and install the required python packages that are listed in pyproject.toml
-under **[tool.poetry.dependencies]** directly:
+Alternatively, you have to install the dependencies that are listed in pyproject.toml
+under **[tool.poetry.dependencies]** manually.
+
