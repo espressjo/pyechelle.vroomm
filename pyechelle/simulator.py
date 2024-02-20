@@ -30,7 +30,7 @@ from pyechelle.raytrace_cuda import (
     make_cuda_kernel_singlemode,
 )
 from pyechelle.raytracing import raytrace_order_cpu
-from pyechelle.sources import CSV
+# from pyechelle.sources import CSV
 from pyechelle.sources import Phoenix, Source
 from pyechelle.spectrograph import Spectrograph, ZEMAX
 from pyechelle.telescope import Telescope

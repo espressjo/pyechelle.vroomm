@@ -36,17 +36,20 @@ Implementing various spectral sources that can be used in pyechelle.
 """
 from __future__ import annotations
 
-import io
+import numbers
 import pathlib
 import urllib.request
 
 import astropy.io.fits as fits
 import astropy.units as u
+from astropy import constants
 import numpy as np
 import pandas as pd
-import scipy.interpolate
+import synphot
+import synphot.binning
+import synphot.units
 from joblib import Memory
-from synphot import SourceSpectrum, SpectralElement, BlackBodyNorm1D, units
+from numpy.typing import ArrayLike
 
 try:
     from astroquery.nist import Nist
@@ -62,304 +65,503 @@ memory = Memory(cache_path, verbose=0)
 
 @memory.cache
 def pull_catalogue_lines(
-    min_wl: float, max_wl: float, catalogue: str = "Th", wavelength_type: str = "vacuum"
-):
-    """
-    Reads NIST catalogue lines between min_wl and max_wl of catalogue.
+        min_wl: float | u.Quantity["length"],
+        max_wl: float | u.Quantity["length"],
+        catalogue: str = "Th",
+        wavelength_type: str = "vacuum",
+) -> tuple[u.Quantity[u.micron], np.ndarray]:
+    """Reads NIST catalogue lines between min_wl and max_wl of catalogue.
 
     Args:
-        min_wl: minimum wavelength bound [micron]
-        max_wl: maximum wavelength bound [micron]
-        catalogue: catalogue appreciation label, e.g. 'Th', 'Ar', etc.
+        min_wl: minimum wavelength bound [micron] or Quantity with length units
+        max_wl: maximum wavelength bound [micron] or Quantity with length units
+        catalogue: abbreviation of element, e.g. 'Th', 'Ar', etc.
         wavelength_type: either 'var+air' or 'vacuum'
 
     Returns:
-        (tuple) line catalogue wavelength and relative intensities. wavelength is in [angstrom]
+        line catalogue wavelength and relative intensities. wavelength is in [micron] and dimensionless relative
+        intensities.
+
     """
     try:
         table_lines = Nist.query(
-            min_wl * u.micron,
-            max_wl * u.micron,
+            min_wl << u.micron,
+            max_wl << u.micron,
             linename=catalogue,
             output_order="wavelength",
             wavelength_type=wavelength_type,
         )[["Ritz", "Rel."]]
+        # replace non-numeric numbers from Rel. column
         df = table_lines.filled(0).to_pandas()
+        df["Rel."] = df["Rel."].str.replace(r"[^0-9.]", "", regex=True)
         df["Rel."] = pd.to_numeric(df["Rel."], downcast="float", errors="coerce")
         df["Ritz"] = pd.to_numeric(df["Ritz"], downcast="float", errors="coerce")
         df.dropna(inplace=True)
         idx = np.logical_and(df["Rel."] > 0, df["Ritz"] > 0)
-        return df["Ritz"].values[idx], df["Rel."].values[idx]
+        return df["Ritz"].values[idx] << u.micron, df["Rel."].values[idx]
     except Exception as e:
         print(e)
         print(
             f"Warning: Couldn't retrieve {catalogue} catalogue data between {min_wl} and {max_wl} micron"
         )
-        return np.array([]), np.array([])
-
-
-def calc_flux_scale(source_wavelength, source_spectral_density, mag):
-    # V - band-filter
-    v_filter_wl = [
-        0.47,
-        0.48,
-        0.49,
-        0.5,
-        0.51,
-        0.52,
-        0.53,
-        0.54,
-        0.55,
-        0.56,
-        0.57,
-        0.58,
-        0.59,
-        0.6,
-        0.61,
-        0.62,
-        0.63,
-        0.64,
-        0.65,
-        0.66,
-        0.67,
-        0.68,
-        0.69,
-        0.7,
-    ]
-    v_filter_tp = [
-        0,
-        0.03,
-        0.163,
-        0.458,
-        0.78,
-        0.967,
-        1,
-        0.973,
-        0.898,
-        0.792,
-        0.684,
-        0.574,
-        0.461,
-        0.359,
-        0.27,
-        0.197,
-        0.135,
-        0.081,
-        0.045,
-        0.025,
-        0.017,
-        0.013,
-        0.009,
-        0,
-    ]
-
-    # Reference flux obtained from integration of vega over bessel filter (units are microwatts/m^2*micrometer)
-    v_zp = 3.68e-02
-
-    v_filter_interp = scipy.interpolate.interp1d(v_filter_wl, v_filter_tp)
-
-    # get total flux in filter/source range
-    lower_wl_limit = max(np.min(source_wavelength), np.min(v_filter_wl))
-    upper_wl_limit = min(np.max(source_wavelength), np.max(v_filter_wl))
-
-    idx = np.logical_and(
-        source_wavelength > lower_wl_limit, source_wavelength < upper_wl_limit
-    )
-
-    step = np.ediff1d(
-        source_wavelength[idx], source_wavelength[idx][-1] - source_wavelength[idx][-2]
-    )
-    total_flux = np.sum(
-        source_spectral_density[idx] * v_filter_interp(source_wavelength[idx]) * step
-    )
-
-    return pow(10, mag / (-2.5)) * v_zp / total_flux
+        return np.array([]) << u.micron, np.array([])
 
 
 class Source:
-    """A spectral source.
+    """A spectral source, e.g. a star or a calibration lamp.
 
-    This class should be subclassed to implement different spectral sources.
+    There are two types of sources: list-like and continuous. List-like sources have a discrete number of lines, while
+    continuous sources have a continuous spectrum and can typically be evaluated at any wavelength.
 
     Attributes:
-        name (str): name of the source. This will end up in the .fits header.
-        min_wl (float): lower wavelength limit [nm] (for normalization purposes)
-        max_wl (float): upper wavelength limit [nm] (for normalization purposes)
-        list_like (bool): if True, the Source has a bunch of discrete wavelength, rather than a continuous spectral
-        density.
-        flux_in_photons (bool): if True, get_spectral_density() returns flux in photons rather than micro watts
+        name (str): Name of the source.
+        list_like (bool): True if the source is list-like, False if it is continuous.
+
+    Notes:
+        To implement a new source, subclass this class and implement the get_counts method.
+    """
+
+    def __init__(self, name: str, list_like: bool = False):
+        """Constructor
+
+        Args:
+            name: Name of the source.
+            list_like: True if the source is list-like, False if it is continuous.
+        """
+        self.name = name
+        self.list_like = list_like
+
+    def get_counts(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity["time"] | float,
+    ) -> u.Quantity[u.ph] | tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """
+        Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. Only the range is used.
+                If ArrayLike is provided, it is assumed to be in microns.
+            integration_time (Quantity or float):
+                Integration time either as Quantity with time units or as float in seconds.
+
+        Returns:
+            Quantity or tuple: If the source is list-like, it returns a tuple containing two elements. The first
+            element is an array of wavelengths in microns for which the emission lines exist within the provided
+            wavelength range. The second element is an array of the number of photons per line for the corresponding
+            wavelengths, calculated as the product of the line intensities and the integration time.
+            If the source is not list-like, it returns the number of photons per wavelength bin.
+        """
+        raise NotImplementedError()
+
+    def get_counts_rv(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity["time"] | float,
+            rv_shift: u.Quantity["speed"] | float,
+    ) -> u.Quantity[u.ph] | tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """
+        Get the number of photons per wavelength bin, considering a radial velocity shift.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. Only the range is used.
+                If ArrayLike is provided, it is assumed to be in microns.
+            integration_time (Quantity or float): Integration time either as Quantity with time units or as float
+                in seconds.
+            rv_shift (Quantity or float): Radial velocity shift either as Quantity with speed units or as float in m/s.
+
+        Returns:
+            Quantity or tuple: If the source is list-like, it returns a tuple containing two elements.
+            The first element is an array of wavelengths in microns for which the
+            emission lines exist within the provided wavelength range, considering the radial velocity shift.
+            The second element is an array of the number of photons
+            per line for the corresponding wavelengths, calculated as the product of the line intensities and the
+            integration time. If the source is not list-like, it returns the number of photons per wavelength bin,
+            considering the radial velocity shift.
+        """
+        # if list-like move the returned wavelengths
+        if self.list_like:
+            source_wl, counts = self.get_counts(wl, integration_time)
+            return source_wl * (1 + (rv_shift << u.m / u.s) / constants.c), counts
+        else:
+            return self.get_counts(
+                wl * (1 + (rv_shift << u.m / u.s) / constants.c), integration_time
+            )
+
+
+class ConstantPhotonFlux(Source):
+    """A source with a constant photon flux.
+
+    Attributes:
+        flux (u.Quantity): Flux in [ph/s/A].
+    """
+
+    def __init__(
+            self,
+            flux: float | u.Quantity[u.ph / u.s / u.AA],
+            name: str = "ConstantPhotonFlux",
+    ):
+        """
+        Initialize the ConstantPhotonFlux class.
+
+        Args:
+            flux (float | Quantity): Photon flux in [ph/s/A].
+            name (str, optional): Name of the source. Defaults to "ConstantPhotonFlux".
+        """
+        super().__init__(name=name, list_like=False)
+        self.flux = flux << u.ph / u.s / u.AA
+
+    def get_counts(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity[u.s] | float,
+    ) -> u.Quantity[u.ph]:
+        """Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. If ArrayLike is provided,
+                it is assumed to be in microns.
+            integration_time (Quantity or float): Integration time either as Quantity with time units or as float [s].
+
+        Returns:
+            Quantity: Number of photons per wavelength bin.
+        """
+        wl_edges = synphot.binning.calculate_bin_edges(wl)
+        wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
+        return (self.flux * (wl_widths << u.micron) * (integration_time << u.s)).to(
+            u.ph
+        )
+
+    def __str__(self):
+        return f"{self.name}: {self.flux} [ph/s/A]"
+
+
+class ConstantFlux(Source):
+    """A source with a constant flux measured in [erg/s/A].
+
+    Attributes:
+        flux (u.Quantity): Flux in [erg/s/A].
+    """
+
+    def __init__(
+            self, flux: float | u.Quantity[u.erg / u.s / u.AA], name: str = "ConstantFlux"
+    ):
+        super().__init__(name, list_like=False)
+        self.flux = flux << u.erg / u.s / u.AA
+
+    def get_counts(
+            self,
+            wl: u.Quantity["lengths"] | ArrayLike,
+            integration_time: u.Quantity[u.s] | float,
+    ) -> u.Quantity[u.ph]:
+        """Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. If ArrayLike is provided,
+                it is assumed to be in microns.
+            integration_time (Quantity or float): Integration time either as Quantity with time units or as float [s].
+
+        Returns:
+            Quantity: Number of photons per wavelength bin.
+        """
+        wl_edges = synphot.binning.calculate_bin_edges(wl)
+        wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
+        return (self.flux * (wl_widths << u.micron) * (integration_time << u.s)).to(
+            u.ph, u.spectral_density(wl)
+        )
+
+
+class BlackBody(Source):
+    """A stellar black body spectrum.
+
+    Attributes:
+        temperature (u.Quantity): Temperature in [K].
+        v_mag (u.Quantity): V-band magnitude.
+        collection_area (u.Quantity): Collection area in [cm^2].
+    """
+
+    def __init__(
+            self,
+            temperature: float | u.Quantity[u.K],
+            v_mag: float | u.Quantity[u.VEGAMAG],
+            collection_area: float | u.Quantity[u.cm ** 2] = 100.0 << u.cm ** 2,
+            name: str = "BlackBody",
+    ):
+        super().__init__(name, list_like=False)
+        self.temperature = temperature << u.K
+        self.v_mag = v_mag << synphot.units.VEGAMAG
+        self.collection_area = collection_area << u.cm ** 2
+
+    def get_counts(
+            self,
+            wl: u.Quantity["lengths"] | ArrayLike,
+            integration_time: u.Quantity[u.s] | float,
+    ) -> u.Quantity[u.ph]:
+        """Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. If ArrayLike is provided,
+                it is assumed to be in microns.
+            integration_time (Quantity or float): Integration time either as Quantity with time units or as float [s].
+
+        Returns:
+            Quantity: Number of photons per wavelength bin.
+        """
+        wl_edges = synphot.binning.calculate_bin_edges(wl << u.micron)
+        wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
+        sp = synphot.SourceSpectrum(synphot.BlackBody1D, temperature=self.temperature)
+        bp = synphot.SpectralElement.from_filter("johnson_v")
+        vega = synphot.SourceSpectrum.from_vega()  # For unit conversion
+        sp_norm = sp.normalize(self.v_mag, bp, vegaspec=vega)
+        return (
+                sp_norm(wl << u.micron)
+                * wl_widths
+                * integration_time
+                * self.collection_area
+        ).to(u.ph)
+
+
+class LFC(Source):
+    """Laser Frequency Comb.
+
+    In frequency, the spectrum of a LFC is:
+
+    .. math::
+        f = f_0 + m \cdot f_{rep}
+
+    where f_0 is the carrier frequency, f_rep is the repetition rate and m is the peak interference number.
+
+
+    Attributes:
+        f_0 (u.Quantity): Carrier frequency in [GHz].
+        f_rep (u.Quantity): Repetition rate in [GHz].
+        brightness (u.Quantity): Brightness in [ph/s].
 
     """
 
     def __init__(
-        self,
-        min_wl=599.8,
-        max_wl=600.42,
-        name="",
-        list_like=False,
-        flux_in_photons=False,
-        stellar_target=False,
+            self,
+            f_0: float | u.Quantity["frequency"] = 7.35 * u.GHz,
+            f_rep: float | u.Quantity["frequency"] = 10.0 * u.GHz,
+            brightness: float = 1e5,
+            name="LFC",
     ):
-        self.name = name
-        self.min_wl = min_wl
-        self.max_wl = max_wl
-        self.stellar_target = stellar_target
-        self.flux_in_photons = flux_in_photons
-        self.list_like = list_like
+        super().__init__(name, list_like=True)
+        self.f_0 = f_0 << u.GHz
+        self.f_rep = f_rep << u.GHz
+        self.brightness = brightness << u.ph / u.s
 
-    def get_spectral_density(self, wavelength):
-        raise NotImplementedError()
+    def peak_wavelength_lfc(self, m) -> u.Quantity[u.micron]:
+        """Calculate the peak wavelength of the LFC.
 
-    def get_spectral_density_rv(self, wavelength, rv=0.0):
-        c = 299792458.0  # m/s
-        rv_shifted = wavelength * ((c - rv) / c)
+        Args:
+            m: peak interference number
 
-        spec_density = self.get_spectral_density(rv_shifted)
-        # first case: source returns own wavelength vector:
-        if isinstance(spec_density, tuple):
-            wl, sd = spec_density
-            return wl * ((c - rv) / c), sd
-        else:
-            return spec_density
+        Returns:
+            peak wavelength in [micron]
+        """
+        return (self.f_0 + m * self.f_rep).to(u.micron, equivalencies=u.spectral())
 
-    def __str__(self):
-        return self.name
+    def get_counts(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity["time"] | float,
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """Get the number of photons per line.
 
+        Args:
+            wl (Quantity, float): Wavelengths to evaluate the spectrum at. Only the range is used.
+            float [micron]. Here, only the range is used.
+            integration_time (Quantity, float): Integration time either as Quantity with time units or as float [s].
 
-class Constant(Source):
-    """Constant spectral density.
+        Returns:
+            tuple: wavelengths and number of photons per line.
+        """
+        # calculate the minimum and maximum m for the given wavelength range
+        wl_min = wl.min() << u.micron
+        wl_max = wl.max() << u.micron
 
-    Implements a constant spectral density with given intensity [microW / microns*s]
-
-    """
-
-    def __init__(self, intensity=0.001, **kwargs):
-        super().__init__(**kwargs, name="Constant", list_like=False)
-        self.intensity = intensity
-
-    def get_spectral_density(self, wavelength):
-        return np.ones_like(wavelength) * self.intensity
-
-    def __str__(self):
-        return self.name + f": intensity: {self.intensity}"
-
-
-class ConstantPhotons(Source):
-    """Constant spectral density.
-
-    Implements a constant photon flux density with given intensity [photons / microns*s]
-
-    """
-
-    def __init__(self, intensity=1e8, **kwargs):
-        super().__init__(**kwargs, name="ConstantPhotons", list_like=False)
-        self.intensity = intensity
-        self.flux_in_photons = True
-        self.stellar_target = False
-
-    def get_spectral_density(self, wavelength):
-        return np.ones_like(wavelength) * self.intensity
-
-    def __str__(self):
-        return self.name + f": intensity: {self.intensity}"
+        min_m = np.ceil(
+            (wl_max.to(u.GHz, equivalencies=u.spectral()) - self.f_0) / self.f_rep
+        ).value
+        max_m = np.floor(
+            (wl_min.to(u.GHz, equivalencies=u.spectral()) - self.f_0) / self.f_rep
+        ).value
+        # generate corresponding wavelengths and intensities
+        return (
+            self.peak_wavelength_lfc(np.arange(min_m, max_m)).to(u.micron),
+            np.ones_like(np.arange(min_m, max_m), dtype=float)
+            * (self.brightness << u.ph / u.s)
+            * (integration_time << u.s),
+        )
 
 
-class ThAr(Source):
-    """Thorium-Argon lamp
-
-    Implements a Thorium Argon arc-lamp.
-    Uses NIST vacuum catalogue wavelength as source.
-
-    Attributes:
-         scale (float): relative intensity scaling factor between the Thorium and the Argon lines.
-
-    """
-
-    def __init__(self, argon_to_thorium_factor=10):
-        super().__init__(name="ThAr", list_like=True)
-        self.flux_in_photons = True
-        self.scale = argon_to_thorium_factor
-
-    def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, "Th")
-        arwl, arint = pull_catalogue_lines(minwl, maxwl, "Ar")
-        arint *= self.scale
-        return np.hstack((thwl / 10000.0, arwl / 10000.0)), np.hstack((thint, arint))
-
-
-class ThNe(Source):
-    """Thorium-Neon lamp
-
-    Implements a Thorium Neon arc-lamp.
-    Uses NIST vacuum catalogue wavelength as source.
-
-    Attributes:
-         scale (float): relative intensity scaling factor between the Thorium and the Neon lines.
-
-    """
-
-    def __init__(self, neon_to_thorium_factor=10):
-        super().__init__(name="ThNe", list_like=True)
-        self.flux_in_photons = True
-        self.scale = neon_to_thorium_factor
-
-    def get_spectral_density(self, wavelength):
-        minwl = np.min(wavelength)
-        maxwl = np.max(wavelength)
-        thwl, thint = pull_catalogue_lines(minwl, maxwl, "Th")
-        newl, neint = pull_catalogue_lines(minwl, maxwl, "Ne")
-        neint *= self.scale
-
-        return np.hstack((thwl / 10000.0, newl / 10000.0)), np.hstack((thint, neint))
-
-
-class Etalon(Source):
+class IdealEtalon(Source):
     r"""Fabry-Perot etalon.
 
-    Implements spectrum of an ideal (i.e. dispersion-free) Fabry-Perot etalon.
+    Implements spectrum of an ideal (i.e. dispersion-free and unresolved) Fabry-Perot etalon.
     This means, the peak wavelength are at:
 
     .. math::
         \lambda_{peak} = \frac{d \cdot n \cdot \cos{(\theta)}}{m}
 
     Attributes:
-        d (float): mirror distance [mm]
-        n (float): refractive index between mirrors
-        theta (float): angle of incidence onto mirrors
-        min_m (int): minimum peak interference number
-        max_m (int): maximum peak interference number
-        n_photons (int): number of photons per peak per second
-
+        d (u.Quantity): Mirror distance in [mm].
+        n (float): Refractive index between mirrors.
+        theta (u.Quantity): Angle of incidence onto mirrors in [rad].
+        n_photons (u.Quantity): Number of photons per peak per second [u.ph/u.s].
     """
 
-    def __init__(self, d=5.0, n=1.0, theta=0.0, n_photons=1000, **kwargs):
-        super().__init__(**kwargs, name="Etalon", list_like=True)
-        self.d = d
+    def __init__(
+            self,
+            d: float | u.Quantity["length"] = 5.0,
+            n: float = 1.0,
+            theta: float | u.Quantity["angle"] = 0.0,
+            n_photons: float | u.Quantity[u.ph / u.s] = 1000.0,
+            name: str = "IdealEtalon",
+    ):
+        """
+        Initializes the IdealEtalon class.
+
+        Args:
+            d: Mirror distance. Either a float or a Quantity with length units. When a float is given, it is
+            assumed to be in mm. Defaults to 5.0.
+            n: Refractive index between mirrors. Defaults to 1.0.
+            theta: Angle of incidence onto mirrors. Either a float or a Quantity with angle units.
+            When a float is given, it is assumed to be in radians. Defaults to 0.0.
+            n_photons: Number of photons per peak per second. Either a float or a Quantity with photon units.
+            When a float is given, it is assumed to be in photons per second. Defaults to 1000.0.
+            name: Name of the source. Defaults to "IdealEtalon".
+        """
+        super().__init__(name=name, list_like=True)
+        self.d = d << u.mm
         self.n = n
-        self.theta = theta
-        self.min_m = np.ceil(2e3 * d * np.cos(theta) / self.max_wl)
-        self.max_m = np.floor(2e3 * d * np.cos(theta) / self.min_wl)
-        self.n_photons = n_photons
-        self.flux_in_photons = True
+        self.theta = theta << u.rad
+        self.n_photons = n_photons << u.ph / u.s
 
     @staticmethod
-    def peak_wavelength_etalon(m, d=10.0, n=1.0, theta=0.0):
-        return 2e3 * d * n * np.cos(theta) / m
+    def peak_wavelength_etalon(
+            m, d: float | u.Quantity["length"] = 10.0, n: float = 1.0, theta: float | u.Quantity["angle"] = 0.0
+    ) -> u.Quantity[u.nm]:
+        """
+        Calculate the peak wavelength of an etalon.
+        Args:
+            m: peak interference number
+            d: mirror distance. Either a float or a Quantity with length units.
+            When a float is given, it is assumed to be in [mm]. Defaults to 10.0.
+            n: refractive index between mirrors. Defaults to 1.0.
+            theta: angle of incidence onto mirrors. Either a float or a Quantity with angle units. Defaults to 0.0.
 
-    def get_spectral_density(self, wavelength):
-        self.min_m = np.ceil(2e3 * self.d * np.cos(self.theta) / np.max(wavelength))
-        self.max_m = np.floor(2e3 * self.d * np.cos(self.theta) / np.min(wavelength))
-        intensity = np.ones_like(
-            np.arange(self.min_m, self.max_m), dtype=float
-        ) * float(self.n_photons)
-        return self.peak_wavelength_etalon(
-            np.arange(self.min_m, self.max_m), self.d, self.n, self.theta
-        ), np.asarray(intensity, dtype=int)
+        Returns:
+            peak wavelength in nm
+
+        """
+        return ((d << u.mm) * n * np.cos((theta << u.rad)) / m).to(u.nm)
+
+    def get_counts(
+            self, wl: u.Quantity["length"] | ArrayLike, integration_time: u.Quantity["time"] | float
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        min_m = np.ceil(
+            (self.d * np.cos(self.theta) / np.max(wl)).to_value(
+                u.dimensionless_unscaled
+            )
+        )
+        max_m = np.floor(
+            (self.d * np.cos(self.theta) / np.min(wl)).to_value(
+                u.dimensionless_unscaled
+            )
+        )
+        intensity = (
+                np.ones_like(np.arange(min_m, max_m), dtype=float) * self.n_photons * (integration_time << u.s)
+        )
+        return (
+            self.peak_wavelength_etalon(
+                np.arange(min_m, max_m), self.d, self.n, self.theta
+            ).to(u.micron),
+            intensity,
+        )
+
+
+class ArcLamp(Source):
+    """An arc lamp spectrum.
+
+    This class provides a convenient handling of arc lamp spectra.
+    Specifying the element name(s), it downloads the line list(s) from NIST.
+    Multiple elements can be specified together with a scaling factor for each element to get a combined spectrum.
+    The scaling factor is needed, because the NIST database only contains relative intensities.
+    An overall lamp brightness can also be specified which scales the brightest line to this value.
+
+    Attributes:
+        elements (list): List of element names.
+        scaling_factors (list): List of scaling factors for each element.
+        brightness (u.Quantity): Overall lamp brightness scaling factor in [ph/s] per line.
+
+    Examples:
+        A ThNe lamp and default scaling factors and brightness:
+        >>> arc_thne = ArcLamp(["Th", "Ne"])
+        >>> print(arc_thne)
+        ArcLamp: ThNe, [1, 1], 100000.0
+
+        A ThAr lamp with a scaling factor of 1 for Th and 1 for Ar and a brightness of 1000000.0 photons per second.:
+        >>> arc_thar = ArcLamp(["Th", "Ar"], scaling_factors=[1, 1], brightness=1E6)
+        >>> print(arc_thar)
+        ArcLamp: ThAr, [1,1], 1000000.0
+    """
+
+    def __init__(
+            self,
+            elements: list[str],
+            scaling_factors: list[float] | float = 1.0,
+            brightness: float | u.Quantity[u.ph / u.s] = 1E5 << u.ph / u.s,
+            name: str = "ArcLamp",
+    ):
+        """Initialize the ArcLamp class.
+
+        Args:
+            elements: List of element names.
+            scaling_factors: List of scaling factors for each element.
+            brightness: Overall lamp brightness scaling factor.
+            name: Name of the source.
+        """
+        super().__init__(name, list_like=True)
+        if isinstance(scaling_factors, numbers.Number):
+            scaling_factors = [scaling_factors] * len(elements)
+        assert len(elements) == len(scaling_factors), "Length of elements and scaling_factors must be the same."
+        self.elements = elements
+        self.scaling_factors = scaling_factors
+        self.brightness = brightness << u.ph / u.s
+
+    def get_counts(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity[u.s] | float,
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """Get the number of photons per line.
+
+        Args:
+            wl (Quantity, float): Wavelengths to evaluate the spectrum at, either as Quantity with length units or as
+            float [micron]. Here, only the range is used.
+            integration_time (Quantity, float): Integration time either as Quantity with time units or as float [s].
+
+        Returns:
+            tuple: wavelengths and number of photons per line.
+        """
+        combined_wl = np.array([]) << u.micron
+        combined_counts = np.array([]) << u.ph
+        for element, scaling in zip(self.elements, self.scaling_factors):
+            lines, intensities = pull_catalogue_lines(wl.min(), wl.max(), element)
+            # convert to photon flux. This is a hack, because the NIST database does not provide the correct units.
+            intensities = intensities << u.ph / u.s
+            if len(lines) > 0:
+                combined_wl = np.append(combined_wl, lines)
+                combined_counts = np.append(
+                    combined_counts,
+                    intensities * (integration_time << u.s) * scaling * self.brightness,
+                )
+        return combined_wl, combined_counts
 
     def __str__(self):
-        return self.name + f": d={self.d},n={self.n},theta={self.theta}"
+        return f"{self.name}: {''.join(self.elements)}, [{','.join(self.scaling_factors)}], {self.brightness}"
 
 
 class Phoenix(Source):
@@ -373,10 +575,12 @@ class Phoenix(Source):
 
 
     Attributes:
-        t_eff (float): effective Temperature [K]
+        t_eff (u.Quantity[u.K]): effective temperature in [K].
         log_g (float): surface gravity
         z (float): metalicity [Fe/H]
         alpha (float): abundance of alpha elements [α/Fe]
+        v_mag (u.Quantity[u.VEGAMAG]): V-band magnitude.
+        collection_area (u.Quantity[u.cm**2]): Collection area in [cm^2].
 
     """
 
@@ -385,7 +589,18 @@ class Phoenix(Source):
     valid_z = [*list(np.arange(-4, -2, 1)), *list(np.arange(-2.0, 1.5, 0.5))]
     valid_a = [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
 
-    def __init__(self, t_eff=3600, log_g=5.0, z=0, alpha=0.0, magnitude=10, **kwargs):
+    def __init__(
+            self,
+            t_eff: int = 3600,
+            log_g: float = 5.0,
+            z: float = 0,
+            alpha: float = 0.0,
+            v_mag: float | u.Quantity[u.VEGAMAG] = 10.0,
+            collection_area: float | u.Quantity[
+                "area"
+            ] = 100.0,
+            **kwargs,
+    ):
         assert t_eff in self.valid_t, f"Not a valid effective Temperature {t_eff}"
         assert log_g in self.valid_g, f"Not a valid log g value {log_g}"
         assert alpha in self.valid_a, f"Not a valid alpha value {alpha}"
@@ -394,13 +609,13 @@ class Phoenix(Source):
             assert 3500.0 <= t_eff <= 8000.0 and -3.0 <= z <= 0.0, (
                 "PHOENIX parameters are not valid. Please check them " "again. "
             )
-        self.t_eff = t_eff
+        self.t_eff = t_eff << u.K
         self.log_g = log_g
         self.z = z
         self.alpha = alpha
-        self.magnitude = magnitude
-        super().__init__(**kwargs, name="phoenix")
-        self.stellar_target = True
+        self.v_mag = v_mag << synphot.units.VEGAMAG
+        self.collection_area = collection_area << u.cm ** 2
+        super().__init__(name="phoenix", list_like=False)
 
         wavelength_path = cache_path.joinpath("WAVE_PHOENIX-ACES-AGSS-COND-2011.fits")
 
@@ -412,7 +627,8 @@ class Phoenix(Source):
                 data = response.read()
                 out_file.write(data)
 
-        self.wl_data = fits.getdata(wavelength_path) / 10000.0
+        self.wl_data = fits.getdata(wavelength_path) << u.AA
+
         url = self.get_spectrum_url(t_eff, alpha, log_g, z)
         spectrum_path = cache_path.joinpath(url.split("/")[-1])
 
@@ -424,14 +640,17 @@ class Phoenix(Source):
                 print("Trying to download:" + url)
                 data = response.read()
                 out_file.write(data)
+        self.flux = fits.getdata(spectrum_path) << u.erg / u.s / u.cm ** 2 / u.cm
 
-        self.spectrum_data = 0.1 * fits.getdata(
-            spectrum_path
-        )  # convert ergs/s/cm^2/cm to uW/m^2/um
-        self.spectrum_data *= calc_flux_scale(
-            self.wl_data, self.spectrum_data, self.magnitude
+        spec = synphot.SourceSpectrum(
+            synphot.Empirical1D, points=self.wl_data, lookup_table=self.flux
         )
-        self.ip_spectra = scipy.interpolate.interp1d(self.wl_data, self.spectrum_data)
+        bp = synphot.SpectralElement.from_filter("johnson_v")
+        vega = synphot.SourceSpectrum.from_vega()  # For unit conversion
+        sp_norm = spec.normalize(
+            self.v_mag, bp, vegaspec=vega, wavelengths=self.wl_data
+        )
+        self.spectrum_data = sp_norm
 
     @staticmethod
     def get_wavelength_url():
@@ -449,163 +668,251 @@ class Phoenix(Source):
         )
         return url
 
-    def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength)
-        )
-        return self.wl_data[idx], self.ip_spectra(self.wl_data[idx])
+    def get_counts(
+            self, wl: u.Quantity["length"] | ArrayLike, integration_time: u.Quantity[u.s] | float
+    ) -> u.Quantity[u.ph] | tuple[u.Quantity[u.AA], u.Quantity[u.ph]]:
+        """Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity): Wavelengths to evaluate the spectrum at.
+            integration_time (Quantity): Integration time.
+
+        Returns:
+            Quantity: Number of photons per wavelength bin.
+        """
+        # idx = np.logical_and(self.wl_data > np.min(wl), self.wl_data < np.max(wl))
+        wl_edges = synphot.binning.calculate_bin_edges(wl)
+        wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
+        return wl, (
+                self.spectrum_data(wl) * wl_widths * (integration_time << u.s) * self.collection_area
+        ).to(u.ph)
 
     def __str__(self):
         return (
             self.name
-            + f": t={self.t_eff},g={self.log_g},z={self.z},a={self.alpha},mag={self.magnitude}"
+            + f": t={self.t_eff},g={self.log_g},z={self.z},a={self.alpha},mag={self.v_mag}"
         )
 
 
-class CSV(Source):
-    """Spectral source based on custom .csv file
+class CSVSource(Source):
+    """A source with a spectrum from a CSV file.
 
-    The .csv file needs to have two columns, a wavelength column and a flux column. The wavelength must be given
-    in either angstroms, nanometers, microns or meters (specified via wavelength_unit), while the flux must either be in
-    ergs/s/cm^2/cm (like Phoenix spectra) for stellar targets, or in photons/s.
+    The .csv file must contain two columns: wavelength and flux.
+    The spectrum can either be list-like or continuous - this must be specified.
+    Also, the flux can either be given as a flux density (e.g. [erg/s/A], or [ph/s/A]) or as a flux
+    (e.g. [erg/s], or [ph/s]). This will be inferred from the unit of the flux column.
+    The units are specified using the astropy units package / notation.
+    To read the .csv file, pandas is used, so any kwargs for pandas.read_csv can be passed to the constructor.
+
+    If the source is a stellar target, in addition to the flux, also the collection area and a V-band magnitude have to be specified.
 
     Attributes:
-         name: name of the spectrum
-         list_like: when True, no wavelength interpolation is active (useful for non-continuous spectra e.g.
-         custom line lists)
-         flux_in_photons: if True, flux column treated as photons/s otherwise ergs/s/cm^2/cm
-         stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
-         magnitude: V magnitude in case of stellar_target
-    """
+        file_path (pathlib.Path): Path to the .csv file.
+        list_like (bool): True if the source is list-like, False if it is continuous.
+        wavelength_units (str): Units of the wavelength column.
+        flux_units (str): Units of the flux column.
 
-    wavelength_scaling = {"a": 1e-4, "nm": 1e-3, "micron": 1, "m": 1e-6}
+    Examples:
+        >>> csv_source = CSVSource("../tests/test_data/test_source1.csv", list_like=False, wavelength_units="nm", flux_units="ph/s/AA")
+        >>> print(csv_source.get_counts([500, 600] * u.nm, 1 * u.s)
+
+        >>> print(csv_source)
+        CSVSource: ../tests/test_data/test_source1.csv, False, nm, ph/s/AA
+
+    """
 
     def __init__(
         self,
-        filepath: str | pathlib.Path,
-        name: str | None = None,
+            file_path: str | pathlib.Path,
         list_like: bool = False,
-        wavelength_unit: str = "a",
-        flux_in_photons: bool = False,
-        stellar_target: bool = False,
-        magnitude: float = 10.0,
-        delimiter: str = ",",
+            wavelength_units: str | u.Unit = "AA",
+            flux_units: str | u.Unit = "ph/s/A",
+            v_mag: float = None,
+            collection_area: float | u.Quantity = None,
+            name: str = "CSVSource",
+            **pandas_kwargs,
     ):
-        """Constructor
+        super().__init__(name, list_like)
+        self.file_path = pathlib.Path(file_path)
+        self.wavelength_units = u.Unit(wavelength_units)
+        self.flux_units = u.Unit(flux_units)
+        self.pandas_kwargs = pandas_kwargs
+        if v_mag is not None:
+            self.v_mag = v_mag << synphot.units.VEGAMAG
+        else:
+            self.v_mag = None
 
-        Args:
-         filepath: path to .csv file
-         name: name of the spectrum
-         list_like: when True, no wavelength interpolation is active (useful for non-continuous spectra e.g.
-         custom line lists)
-         wavelength_unit: either 'a', 'nm', 'micron', or 'm' specifying the unit of the wavelength column
-         flux_in_photons: if True, flux column treated as photons/s otherwise ergs/s/cm^2/cm
-         stellar_target: if True, flux is expected to be in ergs/s/cm^2/cm and will scale with telescope size
-         magnitude: V magnitude in case of stellar_target
-         delimiter: delimiter character of .csv file
-        """
-        assert wavelength_unit in self.wavelength_scaling.keys(), (
-            f"Supported wavelength units are " f"{self.wavelength_scaling.keys()}"
-        )
-        if isinstance(filepath, io.TextIOWrapper):
-            filepath = filepath.name
-        if isinstance(filepath, str):
-            filepath = pathlib.Path(filepath)
-        if name is None:
-            name = filepath.name
-        super().__init__(
-            name=name,
-            list_like=list_like,
-            flux_in_photons=flux_in_photons,
-            stellar_target=stellar_target,
-        )
-        self.magnitude = magnitude
-        print(f"{filepath=}, {type(filepath)}")
-        data = pd.read_csv(filepath, delimiter=delimiter)
+        if collection_area is not None:
+            self.collection_area = collection_area << u.cm ** 2
+        else:
+            self.collection_area = None
 
-        self.wl_data = data.iloc[:, 0].values * self.wavelength_scaling[wavelength_unit]
-        self.flux_data = data.iloc[:, 1].values
-        if not flux_in_photons:
-            self.flux_data *= 0.1  # convert ergs/s/cm^2/cm to uW/m^2/um
-            self.flux_data *= calc_flux_scale(
-                self.wl_data, self.flux_data, self.magnitude
+        # check that if v_mag is given, collection_area is also given and vice versa
+        if self.v_mag is not None and self.collection_area is None:
+            raise ValueError(
+                "If V-band magnitude is given, collection area must also be given."
+            )
+        if self.collection_area is not None and self.v_mag is None:
+            raise ValueError(
+                "If collection area is given, V-band magnitude must also be given."
             )
 
-    def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wl_data > np.min(wavelength), self.wl_data < np.max(wavelength)
-        )
-        return self.wl_data[idx], self.flux_data[idx]
+        # read the csv file and convert the columns to astropy quantities
+        self.data = pd.read_csv(file_path, names=["wavelength", "flux"], **pandas_kwargs)
+        self.data["wavelength"] = self.data["wavelength"].values << self.wavelength_units
+        self.data["flux"] = self.data["flux"] << self.flux_units
+
+    def get_counts(
+            self, wl: u.Quantity[u.micron], integration_time: u.Quantity[u.s]
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """Get the number of photons per wavelength bin.
+
+        Args:
+            wl (Quantity, float): Wavelengths to evaluate the spectrum at. Only the range is used.
+            integration_time (Quantity, float): Integration time either as Quantity with time units or as float [s].
+
+        Returns:
+            tuple: wavelengths and number of photons per line.
+        """
+        if self.list_like:
+            idx = np.logical_and(
+                self.data["wavelength"] > np.min(wl),
+                self.data["wavelength"] < np.max(wl),
+            )
+            return (
+                self.data["wavelength"][idx].to(u.micron),
+                self.data["flux"][idx] * integration_time,
+            )
+        else:
+            # stellar target
+            if self.v_mag is not None:
+                sp = synphot.SourceSpectrum(
+                    synphot.Empirical1D,
+                    points=self.data["wavelength"],
+                    lookup_table=self.data["flux"],
+                )
+                bp = synphot.SpectralElement.from_filter("johnson_v")
+                vega = synphot.SourceSpectrum.from_vega()
+                sp_norm = sp.normalize(
+                    self.v_mag, bp, vegaspec=vega, wavelengths=self.data["wavelength"]
+                )
+                return self.data["wavelength"].to(u.micron), (
+                        sp_norm(self.data["wavelength"])
+                        * integration_time
+                        * self.collection_area
+                ).to(u.ph)
+            else:
+                # flux is given as flux density
+                if self.flux_units.is_equivalent(u.ph / u.s / u.nm, equivalencies=u.spectral_density(1 * u.AA)):
+                    wl_edges = synphot.binning.calculate_bin_edges(wl)
+                    wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
+                    return wl, (
+                            self.data["flux"](wl) * wl_widths * integration_time
+                    ).to(u.ph)
+                elif u.get_physical_type(self.flux_units) == "power/radiant flux":
+                    return wl, (self.data["flux"] * integration_time).to(u.ph)
+                # if flux is given in ph/s
+                elif self.flux_units.is_equivalent(u.ph / u.s):
+                    return wl, self.data["flux"] * integration_time
+                else:
+                    raise ValueError(f"Flux units {self.flux_units} not recognized.")
 
 
 class LineList(Source):
-    """Line-list spectrum
+    """A list of emission lines.
+
+    This class provides a convenient handling of a list of emission lines.
+    The spectrum is defined by a list of wavelengths and a list of intensities.
 
     Attributes:
-        wavelengths: wavelengths [micron] of line(s)
-        intensities: intensities [photons] of line(s)
+        wavelengths (u.Quantity[u.micron]): List of wavelengths in [micron].
+        intensities (u.Quantity[u.ph/u.s]): List of intensities in [ph/s].
+
+    Examples:
+        >>> balmer_lines = LineList([656.3, 486.1, 434.0, 410.2, 397.0, 388.9, 383.5, 364.5] * u.nm, 1 * u.ph/u.s, "BalmerLines")
+        >>> print(balmer_lines)
+        BalmerLines: [0.6563 0.4861 0.434  0.4102 0.397  0.3889 0.3835 0.3645] micron, 1.0 ph / s
     """
 
     def __init__(
         self,
-        wavelengths: list[float] | np.ndarray | float = 0.5,
-        intensities: list[float] | np.ndarray | float = 1000.0,
-    ):
-        super().__init__(name="LineList", list_like=True)
-        # convert always to numpy array
-        self.wavelengths = np.array(
-            [wavelengths] if isinstance(wavelengths, float) else wavelengths
-        )
-
-        self.intensities = (
-            np.ones_like(self.wavelengths) * intensities
-            if isinstance(intensities, float)
-            else intensities
-        )
-        assert len(self.wavelengths) == len(
-            self.intensities
-        ), "wavelengths and intensities do not have the same length"
-        self.flux_in_photons = True
-
-    def get_spectral_density(self, wavelength):
-        idx = np.logical_and(
-            self.wavelengths > np.min(wavelength), self.wavelengths < np.max(wavelength)
-        )
-        return self.wavelengths[idx], self.intensities[idx]
-
-
-class Blackbody(Source):
-    """Blackbody spectrum
-
-    Implements a (stellar) blackbody spectrum of given temperature and V-magnitude.
-    """
-
-    def __init__(
-        self, temperature: float = 6000, magnitude: float = 15.0, name="blackbody"
+            wavelengths: ArrayLike | u.Quantity["length"],
+            intensities: ArrayLike | u.Quantity[u.ph / u.s] | float,
+            name: str = "LineList",
     ):
         """
+        Initializes the LineList class.
 
         Args:
-            temperature: effective temperature of blackbody [K]
-            magnitude: Johnson V magnitude of blackbody [mag]
-            name: name of the source (default: blackbody)
+            wavelengths (ArrayLike or Quantity): List of wavelengths of the emission lines.
+                If ArrayLike is provided, it is assumed to be in microns.
+            intensities (ArrayLike or Quantity or float): List of intensities of the emission lines.
+                If ArrayLike is provided, it is assumed to be in photons per second.
+                If a float or int is provided, it is assumed to be the same for all lines.
+            name (str, optional): Name of the source. Defaults to "LineList".
         """
-        super().__init__(name=name, stellar_target=True, flux_in_photons=False)
-        self.magnitude = magnitude
-        self.temperature = temperature
-        self._sp = SourceSpectrum(BlackBodyNorm1D(temperature=temperature))
-        self._bp = SpectralElement.from_filter("johnson_v")
-        self._vega = SourceSpectrum.from_vega()  # For unit conversion
-        self._sp_norm = self._sp.normalize(
-            magnitude * units.VEGAMAG, self._bp, vegaspec=self._vega
+        super().__init__(name, list_like=True)
+        # convert to microns
+        self.wavelengths = wavelengths << u.micron
+        # convert to photons per second
+        if isinstance(intensities, numbers.Number):
+            intensities = [intensities] * len(wavelengths)
+        self.intensities = intensities << u.ph / u.s
+
+    def get_counts(
+            self,
+            wl: u.Quantity["length"] | ArrayLike,
+            integration_time: u.Quantity["time"] | float,
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
+        """
+        Get the number of photons per line.
+
+        Args:
+            wl (Quantity or ArrayLike): Wavelengths to evaluate the spectrum at. Only the range is used.
+                If ArrayLike is provided, it is assumed to be in microns.
+            integration_time (Quantity or float): Integration time either as Quantity with time units or as float in seconds.
+
+        Returns:
+            tuple: A tuple containing two elements. The first element is an array of wavelengths in microns for which the
+            emission lines exist within the provided wavelength range. The second element is an array of the number of photons
+            per line for the corresponding wavelengths, calculated as the product of the line intensities and the integration time.
+        """
+        idx = np.logical_and(
+            self.wavelengths >= np.min(wl << u.micron),
+            self.wavelengths <= np.max(wl << u.micron),
         )
 
-    def get_spectral_density(self, wavelength):
-        # convert input wavelength from micron to angstrom
-        # convert output from FLAM (erg/s/cm^2/A) to (microW/m^2/microns)
-        return wavelength, self._sp_norm(
-            wavelength * 10000.0, flux_unit=units.FLAM
-        ).value * 1e8
+        return self.wavelengths[idx] << u.micron, self.intensities * (
+                integration_time << u.s
+        )
 
     def __str__(self):
-        return self.name + f"temp={self.temperature},mag={self.magnitude}"
+        return f"{self.name}: {self.wavelengths}, {self.intensities}"
+
+
+if __name__ == "__main__":
+    # con = ConstantPhotonFlux(1.0)
+    # print(con.get_counts(np.arange(500, 600) * u.nm, 1 * u.s))
+    # con = ConstantFlux(1e-5)
+    # print(con.get_counts(np.arange(500, 600) * u.AA, 1 * u.s))
+    # bb = BlackBody(5700, 2, 70 * 70 * u.cm**2)
+    # print(bb.get_counts(np.arange(5000, 6000, step=0.01) * u.AA, 10 * u.s))
+    # ie = IdealEtalon()
+    # print(ie.get_counts(np.arange(5000, 6000) * u.AA, 1 * u.s))
+    # ph = Phoenix(t_eff=5700, v_mag=2, collection_area=70 * 70 * u.cm**2)
+    # print(ph.get_counts(np.arange(400, 800) * u.nm, 10 * u.s))
+    # # plt.figure()
+    # # plt.plot(
+    # #     np.arange(4000, 8000), bb.get_counts(np.arange(4000, 8000) * u.AA, 1 * u.s)
+    # # )
+    # # plt.plot(*ph.get_counts(np.arange(4000, 8000) * u.AA, 1 * u.s))
+    # # plt.show()
+    # # con_flux = ConstantFlux(1*u.erg/u.s/u.AA)
+    # # print(con_flux.get_counts(np.arange(500, 600)*u.AA, 1*u.s))
+    # # arc = ArcLamp(["Th", "Ne"], [1, 0.5], 1e5)
+    # # print(arc.get_counts(np.arange(500, 600) * u.nm, 1 * u.s))
+    # lfc = LFC()
+    # print(lfc.get_counts(np.arange(500, 505) * u.nm, 1 * u.s))
+    csv_source = CSVSource("../tests/test_data/test_source1.csv", list_like=False, wavelength_units="nm",
+                           flux_units="ph/s/AA", skiprows=1)
+    print(csv_source.get_counts([500, 600] * u.nm, 1 * u.s))
