@@ -1,7 +1,7 @@
 import pathlib
 
 from pyechelle import simulator, spectrograph
-from pyechelle.sources import Phoenix, ConstantPhotons
+from pyechelle.sources import Phoenix, ConstantPhotonFlux
 from pyechelle.telescope import Telescope
 
 
@@ -29,7 +29,7 @@ def test_AtmosphericDispersion():
     sim = simulator.Simulator(spec)
     sim.set_ccd(1)
     sim.set_fibers(1)
-    sim.set_sources(ConstantPhotons(0.01))
+    sim.set_sources(ConstantPhotonFlux(0.01))
     sim.set_exposure_time(0.01)
     sim.set_output(path='test.fits', overwrite=True)
     sim.validate()

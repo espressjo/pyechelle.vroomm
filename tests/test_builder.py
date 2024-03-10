@@ -3,8 +3,6 @@ import pathlib
 import numpy as np
 
 from pyechelle.hdfbuilder import HDFBuilder
-from pyechelle.simulator import Simulator
-from pyechelle.sources import Etalon
 from pyechelle.spectrograph import SimpleSpectrograph, ZEMAX
 
 

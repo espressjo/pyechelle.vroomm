@@ -10,7 +10,7 @@ from pyechelle.randomgen import make_alias_sampling_arrays, unravel_index
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
-
+import astropy.units as u
 
 @numba.njit(cache=True, parallel=False, nogil=True)
 def raytrace(
@@ -153,176 +153,166 @@ def raytrace_order_cpu(
     efficiency=None,
     n_cpu=1,
 ):
-    (
-        psf_sampler_qj,
-        psf_sampling,
-        psf_shape,
-        psfs_wl,
-        psfs_wld,
-        spectrum_sampler_j,
-        spectrum_sampler_q,
-        total_photons,
-        trans_deriv,
-        trans_wl,
-        trans_wld,
-        transformations,
-        wavelength,
-    ) = prepare_raytracing(
+    raytrace_data = prepare_raytracing(
         o, fiber, ccd_index, efficiency, rv, source, spec, telescope, t
     )
-    if n_cpu > 1:
-        ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
-        if slit_fun is not None:
-            raytrace(
-                wavelength,
-                spectrum_sampler_q,
-                spectrum_sampler_j,
-                transformations,
-                trans_wl,
-                trans_wld,
-                trans_deriv,
-                psf_sampler_qj[:, 0],
-                psf_sampler_qj[:, 1],
-                psfs_wl,
-                psfs_wld[0],
-                psf_shape,
-                psf_sampling,
-                ccd_new,
-                float(ccd.pixelsize),
-                slit_fun,
-                total_photons,
-            )
+    if raytrace_data is not None:
+        (
+            psf_sampler_qj,
+            psf_sampling,
+            psf_shape,
+            psfs_wl,
+            psfs_wld,
+            spectrum_sampler_j,
+            spectrum_sampler_q,
+            total_photons,
+            trans_deriv,
+            trans_wl,
+            trans_wld,
+            transformations,
+            wavelength,
+        ) = raytrace_data
+        if n_cpu > 1:
+            ccd_new = np.zeros_like(ccd.data, dtype=np.uint32)
+            if slit_fun is not None:
+                raytrace(
+                    wavelength,
+                    spectrum_sampler_q,
+                    spectrum_sampler_j,
+                    transformations,
+                    trans_wl,
+                    trans_wld,
+                    trans_deriv,
+                    psf_sampler_qj[:, 0],
+                    psf_sampler_qj[:, 1],
+                    psfs_wl,
+                    psfs_wld[0],
+                    psf_shape,
+                    psf_sampling,
+                    ccd_new,
+                    float(ccd.pixelsize),
+                    slit_fun,
+                    total_photons,
+                )
+            else:
+                raytrace_singlemode(
+                    wavelength,
+                    spectrum_sampler_q,
+                    spectrum_sampler_j,
+                    transformations,
+                    trans_wl,
+                    trans_wld,
+                    trans_deriv,
+                    psf_sampler_qj[:, 0],
+                    psf_sampler_qj[:, 1],
+                    psfs_wl,
+                    psfs_wld[0],
+                    psf_shape,
+                    psf_sampling,
+                    ccd_new,
+                    float(ccd.pixelsize),
+                    total_photons,
+                )
+            return ccd_new, total_photons
         else:
-            raytrace_singlemode(
-                wavelength,
-                spectrum_sampler_q,
-                spectrum_sampler_j,
-                transformations,
-                trans_wl,
-                trans_wld,
-                trans_deriv,
-                psf_sampler_qj[:, 0],
-                psf_sampler_qj[:, 1],
-                psfs_wl,
-                psfs_wld[0],
-                psf_shape,
-                psf_sampling,
-                ccd_new,
-                float(ccd.pixelsize),
-                total_photons,
-            )
-        return ccd_new, total_photons
+            if slit_fun is not None:
+                raytrace(
+                    wavelength,
+                    spectrum_sampler_q,
+                    spectrum_sampler_j,
+                    transformations,
+                    trans_wl,
+                    trans_wld,
+                    trans_deriv,
+                    psf_sampler_qj[:, 0],
+                    psf_sampler_qj[:, 1],
+                    psfs_wl,
+                    psfs_wld[0],
+                    psf_shape,
+                    psf_sampling,
+                    ccd.data,
+                    float(ccd.pixelsize),
+                    slit_fun,
+                    total_photons,
+                )
+            else:
+                raytrace_singlemode(
+                    wavelength,
+                    spectrum_sampler_q,
+                    spectrum_sampler_j,
+                    transformations,
+                    trans_wl,
+                    trans_wld,
+                    trans_deriv,
+                    psf_sampler_qj[:, 0],
+                    psf_sampler_qj[:, 1],
+                    psfs_wl,
+                    psfs_wld[0],
+                    psf_shape,
+                    psf_sampling,
+                    ccd.data,
+                    float(ccd.pixelsize),
+                    total_photons,
+                )
+            return total_photons
     else:
-        if slit_fun is not None:
-            raytrace(
-                wavelength,
-                spectrum_sampler_q,
-                spectrum_sampler_j,
-                transformations,
-                trans_wl,
-                trans_wld,
-                trans_deriv,
-                psf_sampler_qj[:, 0],
-                psf_sampler_qj[:, 1],
-                psfs_wl,
-                psfs_wld[0],
-                psf_shape,
-                psf_sampling,
-                ccd.data,
-                float(ccd.pixelsize),
-                slit_fun,
-                total_photons,
-            )
-        else:
-            raytrace_singlemode(
-                wavelength,
-                spectrum_sampler_q,
-                spectrum_sampler_j,
-                transformations,
-                trans_wl,
-                trans_wld,
-                trans_deriv,
-                psf_sampler_qj[:, 0],
-                psf_sampler_qj[:, 1],
-                psfs_wl,
-                psfs_wld[0],
-                psf_shape,
-                psf_sampling,
-                ccd.data,
-                float(ccd.pixelsize),
-                total_photons,
-            )
-        return total_photons
+        return 0  # no photons in this order
 
 
 def prepare_raytracing(o, fiber, ccd_index, efficiency, rv, source, spec, telescope, t):
     wavelength = np.linspace(
         *spec.get_wavelength_range(o, fiber, ccd_index), num=100000
     )
-    # get spectral density per order
-    spectral_density = source.get_spectral_density_rv(wavelength, rv)
-    # if source returns own wavelength vector, use that for further calculations instead of default grid
-    if isinstance(spectral_density, tuple):
-        wavelength, spectral_density = spectral_density
-    # for stellar targets calculate collected flux by telescope area
-    if source.stellar_target:
-        spectral_density *= telescope.area
+    wl_range_nm = (np.min(wavelength) * 1000, np.max(wavelength) * 1000)
+    # get counts from source
+    photon_counts = source.get_counts_rv(wavelength, t, rv)
+    if isinstance(photon_counts, tuple):
+        wavelength, photon_counts = photon_counts
+
     # get efficiency per order
     if efficiency is not None:
         eff = efficiency.get_efficiency_per_order(wavelength=wavelength, order=o)
-        effective_density = eff * spectral_density
+        photon_counts = eff * photon_counts
+
+    total_photons = int(np.sum(photon_counts).value)
+    print(f"Order {o:3d}: {wl_range_nm[0]:.2f}nm - {wl_range_nm[1]:.2f}nm, {total_photons} photons")
+
+    if total_photons > 0:
+        minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
+        trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
+        transformations = convert_matrix(
+            np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index))
+        )
+        # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
+        # derivatives for simple linear interpolation
+        trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
+        psf_sampler_qj = np.array(
+            [
+                make_alias_sampling_arrays(p.data.T.ravel())
+                for p in spec.get_psf(None, o, fiber, ccd_index)
+            ]
+        )
+        psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
+        psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
+        psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
+        spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(
+            np.asarray(photon_counts / np.sum(photon_counts), dtype=np.float32)
+        )
+        psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
+        return (
+            psf_sampler_qj,
+            psf_sampling,
+            psf_shape,
+            psfs_wl.to_value(u.micron) if isinstance(psfs_wl, u.Quantity) else psfs_wl,
+            psfs_wld.to_value(u.micron) if isinstance(psfs_wld, u.Quantity) else psfs_wld,
+            spectrum_sampler_j,
+            spectrum_sampler_q,
+            total_photons,
+            trans_deriv,
+            trans_wl.to_value(u.micron) if isinstance(trans_wl, u.Quantity) else trans_wl,
+            trans_wld.to_value(u.micron) if isinstance(trans_wld, u.Quantity) else trans_wld,
+            transformations,
+            wavelength.to_value(u.micron) if isinstance(wavelength, u.Quantity) else wavelength,
+        )
     else:
-        effective_density = spectral_density
-    # calculate photon flux
-    if source.flux_in_photons:
-        if source.list_like:
-            flux = effective_density
-        else:
-            wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
-            flux = effective_density * wl_diffs
-    else:
-        ch_factor = 5.03e12  # convert microwatts / micrometer to photons / s per wavelength interval
-        wl_diffs = np.ediff1d(wavelength, wavelength[-1] - wavelength[-2])
-        flux = effective_density * wavelength * wl_diffs * ch_factor
-    flux_photons = flux * t
-    total_photons = int(np.sum(flux_photons))
-    print(
-        f"Order {o:3d}:    {(np.min(wavelength) * 1000.):7.1f} - {(np.max(wavelength) * 1000.):7.1f} nm.     "
-        f"Number of photons: {total_photons}"
-    )
-    minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
-    trans_wl, trans_wld = np.linspace(minwl, maxwl, 10000, retstep=True)
-    transformations = convert_matrix(
-        np.array(spec.get_transformation(trans_wl, o, fiber, ccd_index))
-    )
-    # transformations = np.array(spec.transformations[f'order{o}'].get_matrices_spline(trans_wl))
-    # derivatives for simple linear interpolation
-    trans_deriv = np.array([np.ediff1d(t, t[-1] - t[-2]) for t in transformations])
-    psf_sampler_qj = np.array(
-        [
-            make_alias_sampling_arrays(p.data.T.ravel())
-            for p in spec.get_psf(None, o, fiber, ccd_index)
-        ]
-    )
-    psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
-    psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
-    psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
-    spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(
-        np.asarray(flux_photons / np.sum(flux_photons), dtype=np.float32)
-    )
-    psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
-    return (
-        psf_sampler_qj,
-        psf_sampling,
-        psf_shape,
-        psfs_wl,
-        psfs_wld,
-        spectrum_sampler_j,
-        spectrum_sampler_q,
-        total_photons,
-        trans_deriv,
-        trans_wl,
-        trans_wld,
-        transformations,
-        wavelength,
-    )
+        return None
