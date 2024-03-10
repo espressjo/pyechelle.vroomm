@@ -7,7 +7,7 @@ from pyechelle import simulator
 
 def test_simulation(capsys, benchmark):
     benchmark.pedantic(simulator.main,
-                       args=([["-s", "MaroonX", "--sources", "Constant", "-t", "0.01", "--orders", "100-102", "-o",
+                       args=([["-s", "MaroonX", "--sources", "ConstantFlux", "-t", "0.01", "--orders", "100-102", "-o",
                                "test.fits", "--overwrite"]]),
                        iterations=1, rounds=1)
     captured = capsys.readouterr()
@@ -22,7 +22,8 @@ def test_simulation(capsys, benchmark):
 def test_simulation_multicore(capsys, benchmark):
     benchmark.pedantic(simulator.main,
                        args=([
-                           ["-s", "MaroonX", "--sources", "Constant", "-t", "0.01", "--orders", "100-102", "--max_cpu",
+                           ["-s", "MaroonX", "--sources", "ConstantFlux", "-t", "0.01", "--orders", "100-102",
+                            "--max_cpu",
                             "3", "--overwrite"]]),
                        iterations=1, rounds=1)
     captured = capsys.readouterr()

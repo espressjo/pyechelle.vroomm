@@ -1,6 +1,8 @@
 import pathlib
+import time
 
 import astropy.units as u
+from astropy.io import fits
 import hypothesis
 import numpy as np
 from hypothesis import given, strategies as st
@@ -8,25 +10,114 @@ from hypothesis import given, strategies as st
 import pyechelle.sources as sources
 from pyechelle.simulator import available_sources
 from pyechelle.spectrograph import check_url_exists
+from synphot import SourceSpectrum, units
+from synphot.models import Empirical1D, GaussianFlux1D
 
 
-#
-# @given(
-#     st.floats(min_value=0.3, max_value=1.5, allow_nan=False, allow_infinity=False),
-#     st.floats(min_value=0.0001, max_value=0.005, allow_nan=False, allow_infinity=False),
-# )
-# @hypothesis.settings(deadline=None, max_examples=5)
-# def test_sources(wl, bw):
-#     for source_name in available_sources:
-#         wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
-#         print(f"Test {source_name}...")
-#         if source_name == 'CSV':
-#             source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-#                                                    wavelength_unit='micron', stellar_target=False)
-#         else:
-#             source = getattr(sources, source_name)()
-#         sd = source.get_spectral_density(wavelength)
-#         assert isinstance(sd, tuple) or isinstance(sd, np.ndarray)
+@given(
+    st.floats(min_value=0.3, max_value=1.5, allow_nan=False, allow_infinity=False),
+    st.floats(min_value=0.0001, max_value=0.005, allow_nan=False, allow_infinity=False),
+)
+@hypothesis.settings(deadline=None, max_examples=5)
+def test_sources(wl, bw):
+    for source_name in available_sources:
+        wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
+        if not (source_name == 'CSVSource' or source_name == 'ArcLamp' or source_name == 'Phoenix'):
+            t1 = time.time()
+            print(f"Test {source_name}... ")
+            source = getattr(sources, source_name)()
+            sd = source.get_counts(wavelength, 1 * u.s)
+            assert isinstance(sd, tuple) or isinstance(sd, np.ndarray)
+            print(f"Test {source_name} took {time.time() - t1:.2f} s")
+
+
+def test_arclamp():
+    source = sources.ArcLamp()
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+
+def test_phoenix():
+    source = sources.Phoenix()
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+
+def test_resolvedetalon():
+    source = sources.ResolvedEtalon()
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+
+def test_csv_source():
+    # test a continuous source
+    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
+                               wavelength_units='micron', flux_units=u.uW / u.AA, list_like=False)
+    assert source.data['wavelength'].values.unit == u.micron
+    sd = source.get_counts(np.linspace(0.5, 0.501, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test a line list
+    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_source_listlike.csv'),
+                               flux_units=u.ph / u.s,
+                               wavelength_units='nm', list_like=True)
+    sd = source.get_counts(np.linspace(0.5, 0.6, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test a continuous source where the flux is given in u.ph/u.s
+    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
+                               wavelength_units='micron', flux_units=u.ph / u.s, list_like=False)
+    assert source.data['wavelength'].values.unit == u.micron
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+
+def test_synphot_source():
+    wave = [1000, 2000, 3000, 4000, 5000]  # Angstrom
+    flux = [1e-15, -2.3e-16, 1.8e-15, 4.5e-15, 9e-16] * units.FLAM
+    sp = SourceSpectrum(
+        Empirical1D, points=wave, lookup_table=flux, keep_neg=False)
+    source = sources.SynphotSource(sp)
+    sd = source.get_counts(np.linspace(0.3, 0.4, 1000) * u.micron, 1000 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+
+def test_source_str():
+    # generate temporary fits file
+    hdu = fits.PrimaryHDU()
+
+    for i, source_name in enumerate(available_sources):
+        if source_name == 'CSVSource':
+            source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
+                                                   wavelength_units='micron', flux_units=u.uW / u.AA, list_like=False)
+        elif source_name == 'SynphotSource':
+            g_em = SourceSpectrum(GaussianFlux1D,
+                                  total_flux=3.5e-13 * u.erg / (u.cm ** 2 * u.s), mean=3000, fwhm=100)
+            source = sources.SynphotSource(g_em)
+        else:
+            source = getattr(sources, source_name)()
+
+        assert len(str(source)) > 0
+        # also try to write as keyword into a fits header
+        hdu.header.set(f'SOURCE{i}', str(source))
+
+    hdul = fits.HDUList([hdu])
+    hdul.writeto('test.fits', overwrite=True)
+
 #
 #
 # @given(
@@ -71,8 +162,10 @@ def test_LineList():
     assert np.allclose(wls, [0.5, 0.501, 0.502] * u.micron)
     assert np.allclose(intensities, [1, 1, 1] * u.ph)
 
+
 def test_phoenix_base_url():
     assert check_url_exists(sources.Phoenix().get_wavelength_url())
+
 
 # @given(
 #     st.sampled_from(sources.Phoenix.valid_t),
@@ -90,3 +183,6 @@ def test_phoenix_base_url():
 #         assert check_url_exists(sources.Phoenix.get_spectrum_url(t, a, g, z))
 #     else:
 #         print(f"Skip {t}, {a}, {g}, {z}")
+
+if __name__ == '__main__':
+    test_sources(0.5, 0.001)

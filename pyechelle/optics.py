@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import numba
 import numpy as np
 from scipy.interpolate import CubicSpline
-
+import astropy.units as u
 
 def correct_phase_jumps(data):
     return (data + np.pi) % (2 * np.pi) - np.pi
@@ -200,7 +200,7 @@ class AffineTransformation:
     shear: float
     tx: float
     ty: float
-    wavelength: float | None
+    wavelength: float | u.Quantity["length"] | None
 
     def __le__(self, other):
         return self.wavelength <= other.wavelength
@@ -391,7 +391,7 @@ class PSF:
 
     """
 
-    wavelength: float
+    wavelength: float | u.Quantity["Length"]
     data: np.ndarray
     sampling: float
 

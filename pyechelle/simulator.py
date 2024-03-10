@@ -30,8 +30,7 @@ from pyechelle.raytrace_cuda import (
     make_cuda_kernel_singlemode,
 )
 from pyechelle.raytracing import raytrace_order_cpu
-# from pyechelle.sources import CSV
-from pyechelle.sources import Phoenix, Source
+from pyechelle.sources import Phoenix, Source, CSVSource
 from pyechelle.spectrograph import Spectrograph, ZEMAX
 from pyechelle.telescope import Telescope
 
@@ -262,7 +261,7 @@ class Simulator:
                 len(self.rvs) == len(self.sources)
         ), "Number of radial velocity values needs to match the number of sources (or be 1)"
 
-    def set_telescope(self, telescope: Telescope):
+    def set_telescope(self, telescope: Telescope | list[Telescope]):
         self.telescope = telescope
 
     def set_ccd(self, ccd: int):
@@ -717,14 +716,24 @@ def generate_parser():
         default=[0.0],
         help="radial velocity shift of source",
     )
-    const_source_group = parser.add_argument_group("Constant source")
+    const_source_group = parser.add_argument_group("ConstantFlux source")
     const_source_group.add_argument(
-        "--constant_intensity",
+        "--constantflux_flux",
         type=float,
         default=0.0001,
         required=False,
         help="Flux in microWatts / nanometer for constant flux spectral source",
     )
+
+    const_photons_group = parser.add_argument_group("ConstantPhotonFlux source")
+    const_photons_group.add_argument(
+        "--constantphotons_flux",
+        type=float,
+        default=1000,
+        required=False,
+        help="Flux in photons/s for constant photon flux spectral source",
+    )
+
     arclamps_group = parser.add_argument_group("Arc Lamps")
     arclamps_group.add_argument(
         "--scale",
@@ -745,11 +754,9 @@ def generate_parser():
     )
     csv_group.add_argument(
         "--csv_wavelength_unit",
-        choices=list(CSV.wavelength_scaling.keys()),
-        default="a",
+        default="AA",
         type=str,
-        help=f"Unit of the wavelength column in the .csv file. Options are "
-             f"{list(CSV.wavelength_scaling.keys())}",
+        help=f"Unit of the wavelength column in the .csv file. Unit names are taken from astropy.units",
     )
     csv_group.add_argument(
         "--csv_list_like",
@@ -966,6 +973,8 @@ def main(args=None):
 
     sim.set_sources(
         [
+            getattr(sources, source)(**s_args, telescope=Telescope(args.d_primary, args.d_secondary)) if
+            'telescope' in inspect.signature(getattr(sources, source)).parameters else
             getattr(sources, source)(**s_args)
             for source, s_args in zip(source_names, source_kwargs)
         ]

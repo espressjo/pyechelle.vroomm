@@ -9,7 +9,9 @@ from urllib.error import URLError
 
 import h5py
 import numpy as np
+from numpy.typing import ArrayLike
 from matplotlib import pyplot as plt
+import scipy
 
 try:
     import zospy
@@ -270,7 +272,7 @@ class Spectrograph:
         raise NotImplementedError
 
     def get_spot_positions(
-            self, wavelengths: np.ndarray, order: int, fiber: int = 1, ccd_index: int = 1
+            self, wavelengths: ArrayLike[float], order: int, fiber: int = 1, ccd_index: int = 1
     ) -> tuple[np.ndarray, np.ndarray]:
         """Get spot positions for given wavelengths
 
