@@ -1407,8 +1407,8 @@ class InteractiveZEMAX(Spectrograph):
             self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength = wavelength
             psf_data = zospy.analyses.psf.huygens_psf(
                 self._oss,
-                self._psf_setting_sampling_image,
-                self._psf_setting_sampling_pupil,
+                pupil_sampling=self._psf_setting_sampling_pupil,
+                image_sampling=self._psf_setting_sampling_image,
                 image_delta=self._psf_setting_image_delta,
                 wavelength=1,
                 field=1,
