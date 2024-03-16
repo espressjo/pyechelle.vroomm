@@ -60,7 +60,7 @@ def plot_transformation_matrices(
 
     Args:
         fiber: fiber index
-        ccd_index: ccd index
+        ccd_index: CCD index
         spectrograph: Spectrograph model
 
     Returns:
@@ -99,7 +99,7 @@ def plot_psfs(spectrograph: Spectrograph, fiber: int = 1, ccd_index: int = 1):
     """Plot PSFs as one big map
     Args:
         fiber: fiber index
-        ccd_index: ccd index
+        ccd_index: CCD index
         spectrograph: Spectrograph model
 
     Returns:

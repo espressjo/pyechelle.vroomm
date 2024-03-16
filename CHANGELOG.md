@@ -22,6 +22,7 @@ This release was triggered by a migration of the model server.
 
 ### Fixed
  - fixed #9 (issue with CUDA random seed)
+- fixed #10 (issue with ZEMAX PSF model)
  - adapted to work with latest skycalc-ipy version
 
 ### Changed

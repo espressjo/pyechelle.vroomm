@@ -10,6 +10,7 @@ Implementing various spectral sources that can be used in pyechelle.
     from pyechelle.simulator import available_sources
 
     available_sources.remove('CSVSource')
+    available_sources.remove('SynphotSource')
 
     fig, ax = plt.subplots(len(available_sources), 1, figsize=(9, len(available_sources) * 2.5), sharex=True)
     fig.suptitle('Supported source functions')
@@ -38,6 +39,7 @@ from __future__ import annotations
 
 import numbers
 import pathlib
+import time
 import urllib.request
 from typing import Sequence
 
@@ -186,10 +188,13 @@ class Source:
         # if list-like move the returned wavelengths
         if self.list_like:
             source_wl, counts = self.get_counts(wl, integration_time)
-            return (1 + (rv_shift << u.m / u.s) / constants.c).value * source_wl << u.micron, counts
+            return (
+                           1 + (rv_shift << u.m / u.s) / constants.c
+                   ).value * source_wl << u.micron, counts
         else:
             return self.get_counts(
-                (1 + (rv_shift << u.m / u.s) / constants.c).value * wl << u.micron, integration_time
+                (1 + (rv_shift << u.m / u.s) / constants.c).value * wl << u.micron,
+                integration_time,
             )
 
 
@@ -320,6 +325,10 @@ class BlackBody(Source):
         self.temperature = temperature << u.K
         self.v_mag = v_mag << synphot.units.VEGAMAG
         self.collection_area = collection_area << u.cm ** 2
+        self.sp = synphot.SourceSpectrum(synphot.BlackBody1D, temperature=self.temperature)
+        self.bp = synphot.SpectralElement.from_filter("johnson_v")
+        self.vega = synphot.SourceSpectrum.from_vega()  # For unit conversion
+        self.sp_norm = self.sp.normalize(self.v_mag, self.bp, vegaspec=self.vega)
 
     def get_counts(
             self,
@@ -338,12 +347,8 @@ class BlackBody(Source):
         """
         wl_edges = synphot.binning.calculate_bin_edges(wl << u.micron)
         wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
-        sp = synphot.SourceSpectrum(synphot.BlackBody1D, temperature=self.temperature)
-        bp = synphot.SpectralElement.from_filter("johnson_v")
-        vega = synphot.SourceSpectrum.from_vega()  # For unit conversion
-        sp_norm = sp.normalize(self.v_mag, bp, vegaspec=vega)
         return (
-                sp_norm(wl << u.micron)
+                self.sp_norm(wl << u.micron)
                 * wl_widths
                 * (integration_time << u.s)
                 * self.collection_area
@@ -485,7 +490,10 @@ class IdealEtalon(Source):
 
     @staticmethod
     def peak_wavelength_etalon(
-            m, d: float | u.Quantity["length"] = 10.0, n: float = 1.0, theta: float | u.Quantity["angle"] = 0.0
+            m,
+            d: float | u.Quantity["length"] = 10.0,
+            n: float = 1.0,
+            theta: float | u.Quantity["angle"] = 0.0,
     ) -> u.Quantity[u.nm]:
         """
         Calculate the peak wavelength of an etalon.
@@ -503,7 +511,9 @@ class IdealEtalon(Source):
         return ((d << u.mm) * n * np.cos((theta << u.rad)) / m).to(u.nm)
 
     def get_counts(
-            self, wl: ArrayLike | u.Quantity["length"], integration_time: float | u.Quantity["time"]
+            self,
+            wl: ArrayLike | u.Quantity["length"],
+            integration_time: float | u.Quantity["time"],
     ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
         min_m = np.ceil(
             (self.d * np.cos(self.theta) / np.max(wl << u.micron)).to_value(
@@ -516,7 +526,9 @@ class IdealEtalon(Source):
             )
         )
         intensity = (
-                np.ones_like(np.arange(min_m, max_m), dtype=float) * self.n_photons * (integration_time << u.s)
+                np.ones_like(np.arange(min_m, max_m), dtype=float)
+                * self.n_photons
+                * (integration_time << u.s)
         )
         return (
             self.peak_wavelength_etalon(
@@ -573,10 +585,17 @@ class ResolvedEtalon(Source):
         R2 (float): Reflectivity of mirror 2.
     """
 
-    def __init__(self, d: float | u.Quantity["length"] = 5.0, n: float = 1.0, theta: float | u.Quantity["angle"] = 0.0,
-                 n_photons: float | u.Quantity[u.ph / u.s] = 1000.0, finesse: float | None = 100.0,
-                 R1: float | None = None,
-                 R2: float | None = None, name: str = "ResolvedEtalon"):
+    def __init__(
+            self,
+            d: float | u.Quantity["length"] = 5.0,
+            n: float = 1.0,
+            theta: float | u.Quantity["angle"] = 0.0,
+            n_photons: float | u.Quantity[u.ph / u.s] = 1000.0,
+            finesse: float | None = 100.0,
+            R1: float | None = None,
+            R2: float | None = None,
+            name: str = "ResolvedEtalon",
+    ):
         """
         Initializes the ResolvedEtalon class.
 
@@ -611,7 +630,9 @@ class ResolvedEtalon(Source):
             assert R1 is not None, "Either finesse or at least R1 must be given."
             self.R1 = R1
             self.R2 = R2 if R2 is not None else R1
-            coeff_finesse = 4 * np.sqrt(self.R1 * self.R2) / (1 - np.sqrt(self.R1 * self.R2)) ** 2
+            coeff_finesse = (
+                    4 * np.sqrt(self.R1 * self.R2) / (1 - np.sqrt(self.R1 * self.R2)) ** 2
+            )
             self.finesse = np.pi / (2 * np.arcsin(1 / np.sqrt(coeff_finesse)))
 
     def _transmission(self, wl: ArrayLike | u.Quantity["length"]) -> u.Quantity:
@@ -624,8 +645,16 @@ class ResolvedEtalon(Source):
         Returns:
             Transmission function.
         """
-        return 1 / (1 + self.finesse * np.sin(
-            (2 * np.pi * self.n * self.d * np.cos(self.theta) / (wl << u.micron)).value) ** 2)
+        return 1 / (
+                1
+                + self.finesse
+                * np.sin(
+            (
+                    2 * np.pi * self.n * self.d * np.cos(self.theta) / (wl << u.micron)
+            ).value
+        )
+                ** 2
+        )
 
     def get_counts(
             self,
@@ -643,7 +672,10 @@ class ResolvedEtalon(Source):
             tuple: wavelengths and number of photons per line.
         """
         return (wl << u.micron), (
-                self._transmission(wl << u.micron) * self.n_photons * (integration_time << u.s))
+                self._transmission(wl << u.micron)
+                * self.n_photons
+                * (integration_time << u.s)
+        )
 
     def __str__(self):
         return f"{self.name}: d={self.d}, n={self.n}, theta={self.theta}, n_photons={self.n_photons}, finesse={self.finesse}, R1={self.R1}, R2={self.R2}"
@@ -667,19 +699,19 @@ class ArcLamp(Source):
         A ThNe lamp and default scaling factors and brightness:
         >>> arc_thar = ArcLamp()
         >>> print(arc_thar)
-        ArcLamp: ThAr, [1, 1], 100000.0
+        ArcLamp: ThAr, [1.0, 1.0], 100000.0 ph / s
 
         A ThAr lamp with a scaling factor of 1 for Th and 1 for Ar and a brightness of 1000000.0 photons per second.:
         >>> arc_thne = ArcLamp(["Th", "Ne"], scaling_factors=[1, 1], brightness=1E6)
         >>> print(arc_thne)
-        ArcLamp: ThAr, [1,1], 1000000.0
+        ArcLamp: ThNe, [1, 1], 1000000.0 ph / s
     """
 
     def __init__(
             self,
             elements: Sequence[str] = ("Th", "Ar"),
             scaling_factors: Sequence[float] | float = 1.0,
-            brightness: float | u.Quantity[u.ph / u.s] = 1E5 << u.ph / u.s,
+            brightness: float | u.Quantity[u.ph / u.s] = 1e5 << u.ph / u.s,
             name: str = "ArcLamp",
     ):
         """Initialize the ArcLamp class.
@@ -693,7 +725,9 @@ class ArcLamp(Source):
         super().__init__(name, list_like=True)
         if isinstance(scaling_factors, numbers.Number):
             scaling_factors = [scaling_factors] * len(elements)
-        assert len(elements) == len(scaling_factors), "Length of elements and scaling_factors must be the same."
+        assert len(elements) == len(
+            scaling_factors
+        ), "Length of elements and scaling_factors must be the same."
         self.elements = elements
         self.scaling_factors = scaling_factors
         self.brightness = brightness << u.ph / u.s
@@ -721,7 +755,11 @@ class ArcLamp(Source):
                 combined_wl = np.append(combined_wl, lines)
                 combined_counts = np.append(
                     combined_counts,
-                    intensities / np.max(intensities) * (integration_time << u.s) * scaling * self.brightness,
+                    intensities
+                    / np.max(intensities)
+                    * (integration_time << u.s)
+                    * scaling
+                    * self.brightness,
                 )
         return combined_wl, combined_counts
 
@@ -761,11 +799,8 @@ class Phoenix(Source):
             z: float = 0,
             alpha: float = 0.0,
             v_mag: float | u.Quantity[u.VEGAMAG] = 10.0,
-            collection_area: float | u.Quantity[
-                "area"
-            ] = 100.0,
-            name: str = "Phoenix",
-            **kwargs,
+            collection_area: float | u.Quantity["area"] = 100.0,
+            name: str = "Phoenix"
     ):
         assert t_eff in self.valid_t, f"Not a valid effective Temperature {t_eff}"
         assert log_g in self.valid_g, f"Not a valid log g value {log_g}"
@@ -835,7 +870,9 @@ class Phoenix(Source):
         return url
 
     def get_counts(
-            self, wl: ArrayLike | u.Quantity["length"], integration_time: u.Quantity[u.s] | float
+            self,
+            wl: ArrayLike | u.Quantity["length"],
+            integration_time: u.Quantity[u.s] | float,
     ) -> u.Quantity[u.ph] | tuple[u.Quantity[u.AA], u.Quantity[u.ph]]:
         """Get the number of photons per wavelength bin.
 
@@ -847,10 +884,13 @@ class Phoenix(Source):
             Quantity: Number of photons per wavelength bin.
         """
         # idx = np.logical_and(self.wl_data > np.min(wl), self.wl_data < np.max(wl))
-        wl_edges = synphot.binning.calculate_bin_edges(wl)
+        wl_edges = synphot.binning.calculate_bin_edges(wl << u.micron)
         wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
-        return wl, (
-                self.spectrum_data(wl) * wl_widths * (integration_time << u.s) * self.collection_area
+        return wl << u.micron, (
+                self.spectrum_data(wl << u.micron)
+                * wl_widths
+                * (integration_time << u.s)
+                * self.collection_area
         ).to(u.ph)
 
     def __str__(self):
@@ -924,15 +964,25 @@ class CSVSource(Source):
             )
 
         # read the csv file and convert the columns to astropy quantities
-        self.data = pd.read_csv(file_path, names=["wavelength", "flux"], **pandas_kwargs)
-        self.data["wavelength"] = self.data["wavelength"].values << self.wavelength_units
+        self.data = pd.read_csv(
+            file_path, names=["wavelength", "flux"], **pandas_kwargs
+        )
+        self.data["wavelength"] = (
+                self.data["wavelength"].values << self.wavelength_units
+        )
         self.data["flux"] = self.data["flux"] << self.flux_units
         if not self.list_like:
-            self.interpolated_flux = scipy.interpolate.interp1d(self.data["wavelength"], self.data["flux"],
-                                                                fill_value=0., bounds_error=False)
+            self.interpolated_flux = scipy.interpolate.interp1d(
+                self.data["wavelength"],
+                self.data["flux"],
+                fill_value=0.0,
+                bounds_error=False,
+            )
 
     def get_counts(
-            self, wl: u.Quantity[u.micron] | ArrayLike[float], integration_time: u.Quantity[u.s]
+            self,
+            wl: u.Quantity[u.micron] | ArrayLike[float],
+            integration_time: u.Quantity[u.s] | float,
     ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
         """Get the number of photons per wavelength bin.
 
@@ -954,7 +1004,7 @@ class CSVSource(Source):
         if self.list_like:
             return (
                 self.data["wavelength"][idx].values.to(u.micron),
-                self.data["flux"][idx].values * integration_time,
+                self.data["flux"][idx].values * (integration_time << u.s),
             )
         else:
             # stellar target
@@ -971,25 +1021,34 @@ class CSVSource(Source):
                 )
                 return self.data["wavelength"].to(u.micron), (
                         sp_norm(self.data["wavelength"])
-                        * integration_time
+                        * (integration_time << u.s)
                         * self.collection_area
                 ).to(u.ph)
             else:
                 # flux is given as flux density
-                if self.flux_units.is_equivalent(u.ph / u.s / u.nm, equivalencies=u.spectral_density(1 * u.AA)):
-                    wl_edges = synphot.binning.calculate_bin_edges(wl)
+                if self.flux_units.is_equivalent(
+                        u.ph / u.s / u.nm, equivalencies=u.spectral_density(1 * u.AA)
+                ):
+                    wl_edges = synphot.binning.calculate_bin_edges(
+                        wl << self.wavelength_units
+                    )
                     wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
 
-                    return wl, (self.interpolated_flux(wl) * self.flux_units * wl_widths * integration_time).to(u.ph,
-                                                                                                                equivalencies=u.spectral_density(
-                                                                                                                    wl))
+                    return wl, (
+                            self.interpolated_flux(wl << self.wavelength_units)
+                            * self.flux_units
+                            * wl_widths
+                            * (integration_time << u.s)
+                    ).to(u.ph, equivalencies=u.spectral_density(wl))
                 elif u.get_physical_type(self.flux_units) == "power/radiant flux":
                     return self.data["wavelength"].values.to(u.micron)[idx], (
-                            self.data["flux"][idx].values * integration_time).to(u.ph)
+                            self.data["flux"][idx].values * integration_time
+                    ).to(u.ph)
                 # if flux is given in ph/s
                 elif self.flux_units.is_equivalent(u.ph / u.s):
-                    return self.data["wavelength"].values.to(u.micron)[idx], self.data["flux"][
-                                                                                 idx].values * integration_time
+                    return self.data["wavelength"].values.to(u.micron)[idx], self.data[
+                                                                                 "flux"
+                                                                             ][idx].values * integration_time
                 else:
                     raise ValueError(f"Flux units {self.flux_units} not recognized.")
 
@@ -1015,8 +1074,17 @@ class LineList(Source):
 
     def __init__(
             self,
-            wavelengths: ArrayLike | u.Quantity["length"] = (656.3, 486.1, 434.0, 410.2, 397.0, 388.9, 383.5,
-                                                             364.5) * u.nm,
+            wavelengths: ArrayLike | u.Quantity["length"] = (
+                                                                    656.3,
+                                                                    486.1,
+                                                                    434.0,
+                                                                    410.2,
+                                                                    397.0,
+                                                                    388.9,
+                                                                    383.5,
+                                                                    364.5,
+                                                            )
+                                                            * u.nm,
             intensities: ArrayLike | u.Quantity[u.ph / u.s] | float = 1.0 * u.ph / u.s,
             name: str = "LineList",
     ):
@@ -1078,27 +1146,31 @@ class LineList(Source):
 class SynphotSource(Source):
     """A source with a spectrum from synphot."""
 
-    def __init__(self, spectrum: synphot.SourceSpectrum, collection_area: float | u.Quantity[u.cm ** 2] = 100.0,
-                 name: str = "SynphotSource"):
+    def __init__(
+            self,
+            spectrum: synphot.SourceSpectrum,
+            collection_area: float | u.Quantity[u.cm ** 2] = 100.0,
+            name: str = "SynphotSource",
+    ):
         super().__init__(name, list_like=False)
         self.collection_area = collection_area << u.cm ** 2
         self.spectrum = spectrum
 
-    def get_counts(self, wl: ArrayLike | u.Quantity["length"], integration_time: u.Quantity[u.s] | float) -> tuple[
-        u.Quantity[u.micron], u.Quantity[u.ph]]:
+    def get_counts(
+            self,
+            wl: ArrayLike | u.Quantity["length"],
+            integration_time: u.Quantity[u.s] | float,
+    ) -> tuple[u.Quantity[u.micron], u.Quantity[u.ph]]:
         wl_edges = synphot.binning.calculate_bin_edges(wl << u.micron)
         wl_widths = synphot.binning.calculate_bin_widths(wl_edges)
-        return wl << u.micron, (self.spectrum(wl << u.micron) * wl_widths * (
-                integration_time << u.s) * self.collection_area).to(u.ph)
+        return wl << u.micron, (
+                self.spectrum(wl << u.micron)
+                * wl_widths
+                * (integration_time << u.s)
+                * self.collection_area
+        ).to(u.ph)
 
     def __str__(self):
-        return f"{self.name}: {''.join(c for c in str(self.spectrum) if c.isprintable())}"
-
-
-if __name__ == "__main__":
-    from synphot import SourceSpectrum, GaussianFlux1D
-
-    g_em = SourceSpectrum(GaussianFlux1D,
-                          total_flux=3.5e-13 * u.erg / (u.cm ** 2 * u.s), mean=3000, fwhm=100)
-    ss = SynphotSource(g_em, 100)
-    print(ss)
+        return (
+            f"{self.name}: {''.join(c for c in str(self.spectrum) if c.isprintable())}"
+        )

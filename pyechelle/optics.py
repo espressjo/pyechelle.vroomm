@@ -104,7 +104,7 @@ def find_affine(src, dst):
     src_matrix, src = _center_and_normalize_points(src)
     dst_matrix, dst = _center_and_normalize_points(dst)
     if not np.all(np.isfinite(src_matrix + dst_matrix)):
-        raise ValueError("Culdn't calculate matrix")
+        raise ValueError("Couldn't calculate matrix")
 
     # params: a0, a1, a2, b0, b1, b2, c0, c1
     A = np.zeros((n * d, (d + 1) ** 2))
@@ -130,8 +130,7 @@ def find_affine(src, dst):
         raise ValueError("Culdn't calculate matrix")
 
     H = np.zeros((d + 1, d + 1))
-    # solution is right singular vector that corresponds to smallest
-    # singular value
+    # solution is right singular vector that corresponds to the smallest singular value
     H.flat[list(coeffs) + [-1]] = -V[-1, :-1] / V[-1, -1]
     H[d, d] = 1
 

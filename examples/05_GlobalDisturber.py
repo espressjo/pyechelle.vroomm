@@ -10,14 +10,14 @@ The simulation produces a spectrum, where the position of the spectral lines is 
 
 if __name__ == "__main__":
     from pyechelle.simulator import Simulator
-    from pyechelle.sources import Etalon
+    from pyechelle.sources import IdealEtalon
     from pyechelle.spectrograph import ZEMAX, GlobalDisturber
 
     spec = GlobalDisturber(ZEMAX("MaroonX"), rot=0.1)
     sim = Simulator(spec)
     sim.set_ccd(1)
     sim.set_fibers(1)
-    sim.set_sources(Etalon(d=10.))
+    sim.set_sources(IdealEtalon(d=10.))
     sim.set_exposure_time(10.)
     sim.set_output(f'05_GlobalDisturber.fits', overwrite=True)
     sim.set_cuda(True)
