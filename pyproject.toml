@@ -53,6 +53,8 @@ source = ["pyechelle"]
 
 [tool.coverage.run]
 branch = true
+concurrency = "multiprocessing"
+parallel = true
 source = ["pyechelle"]
 
 [tool.coverage.report]

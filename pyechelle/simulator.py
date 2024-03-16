@@ -187,7 +187,7 @@ class Simulator:
         rvs (list[float]): radial velocity shifts in [m/s] for sources (same length as fibers)
         telescope (Telescope): Telescope used for simulations (relevant for 'on-sky' sources)
         random_seed (int): random seed for the number generator
-        cuda (bool): flat if CUDA is to be used
+        cuda (bool): flag if CUDA is to be used (default: True if available)
         max_cpu (int): number of CPUs used for simulation (if -1, max_cpu is number of available cores)
         exp_time (float): exposure time to be simulated
         output (Path): path to output fits file
@@ -208,7 +208,7 @@ class Simulator:
     rvs: list[float] = field(init=False, default=None)
     telescope: Telescope = field(init=False, default=None)
     random_seed: int = field(init=False, default=-1)
-    cuda: bool = field(init=False, default=False)
+    cuda: bool = field(init=False, default=cuda.is_available())
     max_cpu: int = field(init=False, default=1)
     exp_time: float = field(init=False, default=1.0)
     output: Path = field(init=False, default=None)
@@ -295,6 +295,8 @@ class Simulator:
             )
 
     def set_cuda(self, activate: bool = True, seed: int = -1):
+        if activate:
+            assert cuda.is_available(), "CUDA is not available on this system."
         self.cuda = activate
         self.random_seed = seed
 
@@ -634,7 +636,9 @@ def generate_parser():
     parser.add_argument(
         "--cuda",
         action="store_true",
-        help="If set, CUDA will be used for raytracing. Note: the max_cpu flag is then obsolete.",
+        default=cuda.is_available(),
+        help="If set, CUDA will be used for raytracing. Note: the max_cpu flag is then obsolete. Default: "
+             "True if available.",
     )
 
     parser.add_argument(

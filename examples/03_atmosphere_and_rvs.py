@@ -6,7 +6,7 @@ radial velocity."""
 
 if __name__ == "__main__":
     from pyechelle.simulator import Simulator
-    from pyechelle.sources import Etalon, Phoenix
+    from pyechelle.sources import IdealEtalon, Phoenix
     from pyechelle.spectrograph import ZEMAX
     from pyechelle.telescope import Telescope
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     sim.set_fibers([1, 2, 3, 4])
     # set telescope size to match Gemini observatory
     sim.set_telescope(Telescope(8.1, 0.8))
-    sim.set_sources([Etalon(d=10, n_photons=1E5),
+    sim.set_sources([IdealEtalon(d=10, n_photons=1E5),
                      Phoenix(t_eff=4000, log_g=4.0),
                      Phoenix(t_eff=4000, log_g=4.0),
                      Phoenix(t_eff=4000, log_g=4.0)])

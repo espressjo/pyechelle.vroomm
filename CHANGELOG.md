@@ -20,6 +20,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
  - fixed #9 (issue with CUDA random seed)
+- fixed #10 (issue with ZEMAX PSF model)
  - adapted to work with latest skycalc-ipy version
 
 

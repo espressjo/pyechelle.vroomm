@@ -10,14 +10,14 @@ The simulation produces a fits file, where the fiber is rotated in place.
 
 if __name__ == "__main__":
     from pyechelle.simulator import Simulator
-    from pyechelle.sources import Etalon
+    from pyechelle.sources import IdealEtalon
     from pyechelle.spectrograph import ZEMAX, LocalDisturber
 
     spec = LocalDisturber(ZEMAX("MaroonX"), d_rot=0.01)
     sim = Simulator(spec)
     sim.set_ccd(1)
     sim.set_fibers(1)
-    sim.set_sources(Etalon(d=10.))
+    sim.set_sources(IdealEtalon(d=10.))
     sim.set_exposure_time(10.)
     sim.set_output(f'04_LocalDisturber.fits', overwrite=True)
     sim.set_cuda(True)

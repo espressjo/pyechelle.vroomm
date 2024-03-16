@@ -6,7 +6,7 @@
 
 if __name__ == "__main__":
     from pyechelle.simulator import Simulator
-    from pyechelle.sources import Constant, Etalon
+    from pyechelle.sources import ConstantFlux, IdealEtalon
     from pyechelle.spectrograph import ZEMAX
 
     sim = Simulator(ZEMAX("MaroonX"))
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     sim.set_fibers([2, 3, 4])
     # now, the number of sources specified needs either to match the number of fibers,
     # or it needs to be a single source (that is then used for each fiber)
-    sim.set_sources([Constant(), Etalon(d=5, n_photons=30000), Etalon(d=10, n_photons=30000)])
+    sim.set_sources([ConstantFlux(), IdealEtalon(d=5, n_photons=30000), IdealEtalon(d=10, n_photons=30000)])
     sim.set_exposure_time(0.01)
     sim.set_output('01_multiple_fibers_and_sources.fits', overwrite=True)
     sim.run()

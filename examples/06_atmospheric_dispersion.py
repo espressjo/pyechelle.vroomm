@@ -10,7 +10,7 @@ through a bandpass filter between 300nm and 400nm.
 
 if __name__ == "__main__":
     from pyechelle.simulator import Simulator
-    from pyechelle.sources import ConstantPhotons
+    from pyechelle.sources import ConstantPhotonFlux
     from pyechelle.spectrograph import AtmosphericDispersion
     from pyechelle.efficiency import BandpassFilter
     import numpy as np
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     sim = Simulator(AtmosphericDispersion(zd=50, reference_wavelength=0.35))
     sim.set_ccd(1)
     sim.set_fibers(1)
-    sim.set_sources(ConstantPhotons())
+    sim.set_sources(ConstantPhotonFlux(100))
     sim.set_exposure_time(1)
     # We reduce the resolution of the spectrum retrieved by skycalc to 100
     sim.set_atmospheres(True, sky_calc_kwargs={'airmass': 1. / (np.deg2rad(50)), 'wres': 100})

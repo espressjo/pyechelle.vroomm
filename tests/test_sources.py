@@ -22,7 +22,10 @@ from synphot.models import Empirical1D, GaussianFlux1D
 def test_sources(wl, bw):
     for source_name in available_sources:
         wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
-        if not (source_name == 'CSVSource' or source_name == 'ArcLamp' or source_name == 'Phoenix'):
+        if not (source_name == 'CSVSource'
+                or source_name == 'ArcLamp'
+                or source_name == 'Phoenix'
+                or source_name == 'SynphotSource'):
             t1 = time.time()
             print(f"Test {source_name}... ")
             source = getattr(sources, source_name)()
@@ -47,8 +50,30 @@ def test_phoenix():
     assert sd[1].unit == u.ph
 
 
-def test_resolvedetalon():
+def test_resolved_etalon():
+    # test default values
     source = sources.ResolvedEtalon()
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test creation where the reflectivity of one surface is 95%
+    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, R1=0.95, name='Reflectivity 95%')
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test creation where the reflectivity of one surface is 95% and the other 90%
+    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, R1=0.95, R2=0.9, name='Reflectivity 95% and 90%')
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test where finesse is given
+    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, finesse=100, name='Finesse 100')
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
@@ -79,6 +104,15 @@ def test_csv_source():
                                wavelength_units='micron', flux_units=u.ph / u.s, list_like=False)
     assert source.data['wavelength'].values.unit == u.micron
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
+    assert sd[0].unit == u.micron
+    assert sd[1].unit == u.ph
+
+    # test a continuous source where the flux is given in u.ph/u.s/AA
+    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
+                               wavelength_units='micron', flux_units=u.ph / u.s / u.AA, list_like=False)
+    assert source.data['wavelength'].values.unit == u.micron
+    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
@@ -183,6 +217,3 @@ def test_phoenix_base_url():
 #         assert check_url_exists(sources.Phoenix.get_spectrum_url(t, a, g, z))
 #     else:
 #         print(f"Skip {t}, {a}, {g}, {z}")
-
-if __name__ == '__main__':
-    test_sources(0.5, 0.001)
