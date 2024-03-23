@@ -46,6 +46,7 @@ ruff = "^0.2.1"
 timeout = "300"
 env = [
     "NUMBA_DISABLE_JIT=4",
+    "NUMBA_ENABLE_CUDASIM=1",
 ]
 
 [tool.coverage.paths]
