@@ -325,7 +325,9 @@ class BlackBody(Source):
         self.temperature = temperature << u.K
         self.v_mag = v_mag << synphot.units.VEGAMAG
         self.collection_area = collection_area << u.cm ** 2
-        self.sp = synphot.SourceSpectrum(synphot.BlackBody1D, temperature=self.temperature)
+        self.sp = synphot.SourceSpectrum(
+            synphot.BlackBody1D, temperature=self.temperature
+        )
         self.bp = synphot.SpectralElement.from_filter("johnson_v")
         self.vega = synphot.SourceSpectrum.from_vega()  # For unit conversion
         self.sp_norm = self.sp.normalize(self.v_mag, self.bp, vegaspec=self.vega)
@@ -800,7 +802,7 @@ class Phoenix(Source):
             alpha: float = 0.0,
             v_mag: float | u.Quantity[u.VEGAMAG] = 10.0,
             collection_area: float | u.Quantity["area"] = 100.0,
-            name: str = "Phoenix"
+            name: str = "Phoenix",
     ):
         assert t_eff in self.valid_t, f"Not a valid effective Temperature {t_eff}"
         assert log_g in self.valid_g, f"Not a valid log g value {log_g}"
@@ -808,7 +810,7 @@ class Phoenix(Source):
         assert z in self.valid_z, f"Not a valid metalicity value {z}"
         if not np.isclose(alpha, 0.0):
             assert 3500.0 <= t_eff <= 8000.0 and -3.0 <= z <= 0.0, (
-                "PHOENIX parameters are not valid. Please check them " "again. "
+                "PHOENIX parameters are not valid. Please check them again. "
             )
         self.t_eff = t_eff << u.K
         self.log_g = log_g
@@ -919,11 +921,11 @@ class CSVSource(Source):
         flux_units (str): Units of the flux column.
 
     Examples:
-        >>> csv_source = CSVSource("../tests/test_data/test_source1.csv", list_like=False, wavelength_units="nm", flux_units="ph/s/AA")
-        >>> print(csv_source.get_counts([500, 600] * u.nm, 1 * u.s)
-
+        >>> csv_source = CSVSource("../tests/test_data/test_source1.csv", list_like=False, wavelength_units="nm", flux_units="ph/s/AA", skiprows=1)
+        >>> print(csv_source.get_counts([500, 600] * u.nm, 1 * u.s))
+        (<Quantity [500., 600.] nm>, <Quantity [1000.,    0.] ph>)
         >>> print(csv_source)
-        CSVSource: ../tests/test_data/test_source1.csv, False, nm, ph/s/AA
+        ../tests/test_data/test_source1.csv, False, nm, ph / (Angstrom s)
 
     """
 
@@ -1042,13 +1044,13 @@ class CSVSource(Source):
                     ).to(u.ph, equivalencies=u.spectral_density(wl))
                 elif u.get_physical_type(self.flux_units) == "power/radiant flux":
                     return self.data["wavelength"].values.to(u.micron)[idx], (
-                            self.data["flux"][idx].values * integration_time
+                            self.data["flux"][idx].values * (integration_time << u.s)
                     ).to(u.ph)
                 # if flux is given in ph/s
                 elif self.flux_units.is_equivalent(u.ph / u.s):
                     return self.data["wavelength"].values.to(u.micron)[idx], self.data[
                                                                                  "flux"
-                                                                             ][idx].values * integration_time
+                                                                             ][idx].values * (integration_time << u.s)
                 else:
                     raise ValueError(f"Flux units {self.flux_units} not recognized.")
 
