@@ -1,0 +1,8 @@
+xt = transformations[2, idx_trans]
+yt = transformations[5, idx_trans]
+{% if source_type == "Continuous" -%}
+    dm2 = transf_deriv[2, idx_trans]
+    dm5 = transf_deriv[5, idx_trans]
+    xt += r * dm2
+    yt += r * dm5
+{% endif -%}

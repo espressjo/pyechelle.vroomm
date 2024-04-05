@@ -6,12 +6,15 @@ import numba.cuda
 import numpy as np
 from joblib import Memory
 from numba import cuda
-from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64
+from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float64, xoroshiro128p_uniform_float32
 
 from pyechelle.raytracing import prepare_raytracing
 from pyechelle.sources import Source
 from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
+import pyechelle._kernels
+
+# from pyechelle._kernels import *
 
 path = pathlib.Path(__file__).parent.resolve()
 cache_path = path.joinpath(".cache")
@@ -20,9 +23,9 @@ pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
 
 
-@memory.cache
+# @memory.cache
 def make_cuda_kernel(slitfun):
-    @cuda.jit()
+    @cuda.jit(cache=True)
     def cuda_kernel(
         spectrum_wl,
         spectrum_q,
@@ -48,10 +51,8 @@ def make_cuda_kernel(slitfun):
         for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
             # sample from spectrum
             k = int(
-                math.floor(
                     xoroshiro128p_uniform_float64(rng_states, thread_id)
                     * len(spectrum_j)
-                )
             )
             wl = (
                 spectrum_wl[k]
@@ -60,8 +61,8 @@ def make_cuda_kernel(slitfun):
             )
 
             # find index for transformation
-            idx_trans_float = (wl - trans_wl[0]) / trans_wld
-            idx_trans = int(math.floor(idx_trans_float))
+            idx_trans_float = (wl - trans_wl[0]) // trans_wld
+            idx_trans = int(idx_trans_float)
             r = idx_trans_float - idx_trans
 
             # do linear interpolation of transformation matrices
@@ -88,10 +89,8 @@ def make_cuda_kernel(slitfun):
             idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
             # next 3 lines implement drawing random number via alias sampling
             k = int(
-                math.floor(
                     xoroshiro128p_uniform_float64(rng_states, thread_id)
                     * len(psfs_j[idx_psf])
-                )
             )
             if (
                 not xoroshiro128p_uniform_float64(rng_states, thread_id)
@@ -107,8 +106,8 @@ def make_cuda_kernel(slitfun):
             # dx, dy = unravel_index(k, psf_shape)
             xt += (dx - psf_shape[1] / 2.0) * psf_sampling / pixelsize
             yt += (dy - psf_shape[0] / 2.0) * psf_sampling / pixelsize
-            x_int = int(math.floor(xt))
-            y_int = int(math.floor(yt))
+            x_int = int(xt)
+            y_int = int(yt)
 
             if (0 <= x_int < max_x) and (0 <= y_int < max_y):
                 numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
@@ -116,9 +115,9 @@ def make_cuda_kernel(slitfun):
     return cuda_kernel
 
 
-@memory.cache
+# @memory.cache
 def make_cuda_kernel_singlemode():
-    @cuda.jit()
+    @cuda.jit(cache=True)
     def cuda_kernel(
         spectrum_wl,
         spectrum_q,
@@ -237,6 +236,12 @@ def raytrace_order_cuda(
     ) = prepare_raytracing(
         o, fiber, ccd_index, efficiency, rv, source, spec, telescope, t
     )
+    field_shape = spec.get_field_shape(fiber=fiber, ccd_index=ccd_index)
+
+    # kernel_cuda_rectangular_Listlike_True
+    kernel_name = f"kernel_cuda_{field_shape}_{'ListLike' if source.list_like else "Continuous"}_True"
+    # get kernel function from _kernels.py
+    cuda_kernel = getattr(pyechelle._kernels, kernel_name)
 
     threads_per_block = 128
     blocks = 64
@@ -257,7 +262,7 @@ def raytrace_order_cuda(
         np.ascontiguousarray(psf_shape),
         psf_sampling,
         ccd,
-        float(ps),
+        np.float32(ps),
         rng_states,
         total_photons,
     )

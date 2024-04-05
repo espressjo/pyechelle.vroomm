@@ -1,0 +1,28 @@
+# m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+{% if "cuda" in slit_name -%}
+    m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+    dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+    m0 += r * dm0
+    m1 += r * dm1
+    m2 += r * dm2
+    m3 += r * dm3
+    m4 += r * dm4
+    m5 += r * dm5
+{% else -%}
+    # do linear interpolation of transformation matrices
+    m0, m1, m2, m3, m4, m5 = (
+    transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+    )
+{% endif -%}
+# random start points in slit
+{% if "cuda" in slit_name -%}
+    x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+    y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+{% else -%}
+    x = random.random()
+    y = random.random()
+{% endif -%}
+{{ slit_code }}
+# transform
+xt = m0 * x + m1 * y + m2
+yt = m3 * x + m4 * y + m5
