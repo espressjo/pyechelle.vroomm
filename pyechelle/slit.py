@@ -9,6 +9,8 @@ x', y'
 
 A special case is the 'singlemode' slit, since here, no transformation is required.
 
+.. note:: IMPORTANT! The last line of each cuda slit function must be 'return x, y'! Otherwise, the kernel extraction
+    will fail.
 
 .. plot::
 
@@ -41,36 +43,32 @@ import numba.cuda.random
 from numba import njit, float64, cuda
 from numba.types import UniTuple
 
-# single mode slit just return 'None'
-singlemode = None
-cuda_singlemode = None
-
 
 @njit(UniTuple(float64, 2)(float64, float64))
-def rectangular(xx, yy):
+def rectangular(x, y):
     """Rectangular transformation"""
-    return xx, yy
+    return x, y
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
-def circular(xx, yy):
+def circular(x, y):
     """Circular transformation"""
-    r = math.sqrt(xx) / 2.0
-    phi = yy * math.pi * 2
+    r = math.sqrt(x) / 2.0
+    phi = y * math.pi * 2
     return r * math.cos(phi) + 0.5, r * math.sin(phi) + 0.5
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
-def octagonal(r1, r2):
+def octagonal(x, y):
     """Octagonal transformation"""
     phi = 0.0
-    s1 = math.sqrt(r1)
+    s1 = math.sqrt(x)
     phi_segment = 2.0 * math.pi / 8
 
     b = [1.0, 0.0]
     c = [math.cos(phi_segment), math.sin(phi_segment)]
-    x = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
-    y = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
+    x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+    y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
 
     segments = random.randint(0, 7)
     arg_values = phi_segment * segments + phi
@@ -82,16 +80,16 @@ def octagonal(r1, r2):
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
-def hexagonal(r1, r2):
+def hexagonal(x, y):
     """Hexagonal transformation"""
     phi = 0.0
-    s1 = math.sqrt(r1)
+    s1 = math.sqrt(x)
     phi_segment = 2.0 * math.pi / 6
 
     b = [1.0, 0.0]
     c = [math.cos(phi_segment), math.sin(phi_segment)]
-    x = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
-    y = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
+    x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+    y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
 
     segments = random.randint(0, 5)
     arg_values = phi_segment * segments + phi
@@ -99,8 +97,17 @@ def hexagonal(r1, r2):
     sin_values = math.sin(arg_values)
     xnew = x * cos_values - y * sin_values
     ynew = x * sin_values + y * cos_values
-    return xnew / 2.0 + 0.5, ynew / 2.0 + 0.5
+    x = xnew / 2.0 + 0.5
+    y = ynew / 2.0 + 0.5
+    return x, y
 
+
+@njit(UniTuple(float64, 2)(float64, float64))
+def singlemode(x, y):
+    """This is just a dummy. It is not used, just for naming consistency"""
+    x = 0
+    y = 0
+    return x, y
 
 @cuda.jit(inline=True, device=True)
 def cuda_rectangular(x, y, rng_states, thread_id):
@@ -111,19 +118,21 @@ def cuda_rectangular(x, y, rng_states, thread_id):
 def cuda_circular(x, y, rng_states, thread_id):
     r = math.sqrt(x) / 2.0
     phi = y * math.pi * 2
-    return r * math.cos(phi) + 0.5, r * math.sin(phi) + 0.5
+    x = r * math.cos(phi) + 0.5
+    y = r * math.sin(phi) + 0.5
+    return x, y
 
 
 @cuda.jit(inline=True, device=True)
-def cuda_octagonal(r1, r2, rng_states, thread_id):
+def cuda_octagonal(x, y, rng_states, thread_id):
     phi = 0.0
-    s1 = math.sqrt(r1)
+    s1 = math.sqrt(x)
     phi_segment = 2.0 * math.pi / 8.0
 
     b = (1.0, 0.0)
     c = (math.cos(phi_segment), math.sin(phi_segment))
-    xx = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
-    yy = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
+    xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+    yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
 
     segments = math.floor(
         numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
@@ -131,21 +140,21 @@ def cuda_octagonal(r1, r2, rng_states, thread_id):
     arg_values = phi_segment * segments + phi
     cos_values = math.cos(arg_values)
     sin_values = math.sin(arg_values)
-    return (xx * cos_values - yy * sin_values) / 2.0 + 0.5, (
-        xx * sin_values + yy * cos_values
-    ) / 2.0 + 0.5
+    x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+    y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+    return x, y
 
 
 @cuda.jit(inline=True, device=True)
-def cuda_hexagonal(r1, r2, rng_states, thread_id):
+def cuda_hexagonal(x, y, rng_states, thread_id):
     phi = 0.0
-    s1 = math.sqrt(r1)
+    s1 = math.sqrt(x)
     phi_segment = 2.0 * math.pi / 6.0
 
     b = (1.0, 0.0)
     c = (math.cos(phi_segment), math.sin(phi_segment))
-    xx = b[0] * (1.0 - r2) * s1 + c[0] * r2 * s1
-    yy = b[1] * (1.0 - r2) * s1 + c[1] * r2 * s1
+    xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+    yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
 
     segments = math.floor(
         numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
@@ -153,6 +162,14 @@ def cuda_hexagonal(r1, r2, rng_states, thread_id):
     arg_values = phi_segment * segments + phi
     cos_values = math.cos(arg_values)
     sin_values = math.sin(arg_values)
-    return (xx * cos_values - yy * sin_values) / 2.0 + 0.5, (
-        xx * sin_values + yy * cos_values
-    ) / 2.0 + 0.5
+    x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+    y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+    return x, y
+
+
+@cuda.jit(inline=True, device=True)
+def cuda_singlemode(x, y, rng_states, thread_id):
+    """This is just a dummy. It is not used, just for naming consistency"""
+    x = 0
+    y = 0
+    return x, y

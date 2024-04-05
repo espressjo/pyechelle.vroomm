@@ -460,7 +460,7 @@ class Simulator:
             )
         return True
 
-    def run(self):
+    def run(self) -> int:
         self.validate()
         c = self.spectrograph.get_ccd(self.ccd)
         total_simulated_photons = []
@@ -999,10 +999,10 @@ def main(args=None):
     sim.set_output(args.output, args.append, args.overwrite)
     sim.set_bias(args.bias)
     sim.set_read_noise(args.read_noise)
-    sim.run()
+    nphot = sim.run()
     t2 = time.time()
     print(f"Simulation took {t2 - t1:.3f} s")
-
+    return nphot
 
 if __name__ == "__main__":
     main()

@@ -300,18 +300,22 @@ def prepare_raytracing(o, fiber, ccd_index, efficiency, rv, source, spec, telesc
         )
         psf_sampling = spec.get_psf(None, o, fiber, ccd_index)[0].sampling
         return (
-            psf_sampler_qj,
-            psf_sampling,
+            psf_sampler_qj.astype(np.float32),
+            np.float32(psf_sampling),
             psf_shape,
-            psfs_wl.to_value(u.micron) if isinstance(psfs_wl, u.Quantity) else psfs_wl,
-            psfs_wld.to_value(u.micron) if isinstance(psfs_wld, u.Quantity) else psfs_wld,
+            psfs_wl.to_value(u.micron).astype(np.float32) if isinstance(psfs_wl, u.Quantity) else psfs_wl.astype(
+                np.float32),
+            psfs_wld.to_value(u.micron).astype(np.float32) if isinstance(psfs_wld, u.Quantity) else psfs_wld.astype(
+                np.float32),
             spectrum_sampler_j,
-            spectrum_sampler_q,
+            spectrum_sampler_q.astype(np.float32),
             total_photons,
-            trans_deriv,
-            trans_wl.to_value(u.micron) if isinstance(trans_wl, u.Quantity) else trans_wl,
-            trans_wld.to_value(u.micron) if isinstance(trans_wld, u.Quantity) else trans_wld,
-            transformations,
+            trans_deriv.astype(np.float32),
+            trans_wl.to_value(u.micron).astype(np.float32) if isinstance(trans_wl, u.Quantity) else trans_wl.astype(
+                np.float32),
+            trans_wld.to_value(u.micron).astype(np.float32) if isinstance(trans_wld, u.Quantity) else trans_wld.astype(
+                np.float32),
+            transformations.astype(np.float32),
             wavelength.to_value(u.micron) if isinstance(wavelength, u.Quantity) else wavelength,
         )
     else:
