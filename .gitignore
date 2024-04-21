@@ -10,3 +10,8 @@ tests/.pytest_cache
 /pyechelle/models/*.hdf
 /pyechelle/.cache/
 docs/source/_autosummary
+.benchmarks
+.hypothesis
+benchmark_results.json
+tests/benchmark_results.json
+.coverage

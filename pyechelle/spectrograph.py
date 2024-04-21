@@ -107,7 +107,7 @@ def check_for_spectrograph_model(model_name: str | Path, download=True) -> Path:
             file_path = Path.cwd().resolve().joinpath(f"{model_name}.hdf")
         # if it doesn't exist try to download
         if not file_path.is_file():
-            url = f"https://stuermer.science/nextcloud/index.php/s/ps5Pk379LgcpLwN/download?path=/&files={model_name}.hdf"
+            url = f"https://cloud.stuermer.science/s/d28p3aTrDqJPSC4/download?path=/&files={model_name}.hdf"
             if download:
                 print(
                     f"Spectrograph model {model_name} not found locally. Trying to download from {url}..."
