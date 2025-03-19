@@ -74,7 +74,7 @@ def check_url_exists(url: str) -> bool:
         return check_FTP_url_exists(url)
     try:
         with urllib.request.urlopen(url, timeout=10) as response:
-            return float(response.headers["Content-length"]) > 0
+            return response.code < 400
     except URLError:
         return False
 
@@ -272,7 +272,11 @@ class Spectrograph:
         raise NotImplementedError
 
     def get_spot_positions(
-            self, wavelengths: ArrayLike[float], order: int, fiber: int = 1, ccd_index: int = 1
+        self,
+        wavelengths: ArrayLike[float],
+        order: int,
+        fiber: int = 1,
+        ccd_index: int = 1,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Get spot positions for given wavelengths
 
@@ -299,9 +303,9 @@ class Spectrograph:
             # calculate barycenter of PSF in units of CCD pixels using scipy center_of_mass and convert to pixel units
             center_of_mass = scipy.ndimage.center_of_mass(psf.data)
             dy_psf, dx_psf = (
-                    (center_of_mass - np.array(psf.data.shape) / 2.0)
-                    * psf.sampling
-                    / self.get_ccd(ccd_index).pixelsize
+                (center_of_mass - np.array(psf.data.shape) / 2.0)
+                * psf.sampling
+                / self.get_ccd(ccd_index).pixelsize
             )
             x.append(xx + dx_psf - 0.5)
             y.append(yy + dy_psf - 0.5)

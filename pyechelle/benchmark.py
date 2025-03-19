@@ -124,7 +124,7 @@ def run_benchmark_cuda(T=None):
                     "-s",
                     "MaroonX",
                     "--sources",
-                    "Constant",
+                    "ConstantFlux",
                     "-t",
                     f"{t}",
                     "--orders",

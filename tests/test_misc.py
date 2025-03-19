@@ -36,4 +36,4 @@ def test_models_exist():
 
 def test_check_url_exists():
     assert check_url_exists("https://pypi.org/project/pyechelle/")
-    assert not check_url_exists("https://pypi.org/project/pyechelle/nonexistingurl")
+    assert not check_url_exists("https://nonexistingurl/")

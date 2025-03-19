@@ -1,13 +1,13 @@
 import inspect
 import random
 
-from numba.cuda import FakeCUDAKernel
+from numba.cuda.types import CUDADispatcher
 from numba.cuda.random import create_xoroshiro128p_states
 
 import pyechelle.slit
 
 available_slits = [f for n, f in vars(pyechelle.slit).items() if inspect.isfunction(f) if n != 'njit']
-available_cuda_slits = [f for n, f in vars(pyechelle.slit).items() if isinstance(f, FakeCUDAKernel)]
+available_cuda_slits = [f for n, f in vars(pyechelle.slit).items() if isinstance(f, CUDADispatcher)]
 
 
 def test_slits():
