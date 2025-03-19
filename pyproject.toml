@@ -58,6 +58,7 @@ branch = true
 concurrency = "multiprocessing"
 parallel = true
 source = ["pyechelle"]
+omit = ["pyechelle/_kernels.py"]
 
 [tool.coverage.report]
 show_missing = true
