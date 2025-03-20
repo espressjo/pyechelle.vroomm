@@ -1,3 +1,5 @@
+# This script creates the kernels for the different slits and writes them to a file.
+# TODO: 'no photon noise' is not implemented yet, right now the code created is identical for both cases.
 import inspect
 from pathlib import Path
 
