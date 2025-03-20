@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - unreleased
+
+This release brings a bunch of refactoring and new features - unfortunately also breaking changes.
+The numba CPU and CUDA kernels have been further optimized, which should lead to a speed improvement of up to 50%.
+Also, the sources module has been reworked and should now handle physical units more consistently.
+
+### Added
+
+- several new sources (ThXe lamp, Laser Frequency Comb, Resolved Etalon source and support for Synphot spectra)
+- a function to estimate the spot position on the detector for a given wavelength
+
+### Changed
+
+- kernels are now automatically generated for different slits and source-types. This allowed some further optimizations,
+  which should lead to a speed improvement of up to 50%.
+
+- Some sources have been renamed to be more concise:
+- `Etalon` -> `IdealEtalon`
+- `Constant` -> `ConstantFlux`
+- `CSV` -> `CSVSource`
+- The source module and other parts of the code now accept, where applicable, input parameters with astropy units to
+  avoid conversion errors.
+
+### Added
+
 ## [0.3.7] - 2024-04-21
 
 This release was triggered by a migration of the model server.
