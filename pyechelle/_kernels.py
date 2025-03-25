@@ -1,0 +1,3394 @@
+import math
+import random
+
+import numba
+from numba import cuda
+from numba.cuda.random import xoroshiro128p_uniform_float64
+
+from pyechelle.randomgen import unravel_index
+
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_rectangular_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Rectangular transformation"""
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_rectangular_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Rectangular transformation"""
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_rectangular_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Rectangular transformation"""
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_rectangular_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Rectangular transformation"""
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_circular_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Circular transformation"""
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_circular_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Circular transformation"""
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_circular_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Circular transformation"""
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_circular_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Circular transformation"""
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_octagonal_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Octagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 7)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x_new = x * cos_values - y * sin_values
+        y_new = x * sin_values + y * cos_values
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_octagonal_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Octagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 7)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x_new = x * cos_values - y * sin_values
+        y_new = x * sin_values + y * cos_values
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_octagonal_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Octagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 7)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x_new = x * cos_values - y * sin_values
+        y_new = x * sin_values + y * cos_values
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_octagonal_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Octagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 7)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x_new = x * cos_values - y * sin_values
+        y_new = x * sin_values + y * cos_values
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_hexagonal_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Hexagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 5)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        xnew = x * cos_values - y * sin_values
+        ynew = x * sin_values + y * cos_values
+        x = xnew / 2.0 + 0.5
+        y = ynew / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_hexagonal_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Hexagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 5)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        xnew = x * cos_values - y * sin_values
+        ynew = x * sin_values + y * cos_values
+        x = xnew / 2.0 + 0.5
+        y = ynew / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_hexagonal_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Hexagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 5)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        xnew = x * cos_values - y * sin_values
+        ynew = x * sin_values + y * cos_values
+        x = xnew / 2.0 + 0.5
+        y = ynew / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_hexagonal_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        # do linear interpolation of transformation matrices
+        m0, m1, m2, m3, m4, m5 = (
+        transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        )
+        # random start points in slit
+        x = random.random()
+        y = random.random()
+        """Hexagonal transformation"""
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6
+
+        b = [1.0, 0.0]
+        c = [math.cos(phi_segment), math.sin(phi_segment)]
+        x = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        y = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = random.randint(0, 5)
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        xnew = x * cos_values - y * sin_values
+        ynew = x * sin_values + y * cos_values
+        x = xnew / 2.0 + 0.5
+        y = ynew / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_singlemode_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_singlemode_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_singlemode_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+        dm2 = transf_deriv[2, idx_trans]
+        dm5 = transf_deriv[5, idx_trans]
+        xt += r * dm2
+        yt += r * dm5
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@numba.njit(cache=True, parallel=False, nogil=True)
+def kernel_singlemode_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(nphotons):
+    # sample from spectrum
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+        dm2 = transf_deriv[2, idx_trans]
+        dm5 = transf_deriv[5, idx_trans]
+        xt += r * dm2
+        yt += r * dm5
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
+
+        dx, dy = unravel_index(k, psf_shape)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            ccd[y_int, x_int] += 1
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_rectangular_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_rectangular_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_rectangular_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_rectangular_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_circular_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_circular_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_circular_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_circular_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        r = math.sqrt(x) / 2.0
+        phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_octagonal_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_octagonal_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_octagonal_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_octagonal_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 8.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 8.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_hexagonal_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_hexagonal_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_hexagonal_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_hexagonal_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+        m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
+        dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
+        m0 += r * dm0
+        m1 += r * dm1
+        m2 += r * dm2
+        m3 += r * dm3
+        m4 += r * dm4
+        m5 += r * dm5
+        # random start points in slit
+        x = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        y = xoroshiro128p_uniform_float64(rng_states, thread_id)
+        phi = 0.0
+        s1 = math.sqrt(x)
+        phi_segment = 2.0 * math.pi / 6.0
+
+        b = (1.0, 0.0)
+        c = (math.cos(phi_segment), math.sin(phi_segment))
+        xx = b[0] * (1.0 - y) * s1 + c[0] * y * s1
+        yy = b[1] * (1.0 - y) * s1 + c[1] * y * s1
+
+        segments = math.floor(
+            numba.cuda.random.xoroshiro128p_uniform_float64(rng_states, thread_id) * 6.0
+        )
+        arg_values = phi_segment * segments + phi
+        cos_values = math.cos(arg_values)
+        sin_values = math.sin(arg_values)
+        x = (xx * cos_values - yy * sin_values) / 2.0 + 0.5
+        y = (xx * sin_values + yy * cos_values) / 2.0 + 0.5
+        # transform
+        xt = m0 * x + m1 * y + m2
+        yt = m3 * x + m4 * y + m5
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_singlemode_Listlike_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_singlemode_Listlike_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_singlemode_Continuous_True(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+        dm2 = transf_deriv[2, idx_trans]
+        dm5 = transf_deriv[5, idx_trans]
+        xt += r * dm2
+        yt += r * dm5
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+
+@cuda.jit(cache=True)
+def kernel_cuda_singlemode_Continuous_False(
+spectrum_wl,
+spectrum_q,
+spectrum_j,
+transformations,
+trans_wl,
+trans_wld,
+transf_deriv,
+psfs_q,
+psfs_j,
+psf_wl,
+psf_wld,
+psf_shape,
+psf_sampling,
+ccd,
+pixelsize,
+rng_states,
+nphotons,
+):
+    max_y, max_x = ccd.shape
+    thread_id = cuda.grid(1)
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
+
+    for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
+    # sample from spectrum
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
+
+        xt = transformations[2, idx_trans]
+        yt = transformations[5, idx_trans]
+        dm2 = transf_deriv[2, idx_trans]
+        dm5 = transf_deriv[5, idx_trans]
+        xt += r * dm2
+        yt += r * dm5
+
+
+        # apply PSF
+
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
+
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
+
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
+
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            
+

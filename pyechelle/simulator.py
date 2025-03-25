@@ -24,11 +24,7 @@ import pyechelle.slit
 from pyechelle import sources
 from pyechelle.CCD import CCD
 from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency, Atmosphere
-from pyechelle.raytrace_cuda import (
-    make_cuda_kernel,
-    raytrace_order_cuda,
-    make_cuda_kernel_singlemode,
-)
+from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
 from pyechelle.sources import Phoenix, Source, CSVSource
 from pyechelle.spectrograph import Spectrograph, ZEMAX
@@ -398,10 +394,6 @@ class Simulator:
             fiber,
             ccd_index,
     ):
-        if slit_fun is not None:  # multimode
-            cuda_kernel = make_cuda_kernel(slit_fun)
-        else:  # singlemode
-            cuda_kernel = make_cuda_kernel_singlemode()
         simulated_photons = []
         for o in np.sort(orders):
             if self.random_seed < 0:
@@ -422,7 +414,6 @@ class Simulator:
                 ccd_index,
                 efficiency,
                 seed=seed,
-                cuda_kernel=cuda_kernel,
             )
             simulated_photons.append(nphot)
         return simulated_photons
