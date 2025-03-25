@@ -15,7 +15,6 @@ if __name__ == "__main__":
 
     spec = LocalDisturber(ZEMAX("MaroonX"), d_rot=0.01)
     sim = Simulator(spec)
-    sim.set_ccd(1)
     sim.set_fibers(1)
     sim.set_sources(IdealEtalon(d=10.))
     sim.set_exposure_time(10.)

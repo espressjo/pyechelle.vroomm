@@ -10,6 +10,8 @@ if __name__ == "__main__":
     from pyechelle.spectrograph import ZEMAX
 
     sim = Simulator(ZEMAX("MaroonX"))
+    # set the CCD to be used. This is optional, if not set, the first CCD is used. But for
+    # instruments with multiple CCDs, this needs to be set to the desired CCD.
     sim.set_ccd(1)
     # multiple fibers/fields can be specified at once
     sim.set_fibers([2, 3, 4])

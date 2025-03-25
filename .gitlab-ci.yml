@@ -1,4 +1,3 @@
-
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
@@ -32,26 +31,14 @@ stages:
     when: always
     expire_in: 1 month
 
-test_python3.9:
+test:
   <<: *test
-  image: python:3.9
-  only:
-  - master
-test_python3.10:
-  <<: *test
-  image: python:3.10
+  image: python:$PYTHON_VERSION
   only:
     - master
-test_python3.11:
-  <<: *test
-  image: python:3.11
-  only:
-    - master
-test_python3.12:
-  <<: *test
-  image: python:3.12
-  only:
-    - master
+  parallel:
+    matrix:
+      - PYTHON_VERSION: [ "3.9", "3.10", "3.11", "3.12" ]
 
 pages:
   <<: *install-deps
@@ -76,10 +63,10 @@ build:
     paths:
       - dist/*.whl
   only:
-  - master
+    - master
 
 deploy:
   stage: deploying
   script: echo "would upload to PyPi"
   only:
-  - master
+    - tags

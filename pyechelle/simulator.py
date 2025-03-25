@@ -10,7 +10,7 @@ import re
 import sys
 import time
 from dataclasses import field, dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Type
 
@@ -26,7 +26,7 @@ from pyechelle.CCD import CCD
 from pyechelle.efficiency import Efficiency, CSVEfficiency, SystemEfficiency, Atmosphere
 from pyechelle.raytrace_cuda import raytrace_order_cuda
 from pyechelle.raytracing import raytrace_order_cpu
-from pyechelle.sources import Phoenix, Source, CSVSource
+from pyechelle.sources import Phoenix, Source
 from pyechelle.spectrograph import Spectrograph, ZEMAX
 from pyechelle.telescope import Telescope
 
@@ -195,8 +195,8 @@ class Simulator:
     """
 
     spectrograph: Spectrograph
-    fibers: list[int] = field(init=False, default=None)
-    orders: list[int] = field(init=False, default=None)
+    fibers: list[int] | None = field(init=False, default=None)
+    orders: list[int] | None = field(init=False, default=None)
     ccd: int = field(init=False, default=None)
     sources: list[Source] = field(init=False, default=None)
     atmosphere: list[bool] = field(init=False, default=None)
@@ -213,6 +213,10 @@ class Simulator:
     bias: int = field(init=False, default=0)
     read_noise: float = field(init=False, default=0.0)
     global_efficiency: Efficiency = field(init=False, default=None)
+
+    def __post_init__(self):
+        # set default CCD to first CCD in spectrograph
+        self.ccd = list(self.spectrograph.get_ccd().keys())[0]
 
     def set_sources(self, source: Source | list[Source]):
         assert (
@@ -281,9 +285,12 @@ class Simulator:
             )
         self.read_noise = read_noise
 
-    def set_fibers(self, fiber: int | list[int]):
+    def set_fibers(self, fiber: int | list[int] | None):
         assert self.ccd is not None, "Please set CCD index first."
-        self.fibers = [fiber] if isinstance(fiber, int) else fiber
+        if fiber is None:
+            self.fibers = self.spectrograph.get_fibers(self.ccd)
+        else:
+            self.fibers = [fiber] if isinstance(fiber, int) else fiber
         for f in self.fibers:
             assert f in self.spectrograph.get_fibers(self.ccd), (
                 f"You requested simulation of fiber {f}, which is "
@@ -468,7 +475,7 @@ class Simulator:
             "pyechelle.CCD": self.ccd,
             "pyechelle.bias": self.bias,
             "pyechelle.readnoise": self.read_noise,
-            "pyechelle.sim_start_utc": datetime.utcnow().isoformat(),
+            "pyechelle.sim_start_utc": datetime.now(UTC).isoformat(),
         }
 
         for f, s, atm, atm_cond, rv in zip(
@@ -532,7 +539,7 @@ class Simulator:
         if self.read_noise > 0.0:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
-        metadata.update({"pyechelle.sim_end_utc": datetime.utcnow().isoformat()})
+        metadata.update({"pyechelle.sim_end_utc": datetime.now(UTC).isoformat()})
         write_to_fits(
             c,
             self.output,
@@ -564,9 +571,11 @@ class Simulator:
             )
 
     def set_orders(self, orders: int | list[int] | None):
-        if isinstance(orders, int):
-            self.orders = [orders]
-        self.orders = orders
+        if orders is None:
+            self.orders = None
+        else:
+            self.orders = [orders] if isinstance(orders, int) else orders
+
         if self.orders is not None:
             for f in self.fibers:
                 valid_orders = self._get_valid_orders(f)

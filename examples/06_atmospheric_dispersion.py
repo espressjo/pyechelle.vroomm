@@ -16,7 +16,6 @@ if __name__ == "__main__":
     import numpy as np
 
     sim = Simulator(AtmosphericDispersion(zd=50, reference_wavelength=0.35))
-    sim.set_ccd(1)
     sim.set_fibers(1)
     sim.set_sources(ConstantPhotonFlux(100))
     sim.set_exposure_time(1)

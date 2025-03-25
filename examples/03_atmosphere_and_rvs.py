@@ -11,7 +11,6 @@ if __name__ == "__main__":
     from pyechelle.telescope import Telescope
 
     sim = Simulator(ZEMAX("MaroonX"))
-    sim.set_ccd(1)
     sim.set_fibers([1, 2, 3, 4])
     # set telescope size to match Gemini observatory
     sim.set_telescope(Telescope(8.1, 0.8))

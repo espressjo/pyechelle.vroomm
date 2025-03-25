@@ -38,7 +38,7 @@ with open(path, "w") as f:
     f.write("\n\n")
     for slit in available_slits:
         slitname = slit.func_code.co_name
-        for sourcetype in ["Listlike", "Continuous"]:
+        for sourcetype in ["ListLike", "Continuous"]:
             for photonnoise in [True, False]:
                 if "singlemode" in slitname:
                     transformation_code = env.get_template("singlemode_transform.jinja").render(source_type=sourcetype,

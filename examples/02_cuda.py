@@ -14,7 +14,6 @@ if __name__ == "__main__":
     from pyechelle.spectrograph import ZEMAX
 
     sim = Simulator(ZEMAX("MaroonX"))
-    sim.set_ccd(1)
     sim.set_fibers(1)
     sim.set_sources(ConstantFlux())
     sim.set_exposure_time(1.)

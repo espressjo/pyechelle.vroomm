@@ -13,7 +13,7 @@ Also, the sources module has been reworked and should now handle physical units 
 
 ### Added
 
-- several new sources (ThXe lamp, Laser Frequency Comb, Resolved Etalon source and support for Synphot spectra)
+- several new sources (ThXe lamp, Laser Frequency Comb (LFC), Resolved Etalon source and support for Synphot spectra)
 - a function to estimate the spot position on the detector for a given wavelength
 
 ### Changed
@@ -24,11 +24,16 @@ Also, the sources module has been reworked and should now handle physical units 
 - Some sources have been renamed to be more concise:
 - `Etalon` -> `IdealEtalon`
 - `Constant` -> `ConstantFlux`
+- `ConstantPhotons` -> `ConstantPhotonFlux`
 - `CSV` -> `CSVSource`
 - The source module and other parts of the code now accept, where applicable, input parameters with astropy units to
   avoid conversion errors.
+- set_ccd(1) is now the default for the `Simulator` class so it is not necessary to call it explicitly anymore.
 
-### Added
+### Fixed
+
+- fixed #12 (issue with set_order function)
+- minor bug fixes
 
 ## [0.3.7] - 2024-04-21
 

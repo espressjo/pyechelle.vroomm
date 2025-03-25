@@ -1,7 +1,8 @@
+## @formatter:off
 {% if "cuda" in slit_name -%}
-    @cuda.jit(cache=True)
+@cuda.jit(cache=True)
 {% else -%}
-    @numba.njit(cache=True, parallel=False, nogil=True)
+@numba.njit(cache=True, parallel=False, nogil=True)
 {% endif -%}
 def kernel_{{ slit_name }}_{{ source_type }}_{{ photonnoise }}(
 spectrum_wl,
@@ -22,83 +23,83 @@ pixelsize,
 rng_states,
 nphotons,
 ):
-max_y, max_x = ccd.shape
-{% if "cuda" in slit_name -%}
-    thread_id = cuda.grid(1)
-{% endif -%}
+    max_y, max_x = ccd.shape
+    {% if "cuda" in slit_name -%}
+        thread_id = cuda.grid(1)
+    {% endif -%}
 
-# precompute as much as possible
-n_spectrum = len(spectrum_j)
-psf_scale = psf_sampling / pixelsize
-psf_x_half = psf_shape[1] / 2.
-psf_y_half = psf_shape[0] / 2.
-psf_len = len(psfs_j[0])
+    # precompute as much as possible
+    n_spectrum = len(spectrum_j)
+    psf_scale = psf_sampling / pixelsize
+    psf_x_half = psf_shape[1] / 2.
+    psf_y_half = psf_shape[0] / 2.
+    psf_len = len(psfs_j[0])
 
-{% if "cuda" in slit_name -%}
+    {% if "cuda" in slit_name -%}
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
-{% else -%}
+    {% else -%}
     for _ in range(nphotons):
-{% endif -%}
-# sample from spectrum
-{% if "cuda" in slit_name -%}
-    k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
-    wl = (
-    spectrum_wl[k]
-    if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
-    else spectrum_wl[spectrum_j[k]]
-    )
-{% else -%}
-    k = int(math.floor(random.random() * len(spectrum_j)))
-    wl = (
-    spectrum_wl[k]
-    if random.random() < spectrum_q[k]
-    else spectrum_wl[spectrum_j[k]]
-    )
-{% endif -%}
+    {% endif -%}
+        # sample from spectrum
+        {% if "cuda" in slit_name -%}
+        k = int(xoroshiro128p_uniform_float64(rng_states, thread_id) * n_spectrum)
+        wl = (
+        spectrum_wl[k]
+        if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        {% else -%}
+        k = int(math.floor(random.random() * len(spectrum_j)))
+        wl = (
+        spectrum_wl[k]
+        if random.random() < spectrum_q[k]
+        else spectrum_wl[spectrum_j[k]]
+        )
+        {% endif -%}
 
-# find index for transformation
-idx_trans_float = (wl - trans_wl[0]) // trans_wld
-idx_trans = int(idx_trans_float)
-r = idx_trans_float - idx_trans
+        # find index for transformation
+        idx_trans_float = (wl - trans_wl[0]) // trans_wld
+        idx_trans = int(idx_trans_float)
+        r = idx_trans_float - idx_trans
 
-{{ transformation_code | indent(8) }}
+        {{ transformation_code | indent(8) }}
 
-# apply PSF
+        # apply PSF
 
-idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
-{% if "cuda" in slit_name -%}
-    # next 3 lines implement drawing random number via alias sampling
-    k = int(
-    xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
-    )
-    if (
-    not xoroshiro128p_uniform_float64(rng_states, thread_id)
-    < psfs_q[idx_psf][k]
-    ):
-    k = psfs_j[idx_psf][k]
+        idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
+        {% if "cuda" in slit_name -%}
+        # next 3 lines implement drawing random number via alias sampling
+        k = int(
+        xoroshiro128p_uniform_float64(rng_states, thread_id) * psf_len
+        )
+        if (
+        not xoroshiro128p_uniform_float64(rng_states, thread_id)
+        < psfs_q[idx_psf][k]
+        ):
+            k = psfs_j[idx_psf][k]
 
-    # unravel 2d index
-    dy = k % psf_shape[1]
-    k = k // psf_shape[1]
-    dx = k % psf_shape[0]
+        # unravel 2d index
+        dy = k % psf_shape[1]
+        k = k // psf_shape[1]
+        dx = k % psf_shape[0]
 
-{% else -%}
-    k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
-    if not random.random() < psfs_q[idx_psf][k]:
-    k = psfs_j[idx_psf][k]
+        {% else -%}
+        k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
+        if not random.random() < psfs_q[idx_psf][k]:
+            k = psfs_j[idx_psf][k]
 
-    dx, dy = unravel_index(k, psf_shape)
-{% endif -%}
+        dx, dy = unravel_index(k, psf_shape)
+        {% endif -%}
 
-# dx, dy = unravel_index(k, psf_shape)
-xt += (dx - psf_x_half) * psf_scale
-yt += (dy - psf_y_half) * psf_scale
-x_int = int(xt)
-y_int = int(yt)
+        # dx, dy = unravel_index(k, psf_shape)
+        xt += (dx - psf_x_half) * psf_scale
+        yt += (dy - psf_y_half) * psf_scale
+        x_int = int(xt)
+        y_int = int(yt)
 
-if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-{% if "cuda" in slit_name -%}
-    numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
-{% else -%}
-    ccd[y_int, x_int] += 1
-{% endif -%}
+        if (0 <= x_int < max_x) and (0 <= y_int < max_y):
+            {% if "cuda" in slit_name -%}
+            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            {% else -%}
+            ccd[y_int, x_int] += 1
+            {% endif -%}
