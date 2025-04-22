@@ -177,7 +177,7 @@ class Source:
             rv_shift (Quantity or float): Radial velocity shift either as Quantity with speed units or as float in m/s.
 
         Returns:
-            Quantity or tuple: If the source is list-like, it returns a tuple containing two elements.
+            Quantity or tuple: If the source is list-like or has its own wavelength vector, it returns a tuple containing two elements.
             The first element is an array of wavelengths in microns for which the
             emission lines exist within the provided wavelength range, considering the radial velocity shift.
             The second element is an array of the number of photons
@@ -185,9 +185,8 @@ class Source:
             integration time. If the source is not list-like, it returns the number of photons per wavelength bin,
             considering the radial velocity shift.
         """
-        # if list-like move the returned wavelengths
-        if self.list_like:
-            source_wl, counts = self.get_counts(wl, integration_time)
+        if isinstance(wl_counts := self.get_counts(wl, integration_time), tuple):
+            source_wl, counts = wl_counts
             return (
                            1 + (rv_shift << u.m / u.s) / constants.c
                    ).value * source_wl << u.micron, counts
@@ -195,7 +194,7 @@ class Source:
             return self.get_counts(
                 (1 + (rv_shift << u.m / u.s) / constants.c).value * wl << u.micron,
                 integration_time,
-            )
+                )
 
 
 class ConstantPhotonFlux(Source):

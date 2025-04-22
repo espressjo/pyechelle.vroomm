@@ -14,15 +14,3 @@ def test_model_viewer():
 def test_model_viewer_generic_plot_transformations():
     spec = spectrograph.SimpleSpectrograph()
     model_viewer.plot_transformations(spec)
-
-
-@pytest.mark.xfail(raises=NotImplementedError)
-def test_model_viewer_generic_plot_transformations():
-    spec = spectrograph.SimpleSpectrograph()
-    model_viewer.plot_psfs(spec)
-
-
-@pytest.mark.xfail(raises=NotImplementedError)
-def test_model_viewer_generic_plot_transformations():
-    spec = spectrograph.SimpleSpectrograph()
-    model_viewer.plot_transformation_matrices(spec)
