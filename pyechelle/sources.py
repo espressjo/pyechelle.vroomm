@@ -104,7 +104,12 @@ def pull_catalogue_lines(
         df["Ritz"] = pd.to_numeric(df["Ritz"], downcast="float", errors="coerce")
         df.dropna(inplace=True)
         idx = np.logical_and(df["Rel."] > 0, df["Ritz"] > 0)
+        # for some reason, SOMETIMES the Ritz column is not in microns, but in Angstroms. So we need to fix this if this is the case
+        # this should not be the case, since Nist.query should return the same unit as the input of min_wl and max_wl.
+        if (df["Ritz"].values[idx] > max_wl.value).any():
+            df["Ritz"] = df["Ritz"] / 10000.0
         return df["Ritz"].values[idx] << u.micron, df["Rel."].values[idx]
+
     except Exception as e:
         print(e)
         print(
@@ -688,7 +693,7 @@ class ArcLamp(Source):
     This class provides a convenient handling of arc lamp spectra.
     Specifying the element name(s), it downloads the line list(s) from NIST.
     Multiple elements can be specified together with a scaling factor for each element to get a combined spectrum.
-    The scaling factor is needed, because the NIST database only contains relative intensities.
+    The scaling factor is needed because the NIST database only contains relative intensities.
     An overall lamp brightness can also be specified which scales the brightest line to this value.
 
     Attributes:
