@@ -67,7 +67,7 @@ source = ["pyechelle"]
 
 [tool.coverage.run]
 branch = true
-concurrency = "multiprocessing"
+concurrency = ["multiprocessing"]
 parallel = true
 source = ["pyechelle"]
 omit = ["pyechelle/_kernels.py"]
