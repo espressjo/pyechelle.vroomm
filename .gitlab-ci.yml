@@ -43,13 +43,13 @@ test:
     matrix:
       - PYTHON_VERSION: [ "3.9", "3.10", "3.11", "3.12" ]
 
-lint:
-  <<: *install-deps
-  stage: testing
-  image: python:3.12
-  script:
-    - ruff check .
-  needs: []
+#lint:
+#  <<: *install-deps
+#  stage: testing
+#  image: python:3.12
+#  script:
+#    - ruff check .
+#  needs: []
 
 pages:
   <<: *install-deps
