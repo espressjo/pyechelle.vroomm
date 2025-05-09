@@ -1681,7 +1681,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -1770,7 +1770,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -1859,7 +1859,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -1948,7 +1948,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2040,7 +2040,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2132,7 +2132,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2224,7 +2224,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2316,7 +2316,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2421,7 +2421,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2526,7 +2526,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2631,7 +2631,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2736,7 +2736,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2841,7 +2841,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -2946,7 +2946,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3051,7 +3051,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3156,7 +3156,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3232,7 +3232,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3308,7 +3308,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3388,7 +3388,7 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 
 ## @formatter:off
@@ -3468,6 +3468,6 @@ nphotons,
         y_int = int(yt)
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             
 

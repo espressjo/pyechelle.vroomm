@@ -99,7 +99,7 @@ nphotons,
 
         if (0 <= x_int < max_x) and (0 <= y_int < max_y):
             {% if "cuda" in slit_name -%}
-            numba.cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
+            cuda.atomic.inc(ccd, (y_int, x_int), 4294967295)
             {% else -%}
             ccd[y_int, x_int] += 1
             {% endif -%}

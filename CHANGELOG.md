@@ -15,6 +15,7 @@ Also, the sources module has been reworked and should now handle physical units 
 
 - several new sources (ThXe lamp, Laser Frequency Comb (LFC), Resolved Etalon source and support for Synphot spectra)
 - a function to estimate the spot position on the detector for a given wavelength
+- added support for python 3.13
 
 ### Changed
 

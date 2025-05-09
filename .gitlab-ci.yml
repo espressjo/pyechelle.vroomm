@@ -14,11 +14,10 @@ stages:
 # templates
 .install-deps-template: &install-deps
   before_script:
-    - pip install virtualenv
-    - virtualenv venv
-    - source venv/bin/activate
-    - pip install poetry
-    - poetry install -vv
+    - pip install uv
+    - uv venv
+    - source .venv/bin/activate
+    - uv pip install -e .[dev]
 
 .test-template: &test
   <<: *install-deps
@@ -45,7 +44,7 @@ pages:
   image: python:3.9
   stage: building
   script:
-    - pip install sphinx sphinx-rtd-theme
+    - uv pip install sphinx sphinx-rtd-theme
     - cd docs ; make html
     - mv build/html/ ../public/
   artifacts:
@@ -58,15 +57,30 @@ build:
   <<: *install-deps
   image: python:3.9
   stage: building
-  script: poetry build
+  script:
+    - uv pip install pdm-backend
+    - python -m build
   artifacts:
     paths:
       - dist/*.whl
+      - dist/*.tar.gz
   only:
     - master
 
 deploy:
   stage: deploying
-  script: echo "would upload to PyPi"
+  image: python:3.9
+  needs:
+    - build
+  before_script:
+    - pip install uv
+    - uv venv
+    - source .venv/bin/activate
+    - uv pip install twine
+  script:
+    - twine upload --repository pypi dist/*
   only:
     - tags
+  environment:
+    name: pypi
+    url: https://pypi.org/project/pyechelle/

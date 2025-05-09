@@ -1,47 +1,59 @@
-[tool.poetry]
+[project]
 name = "pyechelle"
 version = "0.4.0"
 description = "A fast generic spectrum simulator"
-authors = ["Julian Stuermer <julian@stuermer.science>"]
-license = "MIT"
+authors = [{ name = "Julian Stuermer", email = "julian@stuermer.science" }]
+requires-python = "<3.14,>=3.9"
 readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+    "h5py<4.0.0,>=3.10.0",
+    "parmap<2.0.0,>=1.7.0",
+    "plotly<6.0.0,>=5.17.0",
+    "astroquery<1.0.0,>=0.4.6",
+    "joblib<2.0.0,>=1.3.2",
+    "matplotlib<4.0.0,>=3.8.0",
+    "synphot<2.0.0,>=1.3.post0",
+    "numba<1.0,>=0.59",
+    'zospy<2.0.0,>=1.1.1; python_version >= "3.9" and python_version < "3.12" and platform_system == "Windows"',
+    "scipy<2.0.0,>=1.12.0",
+    "astropy<6.0.0,>=5.3.4",
+    "pandas<3.0.0,>=2.2.0",
+    "skycalc-ipy<1.0.0,>=0.4.0",
+    "jupyter<2.0.0,>=1.0.0",
+    "pytest>=7.4.4",
+]
+
+[project.urls]
 homepage = "https://gitlab.com/Stuermer/pyechelle"
 repository = "https://gitlab.com/Stuermer/pyechelle"
 documentation = "https://stuermer.gitlab.io/pyechelle/"
-include = ["models/available_models.txt"]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-h5py = "^3.10.0"
-parmap = "^1.7.0"
-plotly = "^5.17.0"
-astroquery = "^0.4.6"
-joblib = "^1.3.2"
-matplotlib = "^3.8.0"
-synphot = "^1.3.post0"
-numba ="^0.59"
-zospy = { version = "^1.1.1", markers = "python_version >= '3.9' and python_version < '3.12' and platform_system == 'Windows'" }
-scipy = "^1.12.0"
-astropy = "^5.3.4"
-pandas = "^2.2.0"
-skycalc-ipy = "^0.4.0"
-jupyter = "^1.0.0"
+[project.scripts]
+pyechelle = "pyechelle.simulator:main"
 
-[tool.poetry.group.dev.dependencies]
-hypothesis = "^6.88.1"
-pytest = "^7.4.2"
-coverage = { extras = ["toml"], version = "^6.5.0" }
-sphinx-argparse = "^0.4.0"
-sphinx-rtd-theme = "^1.3.0"
-pytest-benchmark = "^4.0.0"
-pytest-cov = "^4.1.0"
-sphinx-autodoc-annotation = "^1.0-1"
-sphinx-copybutton = "^0.5.2"
-Sphinx = "^5.3.0"
-pytest-env = "^0.8.2"
-setuptools = "^68.2.2"
-pytest-timeout = "^2.2.0"
-ruff = "^0.2.1"
+[dependency-groups]
+dev = [
+    "hypothesis<7.0.0,>=6.88.1",
+    "pytest<8.0.0,>=7.4.2",
+    "coverage[toml]<7.0.0,>=6.5.0",
+    "sphinx-argparse<1.0.0,>=0.4.0",
+    "sphinx-rtd-theme<2.0.0,>=1.3.0",
+    "pytest-benchmark<5.0.0,>=4.0.0",
+    "pytest-cov<5.0.0,>=4.1.0",
+    "sphinx-autodoc-annotation<2.0,>=1.0-1",
+    "sphinx-copybutton<1.0.0,>=0.5.2",
+    "Sphinx<6.0.0,>=5.3.0",
+    "pytest-env<1.0.0,>=0.8.2",
+    "setuptools<69.0.0,>=68.2.2",
+    "pytest-timeout<3.0.0,>=2.2.0",
+    "ruff<1.0.0,>=0.2.1",
+]
+
+[tool.pdm.build]
+includes = [
+    "models/available_models.txt",
+]
 
 [tool.pytest.ini_options]
 timeout = "300"
@@ -66,79 +78,39 @@ show_missing = true
 [tool.coverage.html]
 directory = "tests/coverage"
 
-[tool.poetry.scripts]
-pyechelle = "pyechelle.simulator:main"
-
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
+    ".benchmarks",
+    ".cache",
+    ".hypothesis",
+    ".pmd-build",
     ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
+    "data",
     "dist",
-    "node_modules",
+    "venv39",
+    "venv310",
+    "venv311",
+    "venv312",
+    "venv313",
     "site-packages",
     "venv",
 ]
 line-length = 88
 
 [tool.ruff.lint]
-# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
-# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# McCabe complexity (`C901`) by default.
 select = ["E4", "E7", "E9", "F"]
 ignore = []
-
-# Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
 quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
-
-# Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
-
-# Enable auto-formatting of code examples in docstrings. Markdown,
-# reStructuredText code/literal blocks and doctests are all supported.
-#
-# This is currently disabled by default, but it is planned for this
-# to be opt-out in the future.
 docstring-code-format = false
-
-# Set the line length limit used when formatting code snippets in
-# docstrings.
-#
-# This only has an effect when the `docstring-code-format` setting is
-# enabled.
 docstring-code-line-length = "dynamic"
 
 [build-system]
-requires = ["poetry-core>=1.0.0a5"]
-build-backend = "poetry.core.masonry.api"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

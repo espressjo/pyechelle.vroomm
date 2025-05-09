@@ -10,7 +10,8 @@ import re
 import sys
 import time
 from dataclasses import field, dataclass
-from datetime import datetime, UTC
+from datetime import datetime, timezone
+
 from pathlib import Path
 from typing import Type
 
@@ -475,7 +476,7 @@ class Simulator:
             "pyechelle.CCD": self.ccd,
             "pyechelle.bias": self.bias,
             "pyechelle.readnoise": self.read_noise,
-            "pyechelle.sim_start_utc": datetime.now(UTC).isoformat(),
+            "pyechelle.sim_start_utc": datetime.now(timezone.utc).isoformat(),
         }
 
         for f, s, atm, atm_cond, rv in zip(
@@ -539,7 +540,7 @@ class Simulator:
         if self.read_noise > 0.0:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
-        metadata.update({"pyechelle.sim_end_utc": datetime.now(UTC).isoformat()})
+        metadata.update({"pyechelle.sim_end_utc": datetime.now(timezone.utc).isoformat()})
         write_to_fits(
             c,
             self.output,
@@ -636,7 +637,7 @@ def generate_parser():
     parser.add_argument(
         "--cuda",
         action="store_true",
-        default=cuda.is_available(),
+        default=False, #cuda.is_available(),
         help="If set, CUDA will be used for raytracing. Note: the max_cpu flag is then obsolete. Default: "
              "True if available.",
     )
