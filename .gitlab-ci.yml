@@ -1,10 +1,12 @@
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  UV_LINK_MODE: copy
 
 cache:
   paths:
     - .cache/pip
     - .venv/
+    - ~/.cache/uv/  # Cache uv installations between runs
 
 stages:
   - testing
@@ -40,6 +42,14 @@ test:
   parallel:
     matrix:
       - PYTHON_VERSION: [ "3.9", "3.10", "3.11", "3.12" ]
+
+lint:
+  <<: *install-deps
+  stage: testing
+  image: python:3.12
+  script:
+    - ruff check .
+  needs: []
 
 pages:
   <<: *install-deps
