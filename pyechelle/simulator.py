@@ -53,12 +53,12 @@ def str2bool(v):
     """Converts string to boolean"""
     if isinstance(v, bool):
         return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    elif v.lower() in ("no", "false", "f", "n", "0"):
         return False
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def parse_num_list(string_list: str) -> list:
@@ -84,13 +84,13 @@ def parse_num_list(string_list: str) -> list:
 
 
 def export_to_html(
-        data,
-        filename,
-        include_plotlyjs=False,
-        width=1000,
-        height=300,
-        y_range_min=2000,
-        y_range_max=3000,
+    data,
+    filename,
+    include_plotlyjs=False,
+    width=1000,
+    height=300,
+    y_range_min=2000,
+    y_range_max=3000,
 ):
     """
     Exports a 2D image into a 'standalone' HTML file. This is used e.g. for some examples in the documentation.
@@ -125,12 +125,12 @@ def log_elapsed_time(msg: str, t0: float) -> float:
 
 
 def write_to_fits(
-        c: CCD,
-        filename: str | Path,
-        overwrite: bool = True,
-        append: bool = False,
-        dtype: Type | np.dtype = np.uint16,
-        metadata: dict = None,
+    c: CCD,
+    filename: str | Path,
+    overwrite: bool = True,
+    append: bool = False,
+    dtype: Type | np.dtype = np.uint16,
+    metadata: dict = None,
 ):
     """Saves CCD image to disk
 
@@ -220,22 +220,22 @@ class Simulator:
         self.ccd = list(self.spectrograph.get_ccd().keys())[0]
 
     def set_sources(self, source: Source | list[Source]):
-        assert (
-                self.fibers is not None
-        ), "Please set first the fields that you want to simulate."
+        assert self.fibers is not None, (
+            "Please set first the fields that you want to simulate."
+        )
         self.sources = (
             source if isinstance(source, list) else [source] * len(self.fibers)
         )
-        assert len(self.fibers) == len(
-            self.sources
-        ), "Number of sources needs to match the number of fields/fibers (or be 1)"
+        assert len(self.fibers) == len(self.sources), (
+            "Number of sources needs to match the number of fields/fibers (or be 1)"
+        )
 
     def set_atmospheres(
-            self, atmosphere: bool | list[bool], sky_calc_kwargs: dict | list[dict] = None
+        self, atmosphere: bool | list[bool], sky_calc_kwargs: dict | list[dict] = None
     ):
-        assert (
-                self.sources is not None
-        ), "Please set first the sources that you want to simulate."
+        assert self.sources is not None, (
+            "Please set first the sources that you want to simulate."
+        )
         self.atmosphere = (
             [atmosphere] * len(self.sources)
             if isinstance(atmosphere, bool)
@@ -246,21 +246,21 @@ class Simulator:
             if (isinstance(sky_calc_kwargs, dict) or sky_calc_kwargs is None)
             else sky_calc_kwargs
         )
-        assert len(self.atmosphere) == len(
-            self.sources
-        ), "Number of atmosphere flags needs to match the number of sources (or be 1)"
-        assert (
-                len(self.atmosphere_conditions) == len(self.sources)
-        ), "Number of atmosphere condition arguments needs to match the number of sources (or be 1)"
+        assert len(self.atmosphere) == len(self.sources), (
+            "Number of atmosphere flags needs to match the number of sources (or be 1)"
+        )
+        assert len(self.atmosphere_conditions) == len(self.sources), (
+            "Number of atmosphere condition arguments needs to match the number of sources (or be 1)"
+        )
 
     def set_radial_velocities(self, rvs: float | list[float]):
-        assert (
-                self.sources is not None
-        ), "Please set first the sources that you want to simulate."
+        assert self.sources is not None, (
+            "Please set first the sources that you want to simulate."
+        )
         self.rvs = [rvs] * len(self.sources) if isinstance(rvs, float) else rvs
-        assert (
-                len(self.rvs) == len(self.sources)
-        ), "Number of radial velocity values needs to match the number of sources (or be 1)"
+        assert len(self.rvs) == len(self.sources), (
+            "Number of radial velocity values needs to match the number of sources (or be 1)"
+        )
 
     def set_telescope(self, telescope: Telescope | list[Telescope]):
         self.telescope = telescope
@@ -268,7 +268,7 @@ class Simulator:
     def set_ccd(self, ccd: int):
         self.ccd = ccd
         assert self.ccd in self.spectrograph.get_ccd().keys(), (
-            f"You requested simulation of CCD {ccd}, " f"which is not available."
+            f"You requested simulation of CCD {ccd}, which is not available."
         )
 
     def set_efficiency(self, eff: Efficiency):
@@ -339,7 +339,7 @@ class Simulator:
         return slit_fun
 
     def _simulate_multi_cpu(
-            self, orders, fiber, ccd_index, slit_fun, s, rv, integration_time, c, efficiency
+        self, orders, fiber, ccd_index, slit_fun, s, rv, integration_time, c, efficiency
     ):
         simulated_photons = []
         t0 = time.time()
@@ -368,7 +368,7 @@ class Simulator:
         return simulated_photons
 
     def _simulate_single_cpu(
-            self, orders, fiber, ccd_index, s, slit_fun, rv, integration_time, c, efficiency
+        self, orders, fiber, ccd_index, s, slit_fun, rv, integration_time, c, efficiency
     ):
         simulated_photons = []
         for o in np.sort(orders):
@@ -390,17 +390,17 @@ class Simulator:
         return simulated_photons
 
     def _simulate_cuda(
-            self,
-            orders,
-            slit_fun,
-            rv,
-            integration_time,
-            dccd,
-            efficiency,
-            s,
-            c,
-            fiber,
-            ccd_index,
+        self,
+        orders,
+        slit_fun,
+        rv,
+        integration_time,
+        dccd,
+        efficiency,
+        s,
+        c,
+        fiber,
+        ccd_index,
     ):
         simulated_photons = []
         for o in np.sort(orders):
@@ -480,11 +480,11 @@ class Simulator:
         }
 
         for f, s, atm, atm_cond, rv in zip(
-                self.fibers,
-                self.sources,
-                self.atmosphere,
-                self.atmosphere_conditions,
-                self.rvs,
+            self.fibers,
+            self.sources,
+            self.atmosphere,
+            self.atmosphere_conditions,
+            self.rvs,
         ):
             orders = (
                 self.orders if self.orders is not None else self._get_valid_orders(f)
@@ -540,7 +540,9 @@ class Simulator:
         if self.read_noise > 0.0:
             c.add_readnoise(self.read_noise)
         t2 = time.time()
-        metadata.update({"pyechelle.sim_end_utc": datetime.now(timezone.utc).isoformat()})
+        metadata.update(
+            {"pyechelle.sim_end_utc": datetime.now(timezone.utc).isoformat()}
+        )
         write_to_fits(
             c,
             self.output,
@@ -557,10 +559,10 @@ class Simulator:
         self.exp_time = exp_time
 
     def set_output(
-            self,
-            path: str | Path = Path().cwd().joinpath("test.fits"),
-            append: bool = False,
-            overwrite: bool = False,
+        self,
+        path: str | Path = Path().cwd().joinpath("test.fits"),
+        append: bool = False,
+        overwrite: bool = False,
     ):
         self.output = path if isinstance(path, Path) else Path(path)
         self.append = append
@@ -621,7 +623,7 @@ def generate_parser():
         type=parse_num_list,
         required=False,
         help="Fiber/Field number(s) to be simulated. Can either be a single integer, or an integer"
-             "range (e.g. 1-3) ",
+        "range (e.g. 1-3) ",
     )
     parser.add_argument(
         "--no_blaze",
@@ -637,9 +639,9 @@ def generate_parser():
     parser.add_argument(
         "--cuda",
         action="store_true",
-        default=False, #cuda.is_available(),
+        default=False,  # cuda.is_available(),
         help="If set, CUDA will be used for raytracing. Note: the max_cpu flag is then obsolete. Default: "
-             "True if available.",
+        "True if available.",
     )
 
     parser.add_argument(
@@ -654,9 +656,9 @@ def generate_parser():
         type=int,
         default=1,
         help="Maximum number of CPU cores used. Note: The parallelization happens 'per order'."
-             " Order-wise images are added up. This requires a large amount of memory at the moment."
-             "If planning on simulating multiple images, consider using only 1 CPU per simulation "
-             "and starting multiple simulations instead.",
+        " Order-wise images are added up. This requires a large amount of memory at the moment."
+        "If planning on simulating multiple images, consider using only 1 CPU per simulation "
+        "and starting multiple simulations instead.",
     )
 
     atmosphere_group = parser.add_argument_group("Atmosphere")
@@ -665,7 +667,7 @@ def generate_parser():
         nargs="+",
         required=False,
         help="Add telluric lines to spectrum. For adding tellurics to all spectra just use"
-             "--atmosphere Y, for specifying per fiber user e.g. --atmosphere Y N Y",
+        "--atmosphere Y, for specifying per fiber user e.g. --atmosphere Y N Y",
         type=lambda x: str2bool(x),
         default=[False],
     )
@@ -700,8 +702,8 @@ def generate_parser():
         nargs="+",
         required=False,
         help="Echelle/Grating order numbers to simulate... "
-             "if not specified, all orders of the spectrograph are simulated."
-             "Can either be a single integer, or a range (e.g. 80-90)",
+        "if not specified, all orders of the spectrograph are simulated."
+        "Can either be a single integer, or a range (e.g. 80-90)",
     )
 
     parser.add_argument(
@@ -710,8 +712,8 @@ def generate_parser():
         choices=available_sources,
         required=True,
         help='Spectral source for the simulation. Can either be a single string, e.g. "Etalon",'
-             ' or a comma separated list of sources (e.g. "Etalon, Constant, Etalon") which length must'
-             "match the number of fields/fibers.",
+        ' or a comma separated list of sources (e.g. "Etalon, Constant, Etalon") which length must'
+        "match the number of fields/fibers.",
     )
     parser.add_argument(
         "--rv",
@@ -753,15 +755,15 @@ def generate_parser():
         type=argparse.FileType("r"),
         required=False,
         help="Path to .csv file that contains two columns: wavelength and flux. The flux is expected"
-             "to be in ergs/s/cm^2/cm (like Phoenix spectra) or photons (then set it via "
-             "--csv_flux_in_photons). The wavelength unit is expected to "
-             "be angstroms, but it can be changed via --csv_wavelength_unit",
+        "to be in ergs/s/cm^2/cm (like Phoenix spectra) or photons (then set it via "
+        "--csv_flux_in_photons). The wavelength unit is expected to "
+        "be angstroms, but it can be changed via --csv_wavelength_unit",
     )
     csv_group.add_argument(
         "--csv_wavelength_unit",
         default="AA",
         type=str,
-        help=f"Unit of the wavelength column in the .csv file. Unit names are taken from astropy.units",
+        help="Unit of the wavelength column in the .csv file. Unit names are taken from astropy.units",
     )
     csv_group.add_argument(
         "--csv_list_like",
@@ -787,7 +789,7 @@ def generate_parser():
         default=10.0,
         required=False,
         help="If stellar target, the magnitude value i considered as V magnitude of the object and "
-             "the flux is scaled accordingly. Ignored if --flux_in_photons is true.",
+        "the flux is scaled accordingly. Ignored if --flux_in_photons is true.",
     )
     csv_group.add_argument(
         "--csv_delimiter",
@@ -803,10 +805,10 @@ def generate_parser():
         type=argparse.FileType("r"),
         required=False,
         help="Path to .csv file that contains two columns: wavelength and efficiency."
-             "The wavelength is expected to be in microns, "
-             "the efficiency is a real number in [0,1]."
-             "PyEchelle will interpolate the given values "
-             "for intermediate wavelength positions.",
+        "The wavelength is expected to be in microns, "
+        "the efficiency is a real number in [0,1]."
+        "PyEchelle will interpolate the given values "
+        "for intermediate wavelength positions.",
     )
     csv_eff_group.add_argument(
         "--eff_csv_delimiter",
@@ -915,9 +917,9 @@ def generate_parser():
         default=False,
         action="store_true",
         help="If set, the simulated photons will be added to the output file rather than overwriting "
-             "the content of the output file. If the output file does not exist yet, "
-             "it will be created.This flag can be used to do more complex multi-fiber simulations as a"
-             " sequential manner of simpler simulations.",
+        "the content of the output file. If the output file does not exist yet, "
+        "it will be created.This flag can be used to do more complex multi-fiber simulations as a"
+        " sequential manner of simpler simulations.",
     )
 
     parser.add_argument(
@@ -925,7 +927,7 @@ def generate_parser():
         type=str,
         default="",
         help="If given, the spectrum will be exported to an interactive image using plotly. It's not a"
-             "standalone html file, but requires plotly.js to be loaded.",
+        "standalone html file, but requires plotly.js to be loaded.",
     )
     return parser
 
@@ -978,9 +980,11 @@ def main(args=None):
 
     sim.set_sources(
         [
-            getattr(sources, source)(**s_args, telescope=Telescope(args.d_primary, args.d_secondary)) if
-            'telescope' in inspect.signature(getattr(sources, source)).parameters else
-            getattr(sources, source)(**s_args)
+            getattr(sources, source)(
+                **s_args, telescope=Telescope(args.d_primary, args.d_secondary)
+            )
+            if "telescope" in inspect.signature(getattr(sources, source)).parameters
+            else getattr(sources, source)(**s_args)
             for source, s_args in zip(source_names, source_kwargs)
         ]
     )
@@ -1004,6 +1008,7 @@ def main(args=None):
     t2 = time.time()
     print(f"Simulation took {t2 - t1:.3f} s")
     return nphot
+
 
 if __name__ == "__main__":
     main()

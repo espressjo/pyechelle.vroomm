@@ -1,4 +1,4 @@
-""" Telescope
+"""Telescope
 
 Implementing relevant functions of a telescope.
 
@@ -6,6 +6,7 @@ Note:
     This is kept rather simple for the moment. A possible extension would be to implement specific observatories incl.
     a 'get_efficiency()' function that respects mirror coatings (silver vs. aluminum)
 """
+
 import math
 from dataclasses import dataclass
 

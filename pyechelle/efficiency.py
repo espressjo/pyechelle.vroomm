@@ -69,8 +69,14 @@ class SystemEfficiency(Efficiency):
                 e *= ef.get_efficiency(wavelength)
         return e
 
-    def get_efficiency_per_order(self, wavelength: ArrayLike[float] | u.Quantity["length"], order: int):
-        e = np.ones_like(wavelength.to_value(u.micron) if isinstance(wavelength, u.Quantity) else wavelength)
+    def get_efficiency_per_order(
+        self, wavelength: ArrayLike[float] | u.Quantity["length"], order: int
+    ):  # noqa: F821
+        e = np.ones_like(
+            wavelength.to_value(u.micron)
+            if isinstance(wavelength, u.Quantity)
+            else wavelength
+        )
         for ef in self.efficiencies:
             if ef is not None:
                 e *= ef.get_efficiency_per_order(wavelength, order)
@@ -81,8 +87,14 @@ class SystemEfficiency(Efficiency):
 
 
 class GratingEfficiency(Efficiency):
-    def __init__(self, alpha: float | u.Quantity["Angle"], blaze: float | u.Quantity["Angle"],
-                 gpmm: float | u.Quantity[1 / u.micron], peak_efficiency: float = 1.0, name: str = "Grating"):
+    def __init__(
+        self,
+        alpha: float | u.Quantity["Angle"],
+        blaze: float | u.Quantity["Angle"],  # noqa: F821
+        gpmm: float | u.Quantity[1 / u.micron],
+        peak_efficiency: float = 1.0,
+        name: str = "Grating",
+    ):
         super().__init__(name)
         self.alpha = alpha << u.deg
         self.blaze = blaze << u.deg
@@ -91,18 +103,29 @@ class GratingEfficiency(Efficiency):
         self.gpmm = gpmm << 1 / u.micron
         self.peak_efficiency = peak_efficiency
 
-    def calc_efficiency(self, order: int | float, wl: ArrayLike[float] | u.Quantity["Length"]) -> ArrayLike[float]:
+    def calc_efficiency(
+        self, order: int | float, wl: ArrayLike[float] | u.Quantity["Length"]
+    ) -> ArrayLike[float]:  # noqa: F821
         bb = np.nan_to_num(
-            arcsin(-sin(self.alpha.to_value(u.rad)) + ((order * wl << u.micron) / (1.0 / self.gpmm)).value)
+            arcsin(
+                -sin(self.alpha.to_value(u.rad))
+                + ((order * wl << u.micron) / (1.0 / self.gpmm)).value
+            )
         )
         # blaze_wavelength = 2.*self.gpmm * sin(self.blaze) / order
         # fsr = blaze_wavelength / order
 
         x = (
-                order
-                * (cos(self.alpha.to_value(u.rad)) / cos(self.alpha.to_value(u.rad) - self.blaze.to_value(u.rad)))
-                * (cos(self.blaze.to_value(u.rad)) - sin(self.blaze.to_value(u.rad)) / tan(
-            (self.alpha.to_value(u.rad) + bb) / 2.0))
+            order
+            * (
+                cos(self.alpha.to_value(u.rad))
+                / cos(self.alpha.to_value(u.rad) - self.blaze.to_value(u.rad))
+            )
+            * (
+                cos(self.blaze.to_value(u.rad))
+                - sin(self.blaze.to_value(u.rad))
+                / tan((self.alpha.to_value(u.rad) + bb) / 2.0)
+            )
         )
         sinc = np.sinc(x)
 

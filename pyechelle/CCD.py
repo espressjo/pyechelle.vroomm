@@ -1,10 +1,11 @@
-""" Detector module
+"""Detector module
 
 Implementing handling of CCDs/detectors for PyEchelle. It is recommended to use a dedicated detector simulation
 framework such as pyxel for including CCD effects such as cosmics, CTI or the brighter-fatter effect.
 
 Therefore, this module is kept rather simple.
 """
+
 import logging
 from dataclasses import dataclass, field
 

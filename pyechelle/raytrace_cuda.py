@@ -48,7 +48,7 @@ def raytrace_order_cuda(
     field_shape = spec.get_field_shape(fiber=fiber, ccd_index=ccd_index)
 
     # the kernel name is kernel_cuda_rectangular_Listlike_True
-    kernel_name = f'kernel_cuda_{field_shape}_{("ListLike" if source.list_like else "Continuous")}_True'
+    kernel_name = f"kernel_cuda_{field_shape}_{('ListLike' if source.list_like else 'Continuous')}_True"
     # get kernel function from _kernels.py
     cuda_kernel = getattr(pyechelle._kernels, kernel_name)
 

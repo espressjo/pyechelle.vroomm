@@ -21,7 +21,7 @@ except ImportError:
     pass
 except RuntimeError:
     pass
-except:
+except BaseException:
     pass
 
 from pyechelle.CCD import CCD
@@ -123,9 +123,10 @@ def check_for_spectrograph_model(model_name: str | Path, download=True) -> Path:
                     .parent.joinpath("models")
                     .joinpath(f"{model_name}.hdf")
                 )
-                with urllib.request.urlopen(url) as response, open(
-                    file_path, "wb"
-                ) as out_file:
+                with (
+                    urllib.request.urlopen(url) as response,
+                    open(file_path, "wb") as out_file,
+                ):
                     data = response.read()
                     out_file.write(data)
             else:
@@ -1097,12 +1098,12 @@ class InteractiveZEMAX(Spectrograph):
             "1024x1024",
             "2048x2048",
         ]
-        assert (
-            image_sampling in available_modes
-        ), f"image_sampling must be in {available_modes}"
-        assert (
-            pupil_sampling in available_modes
-        ), f"pupil_sampling must be in {available_modes}"
+        assert image_sampling in available_modes, (
+            f"image_sampling must be in {available_modes}"
+        )
+        assert pupil_sampling in available_modes, (
+            f"pupil_sampling must be in {available_modes}"
+        )
 
         self._psf_setting_sampling_image = image_sampling
         self._psf_setting_sampling_pupil = pupil_sampling
@@ -1259,7 +1260,7 @@ class InteractiveZEMAX(Spectrograph):
         ), (
             f"Your CCD specification of {self._ccd[ccd_index].n_pix_x} pix with {self._ccd[ccd_index].pixelsize} "
             f"micron pixel size "
-            f"(={self._ccd[ccd_index].n_pix_x * self._ccd[ccd_index].pixelsize / 2000.} mm CCD half width) is "
+            f"(={self._ccd[ccd_index].n_pix_x * self._ccd[ccd_index].pixelsize / 2000.0} mm CCD half width) is "
             f"larger than the rectangular aperture in the ZEMAX file ({xw}mm). Please set the aperture in the"
             f" ZEMAX file correctly, or adjust the CCD specifications"
         )
@@ -1269,7 +1270,7 @@ class InteractiveZEMAX(Spectrograph):
         ), (
             f"Your CCD specification of {self._ccd[ccd_index].n_pix_y} pix with {self._ccd[ccd_index].pixelsize} "
             f"micron pixel size "
-            f"(={self._ccd[ccd_index].n_pix_y * self._ccd[ccd_index].pixelsize / 2000.} mm CCD half width) are "
+            f"(={self._ccd[ccd_index].n_pix_y * self._ccd[ccd_index].pixelsize / 2000.0} mm CCD half width) are "
             f"is larger than "
             f"the rectangular aperture in the ZEMAX file ({yw}mm). Please set the aperture in the ZEMAX file "
             f"correctly, or adjust the CCD specifications"
@@ -1369,9 +1370,9 @@ class InteractiveZEMAX(Spectrograph):
         fiber: int = 1,
         ccd_index: int = 1,
     ) -> AffineTransformation | list[AffineTransformation]:
-        assert (
-            ccd_index == 1
-        ), "In the interactive mode, there is only one CCD index supported"
+        assert ccd_index == 1, (
+            "In the interactive mode, there is only one CCD index supported"
+        )
         self._zos_set_current_field(fiber)
         self._zos_set_current_order(order)
 

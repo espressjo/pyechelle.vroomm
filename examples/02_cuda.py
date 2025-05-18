@@ -1,4 +1,4 @@
-""" CUDA example
+"""CUDA example
 ================
 
 By default, PyEchelle uses CUDA if available. You can however also explicitly ask PyEchelle to use CUDA.
@@ -16,13 +16,15 @@ if __name__ == "__main__":
     sim = Simulator(ZEMAX("MaroonX"))
     sim.set_fibers(1)
     sim.set_sources(ConstantFlux())
-    sim.set_exposure_time(1.)
+    sim.set_exposure_time(1.0)
     # Enable cuda and set a specific random seed.
     sim.set_cuda(True, 42)  # raises an Exception if no CUDA device is available
-    sim.set_output('02_cuda.fits', overwrite=True)
+    sim.set_output("02_cuda.fits", overwrite=True)
     sim.run()
 
     from pyechelle.simulator import export_to_html
 
-    export_to_html(sim.spectrograph.get_ccd(1).data,
-                   f'docs/source/_static/plots/example_results/{__file__.split("/")[-1][:-3]}.html')
+    export_to_html(
+        sim.spectrograph.get_ccd(1).data,
+        f"docs/source/_static/plots/example_results/{__file__.split('/')[-1][:-3]}.html",
+    )

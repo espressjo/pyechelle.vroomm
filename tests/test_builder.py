@@ -31,6 +31,7 @@ def test_builder_simple_spectrograph():
 
     pathlib.Path.cwd().joinpath("test.hdf").unlink(missing_ok=True)
 
+
 #
 # def test_builder_full_simulation():
 #     TODO: once random generator seed is implemented we should compare entire simulated spectra to

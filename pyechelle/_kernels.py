@@ -30,11 +30,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -44,13 +42,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -64,7 +62,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -104,11 +101,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -118,13 +113,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -138,7 +133,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -178,11 +172,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -192,13 +184,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -212,7 +204,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -252,11 +243,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -266,13 +255,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -286,7 +275,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -326,11 +314,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -340,13 +326,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -357,12 +343,13 @@ nphotons,
         """Circular transformation"""
         r = math.sqrt(x) / 2.0
         phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -402,11 +389,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -416,13 +401,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -433,12 +418,13 @@ nphotons,
         """Circular transformation"""
         r = math.sqrt(x) / 2.0
         phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -478,11 +464,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -492,13 +476,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -509,12 +493,13 @@ nphotons,
         """Circular transformation"""
         r = math.sqrt(x) / 2.0
         phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -554,11 +539,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -568,13 +551,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -585,12 +568,13 @@ nphotons,
         """Circular transformation"""
         r = math.sqrt(x) / 2.0
         phi = y * math.pi * 2
+        x = r * math.cos(phi) + 0.5
+        y = r * math.sin(phi) + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -630,11 +614,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -644,13 +626,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -674,12 +656,13 @@ nphotons,
         sin_values = math.sin(arg_values)
         x_new = x * cos_values - y * sin_values
         y_new = x * sin_values + y * cos_values
+        x = x_new / 2.0 + 0.5
+        y = y_new / 2.0 + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -719,11 +702,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -733,13 +714,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -763,12 +744,13 @@ nphotons,
         sin_values = math.sin(arg_values)
         x_new = x * cos_values - y * sin_values
         y_new = x * sin_values + y * cos_values
+        x = x_new / 2.0 + 0.5
+        y = y_new / 2.0 + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -808,11 +790,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -822,13 +802,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -852,12 +832,13 @@ nphotons,
         sin_values = math.sin(arg_values)
         x_new = x * cos_values - y * sin_values
         y_new = x * sin_values + y * cos_values
+        x = x_new / 2.0 + 0.5
+        y = y_new / 2.0 + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -897,11 +878,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -911,13 +890,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -941,12 +920,13 @@ nphotons,
         sin_values = math.sin(arg_values)
         x_new = x * cos_values - y * sin_values
         y_new = x * sin_values + y * cos_values
+        x = x_new / 2.0 + 0.5
+        y = y_new / 2.0 + 0.5
         # transform
         xt = m0 * x + m1 * y + m2
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -986,11 +966,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1000,13 +978,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -1037,7 +1015,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1077,11 +1054,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1091,13 +1066,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -1128,7 +1103,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1168,11 +1142,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1182,13 +1154,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -1219,7 +1191,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1259,11 +1230,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1273,13 +1242,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         # do linear interpolation of transformation matrices
         m0, m1, m2, m3, m4, m5 = (
         transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
@@ -1310,7 +1279,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1350,11 +1318,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1364,18 +1330,15 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1415,11 +1378,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1429,18 +1390,15 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1480,11 +1438,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1494,14 +1450,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
+        r = idx_trans_float - idx_trans
         dm2 = transf_deriv[2, idx_trans]
         dm5 = transf_deriv[5, idx_trans]
         xt += r * dm2
@@ -1509,7 +1464,6 @@ nphotons,
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1549,11 +1503,9 @@ nphotons,
 ):
     max_y, max_x = ccd.shape
     # precompute as much as possible
-    n_spectrum = len(spectrum_j)
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(nphotons):
     # sample from spectrum
@@ -1563,14 +1515,13 @@ nphotons,
         if random.random() < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
+        r = idx_trans_float - idx_trans
         dm2 = transf_deriv[2, idx_trans]
         dm5 = transf_deriv[5, idx_trans]
         xt += r * dm2
@@ -1578,7 +1529,6 @@ nphotons,
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         k = int(math.floor(random.random() * len(psfs_j[idx_psf])))
         if not random.random() < psfs_q[idx_psf][k]:
@@ -1617,13 +1567,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -1633,13 +1583,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -1657,7 +1607,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -1706,13 +1655,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -1722,13 +1671,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -1746,7 +1695,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -1795,13 +1743,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -1811,13 +1759,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -1835,7 +1783,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -1884,13 +1831,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -1900,13 +1847,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -1924,7 +1871,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -1973,13 +1919,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -1989,13 +1935,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2016,7 +1962,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2065,13 +2010,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2081,13 +2026,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2108,7 +2053,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2157,13 +2101,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2173,13 +2117,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2200,7 +2144,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2249,13 +2192,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2265,13 +2208,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2292,7 +2235,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2341,13 +2283,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2357,13 +2299,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2397,7 +2339,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2446,13 +2387,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2462,13 +2403,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2502,7 +2443,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2551,13 +2491,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2567,13 +2507,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2607,7 +2547,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2656,13 +2595,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2672,13 +2611,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2712,7 +2651,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2761,13 +2699,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2777,13 +2715,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2817,7 +2755,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2866,13 +2803,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2882,13 +2819,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -2922,7 +2859,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -2971,13 +2907,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -2987,13 +2923,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -3027,7 +2963,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -3076,13 +3011,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -3092,13 +3027,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
+        ## @formatter:off
+        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
         # find index for transformation
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
         r = idx_trans_float - idx_trans
-
-        ## @formatter:off
-        # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
         m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
         dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]
         m0 += r * dm0
@@ -3132,7 +3067,6 @@ nphotons,
         yt = m3 * x + m4 * y + m5
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -3181,13 +3115,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -3197,18 +3131,15 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -3257,13 +3188,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -3273,18 +3204,15 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -3333,13 +3261,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -3349,14 +3277,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
+        r = idx_trans_float - idx_trans
         dm2 = transf_deriv[2, idx_trans]
         dm5 = transf_deriv[5, idx_trans]
         xt += r * dm2
@@ -3364,7 +3291,6 @@ nphotons,
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(
@@ -3413,13 +3339,13 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    thread_id = cuda.grid(1)
     # precompute as much as possible
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
     # sample from spectrum
@@ -3429,14 +3355,13 @@ nphotons,
         if xoroshiro128p_uniform_float64(rng_states, thread_id) < spectrum_q[k]
         else spectrum_wl[spectrum_j[k]]
         )
-        # find index for transformation
+        ## @formatter:off
         idx_trans_float = (wl - trans_wl[0]) // trans_wld
         idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
 
-        ## @formatter:off
         xt = transformations[2, idx_trans]
         yt = transformations[5, idx_trans]
+        r = idx_trans_float - idx_trans
         dm2 = transf_deriv[2, idx_trans]
         dm5 = transf_deriv[5, idx_trans]
         xt += r * dm2
@@ -3444,7 +3369,6 @@ nphotons,
 
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         # next 3 lines implement drawing random number via alias sampling
         k = int(

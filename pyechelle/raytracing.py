@@ -12,6 +12,7 @@ from pyechelle.spectrograph import Spectrograph
 from pyechelle.telescope import Telescope
 import astropy.units as u
 
+
 @numba.njit(cache=True, parallel=False, nogil=True)
 def raytrace(
     spectrum_wl,
@@ -275,7 +276,9 @@ def prepare_raytracing(o, fiber, ccd_index, efficiency, rv, source, spec, telesc
         photon_counts = eff * photon_counts
 
     total_photons = int(np.sum(photon_counts).value)
-    print(f"Order {o:3d}: {wl_range_nm[0]:.2f}nm - {wl_range_nm[1]:.2f}nm, {total_photons} photons")
+    print(
+        f"Order {o:3d}: {wl_range_nm[0]:.2f}nm - {wl_range_nm[1]:.2f}nm, {total_photons} photons"
+    )
 
     if total_photons > 0:
         minwl, maxwl = spec.get_wavelength_range(o, fiber, ccd_index)
@@ -292,7 +295,9 @@ def prepare_raytracing(o, fiber, ccd_index, efficiency, rv, source, spec, telesc
                 for p in spec.get_psf(None, o, fiber, ccd_index)
             ]
         )
-        psfs_wl = np.array([p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)])
+        psfs_wl = np.array(
+            [p.wavelength for p in spec.get_psf(None, o, fiber, ccd_index)]
+        )
         psfs_wld = np.ediff1d(psfs_wl, psfs_wl[-1] - psfs_wl[-2])
         psf_shape = spec.get_psf(None, o, fiber, ccd_index)[0].data.shape
         spectrum_sampler_q, spectrum_sampler_j = make_alias_sampling_arrays(
@@ -303,20 +308,26 @@ def prepare_raytracing(o, fiber, ccd_index, efficiency, rv, source, spec, telesc
             psf_sampler_qj.astype(np.float32),
             np.float32(psf_sampling),
             psf_shape,
-            psfs_wl.to_value(u.micron).astype(np.float32) if isinstance(psfs_wl, u.Quantity) else psfs_wl.astype(
-                np.float32),
-            psfs_wld.to_value(u.micron).astype(np.float32) if isinstance(psfs_wld, u.Quantity) else psfs_wld.astype(
-                np.float32),
+            psfs_wl.to_value(u.micron).astype(np.float32)
+            if isinstance(psfs_wl, u.Quantity)
+            else psfs_wl.astype(np.float32),
+            psfs_wld.to_value(u.micron).astype(np.float32)
+            if isinstance(psfs_wld, u.Quantity)
+            else psfs_wld.astype(np.float32),
             spectrum_sampler_j,
             spectrum_sampler_q.astype(np.float32),
             total_photons,
             trans_deriv.astype(np.float32),
-            trans_wl.to_value(u.micron).astype(np.float32) if isinstance(trans_wl, u.Quantity) else trans_wl.astype(
-                np.float32),
-            trans_wld.to_value(u.micron).astype(np.float32) if isinstance(trans_wld, u.Quantity) else trans_wld.astype(
-                np.float32),
+            trans_wl.to_value(u.micron).astype(np.float32)
+            if isinstance(trans_wl, u.Quantity)
+            else trans_wl.astype(np.float32),
+            trans_wld.to_value(u.micron).astype(np.float32)
+            if isinstance(trans_wld, u.Quantity)
+            else trans_wld.astype(np.float32),
             transformations.astype(np.float32),
-            wavelength.to_value(u.micron) if isinstance(wavelength, u.Quantity) else wavelength,
+            wavelength.to_value(u.micron)
+            if isinstance(wavelength, u.Quantity)
+            else wavelength,
         )
     else:
         return None

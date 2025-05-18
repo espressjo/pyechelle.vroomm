@@ -13,7 +13,7 @@ def test_parse_num_list():
 
 
 def test_export_to_html():
-    path_to_file = pathlib.Path(pathlib.Path.cwd().resolve()).joinpath('test.html')
+    path_to_file = pathlib.Path(pathlib.Path.cwd().resolve()).joinpath("test.html")
     data = np.random.random((200, 200))
     export_to_html(data, path_to_file)
     print(path_to_file.is_file())
@@ -28,10 +28,16 @@ def test_models_exist():
 
     # test download for first model
     check_for_spectrograph_model(available_models[0], True)
-    assert pathlib.Path(simulator.__file__).resolve().parent.joinpath('models').joinpath(
-        f"{available_models[0]}.hdf").is_file()
-    pathlib.Path(simulator.__file__).resolve().parent.joinpath('models').joinpath(f"{available_models[0]}.hdf").unlink(
-        missing_ok=True)
+    assert (
+        pathlib.Path(simulator.__file__)
+        .resolve()
+        .parent.joinpath("models")
+        .joinpath(f"{available_models[0]}.hdf")
+        .is_file()
+    )
+    pathlib.Path(simulator.__file__).resolve().parent.joinpath("models").joinpath(
+        f"{available_models[0]}.hdf"
+    ).unlink(missing_ok=True)
 
 
 def test_check_url_exists():

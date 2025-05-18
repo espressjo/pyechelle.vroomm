@@ -23,13 +23,15 @@ def extract_slit_code(slit_function: CUDADispatcher) -> str:
 
 # all available cuda slits
 available_slits = available_cuda_slits = [
-    f for n, f in vars(pyechelle.slit).items() if isinstance(f, CUDADispatcher) or isinstance(f, CPUDispatcher)
+    f
+    for n, f in vars(pyechelle.slit).items()
+    if isinstance(f, CUDADispatcher) or isinstance(f, CPUDispatcher)
 ]
 
 # write kernels to file
 path = Path(__file__).parent.parent.joinpath("pyechelle/_kernels.py")
 
-file_loader = FileSystemLoader("kernel_templates")
+file_loader = FileSystemLoader("pyechelle/kernel_templates")
 env = Environment(loader=file_loader)
 
 with open(path, "w") as f:
@@ -41,17 +43,20 @@ with open(path, "w") as f:
         for sourcetype in ["ListLike", "Continuous"]:
             for photonnoise in [True, False]:
                 if "singlemode" in slitname:
-                    transformation_code = env.get_template("singlemode_transform.jinja").render(source_type=sourcetype,
-                                                                                                slit_name=slitname)
+                    transformation_code = env.get_template(
+                        "singlemode_transform.jinja"
+                    ).render(source_type=sourcetype, slit_name=slitname)
                 else:
                     slit_code = extract_slit_code(slit)
-                    transformation_code = env.get_template("transformation_template.jinja").render(slit_code=slit_code,
-                                                                                                   slit_name=slitname)
+                    transformation_code = env.get_template(
+                        "transformation_template.jinja"
+                    ).render(slit_code=slit_code, slit_name=slitname)
                 kernel_code = env.get_template("kernel_template.jinja").render(
                     slit_name=slitname,
                     source_type=sourcetype,
                     photonnoise=photonnoise,
-                    transformation_code=transformation_code)
+                    transformation_code=transformation_code,
+                )
 
                 f.write(kernel_code)
                 f.write("\n\n")

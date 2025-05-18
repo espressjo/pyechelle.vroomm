@@ -1,5 +1,10 @@
 ## @formatter:off
 # m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans] + r * transf_deriv[:, idx_trans]
+
+# find index for transformation
+idx_trans_float = (wl - trans_wl[0]) // trans_wld
+idx_trans = int(idx_trans_float)
+r = idx_trans_float - idx_trans
 {% if "cuda" in slit_name -%}
 m0, m1, m2, m3, m4, m5 = transformations[:, idx_trans]
 dm0, dm1, dm2, dm3, dm4, dm5 = transf_deriv[:, idx_trans]

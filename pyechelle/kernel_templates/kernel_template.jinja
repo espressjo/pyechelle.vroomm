@@ -24,16 +24,15 @@ rng_states,
 nphotons,
 ):
     max_y, max_x = ccd.shape
-    {% if "cuda" in slit_name -%}
-        thread_id = cuda.grid(1)
-    {% endif -%}
-
     # precompute as much as possible
+    {% if "cuda" in slit_name -%}
+    thread_id = cuda.grid(1)
     n_spectrum = len(spectrum_j)
+    psf_len = len(psfs_j[0])
+    {% endif -%}
     psf_scale = psf_sampling / pixelsize
     psf_x_half = psf_shape[1] / 2.
     psf_y_half = psf_shape[0] / 2.
-    psf_len = len(psfs_j[0])
 
     {% if "cuda" in slit_name -%}
     for _ in range(thread_id, nphotons, cuda.gridDim.x * cuda.blockDim.x):
@@ -57,15 +56,9 @@ nphotons,
         )
         {% endif -%}
 
-        # find index for transformation
-        idx_trans_float = (wl - trans_wl[0]) // trans_wld
-        idx_trans = int(idx_trans_float)
-        r = idx_trans_float - idx_trans
-
         {{ transformation_code | indent(8) }}
 
         # apply PSF
-
         idx_psf = int((wl - psf_wl[0]) / psf_wld)  # find psf index
         {% if "cuda" in slit_name -%}
         # next 3 lines implement drawing random number via alias sampling

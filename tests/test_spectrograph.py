@@ -1,7 +1,13 @@
 import numpy as np
 
 from pyechelle import simulator
-from pyechelle.spectrograph import LocalDisturber, SimpleSpectrograph, GlobalDisturber, ZEMAX, AtmosphericDispersion
+from pyechelle.spectrograph import (
+    LocalDisturber,
+    SimpleSpectrograph,
+    GlobalDisturber,
+    ZEMAX,
+    AtmosphericDispersion,
+)
 
 
 def test_zemax_spectrograph():
@@ -18,13 +24,13 @@ def test_simple_spectrograph():
         wl = np.linspace(*simple.get_wavelength_range(o, 1, 1), 100)
         transformations = simple.get_transformation(wl, o, 1, 1)
         tx = transformations[4]
-        assert np.min(np.ediff1d(tx)) > 0.
+        assert np.min(np.ediff1d(tx)) > 0.0
 
 
 def test_LocaDisturber():
     spec = ZEMAX(simulator.available_models[0])
     o = spec.get_orders()[0]
-    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.
+    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.0
     aff1 = spec.get_transformation(wl, o, 1, 1)
 
     # test tx
@@ -41,7 +47,7 @@ def test_LocaDisturber():
 def test_GlobalDisturber():
     spec = ZEMAX(simulator.available_models[0])
     o = spec.get_orders()[0]
-    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.
+    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.0
     aff1 = spec.get_transformation(wl, o, 1, 1)
 
     # test tx
@@ -89,8 +95,12 @@ def test_atmospheric_dispersion():
     for ccd in spec.get_ccd():
         for f in spec.get_fibers(ccd):
             for o in spec.get_orders(f, ccd):
-                assert np.any(spec.get_psf(0.5, o, f, ccd).data > 0), 'the returned PSF contains negative values'
-                assert spec.get_field_shape(f, ccd) == 'singlemode', 'the field shape should be singlemode'
+                assert np.any(spec.get_psf(0.5, o, f, ccd).data > 0), (
+                    "the returned PSF contains negative values"
+                )
+                assert spec.get_field_shape(f, ccd) == "singlemode", (
+                    "the field shape should be singlemode"
+                )
                 minwl, maxwl = spec.get_wavelength_range(o, f, ccd)
                 assert spec.get_transformation(minwl, o, f, ccd).ty > 0
                 assert spec.get_transformation(maxwl, o, f, ccd).ty > 0

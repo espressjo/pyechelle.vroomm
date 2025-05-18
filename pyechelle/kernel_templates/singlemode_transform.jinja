@@ -1,7 +1,11 @@
 ## @formatter:off
+idx_trans_float = (wl - trans_wl[0]) // trans_wld
+idx_trans = int(idx_trans_float)
+
 xt = transformations[2, idx_trans]
 yt = transformations[5, idx_trans]
 {% if source_type == "Continuous" -%}
+r = idx_trans_float - idx_trans
 dm2 = transf_deriv[2, idx_trans]
 dm5 = transf_deriv[5, idx_trans]
 xt += r * dm2

@@ -22,10 +22,12 @@ from synphot.models import Empirical1D, GaussianFlux1D
 def test_sources(wl, bw):
     for source_name in available_sources:
         wavelength = np.linspace(wl, wl + bw, 1000, dtype=float)
-        if not (source_name == 'CSVSource'
-                or source_name == 'ArcLamp'
-                or source_name == 'Phoenix'
-                or source_name == 'SynphotSource'):
+        if not (
+            source_name == "CSVSource"
+            or source_name == "ArcLamp"
+            or source_name == "Phoenix"
+            or source_name == "SynphotSource"
+        ):
             t1 = time.time()
             print(f"Test {source_name}... ")
             source = getattr(sources, source_name)()
@@ -59,21 +61,31 @@ def test_resolved_etalon():
     assert sd[1].unit == u.ph
 
     # test creation where the reflectivity of one surface is 95%
-    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, R1=0.95, name='Reflectivity 95%')
+    source = sources.ResolvedEtalon(
+        d=10.0 * u.mm, theta=0.5 * u.deg, R1=0.95, name="Reflectivity 95%"
+    )
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
 
     # test creation where the reflectivity of one surface is 95% and the other 90%
-    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, R1=0.95, R2=0.9, name='Reflectivity 95% and 90%')
+    source = sources.ResolvedEtalon(
+        d=10.0 * u.mm,
+        theta=0.5 * u.deg,
+        R1=0.95,
+        R2=0.9,
+        name="Reflectivity 95% and 90%",
+    )
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
 
     # test where finesse is given
-    source = sources.ResolvedEtalon(d=10. * u.mm, theta=0.5 * u.deg, finesse=100, name='Finesse 100')
+    source = sources.ResolvedEtalon(
+        d=10.0 * u.mm, theta=0.5 * u.deg, finesse=100, name="Finesse 100"
+    )
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
@@ -82,36 +94,51 @@ def test_resolved_etalon():
 
 def test_csv_source():
     # test a continuous source
-    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-                               wavelength_units='micron', flux_units=u.uW / u.AA, list_like=False)
-    assert source.data['wavelength'].values.unit == u.micron
+    source = sources.CSVSource(
+        pathlib.Path(__file__).parent.joinpath("test_data/test_eff.csv"),
+        wavelength_units="micron",
+        flux_units=u.uW / u.AA,
+        list_like=False,
+    )
+    assert source.data["wavelength"].values.unit == u.micron
     sd = source.get_counts(np.linspace(0.5, 0.501, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
 
     # test a line list
-    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_source_listlike.csv'),
-                               flux_units=u.ph / u.s,
-                               wavelength_units='nm', list_like=True)
+    source = sources.CSVSource(
+        pathlib.Path(__file__).parent.joinpath("test_data/test_source_listlike.csv"),
+        flux_units=u.ph / u.s,
+        wavelength_units="nm",
+        list_like=True,
+    )
     sd = source.get_counts(np.linspace(0.5, 0.6, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
 
     # test a continuous source where the flux is given in u.ph/u.s
-    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-                               wavelength_units='micron', flux_units=u.ph / u.s, list_like=False)
-    assert source.data['wavelength'].values.unit == u.micron
+    source = sources.CSVSource(
+        pathlib.Path(__file__).parent.joinpath("test_data/test_eff.csv"),
+        wavelength_units="micron",
+        flux_units=u.ph / u.s,
+        list_like=False,
+    )
+    assert source.data["wavelength"].values.unit == u.micron
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
 
     # test a continuous source where the flux is given in u.ph/u.s/AA
-    source = sources.CSVSource(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-                               wavelength_units='micron', flux_units=u.ph / u.s / u.AA, list_like=False)
-    assert source.data['wavelength'].values.unit == u.micron
+    source = sources.CSVSource(
+        pathlib.Path(__file__).parent.joinpath("test_data/test_eff.csv"),
+        wavelength_units="micron",
+        flux_units=u.ph / u.s / u.AA,
+        list_like=False,
+    )
+    assert source.data["wavelength"].values.unit == u.micron
     sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
@@ -121,8 +148,7 @@ def test_csv_source():
 def test_synphot_source():
     wave = [1000, 2000, 3000, 4000, 5000]  # Angstrom
     flux = [1e-15, -2.3e-16, 1.8e-15, 4.5e-15, 9e-16] * units.FLAM
-    sp = SourceSpectrum(
-        Empirical1D, points=wave, lookup_table=flux, keep_neg=False)
+    sp = SourceSpectrum(Empirical1D, points=wave, lookup_table=flux, keep_neg=False)
     source = sources.SynphotSource(sp)
     sd = source.get_counts(np.linspace(0.3, 0.4, 1000) * u.micron, 1000 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
@@ -135,22 +161,31 @@ def test_source_str():
     hdu = fits.PrimaryHDU()
 
     for i, source_name in enumerate(available_sources):
-        if source_name == 'CSVSource':
-            source = getattr(sources, source_name)(pathlib.Path(__file__).parent.joinpath('test_data/test_eff.csv'),
-                                                   wavelength_units='micron', flux_units=u.uW / u.AA, list_like=False)
-        elif source_name == 'SynphotSource':
-            g_em = SourceSpectrum(GaussianFlux1D,
-                                  total_flux=3.5e-13 * u.erg / (u.cm ** 2 * u.s), mean=3000, fwhm=100)
+        if source_name == "CSVSource":
+            source = getattr(sources, source_name)(
+                pathlib.Path(__file__).parent.joinpath("test_data/test_eff.csv"),
+                wavelength_units="micron",
+                flux_units=u.uW / u.AA,
+                list_like=False,
+            )
+        elif source_name == "SynphotSource":
+            g_em = SourceSpectrum(
+                GaussianFlux1D,
+                total_flux=3.5e-13 * u.erg / (u.cm**2 * u.s),
+                mean=3000,
+                fwhm=100,
+            )
             source = sources.SynphotSource(g_em)
         else:
             source = getattr(sources, source_name)()
 
         assert len(str(source)) > 0
         # also try to write as keyword into a fits header
-        hdu.header.set(f'SOURCE{i}', str(source))
+        hdu.header.set(f"SOURCE{i}", str(source))
 
     hdul = fits.HDUList([hdu])
-    hdul.writeto('test.fits', overwrite=True)
+    hdul.writeto("test.fits", overwrite=True)
+
 
 #
 #

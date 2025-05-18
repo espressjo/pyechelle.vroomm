@@ -4,10 +4,12 @@ from hypothesis import given, strategies as st, settings
 from pyechelle.CCD import CCD
 
 
-@given(st.integers(min_value=1, max_value=1000),
-       st.integers(min_value=1, max_value=1000),
-       st.integers(min_value=0, max_value=1000),
-       st.floats(min_value=0, max_value=10, allow_nan=False))
+@given(
+    st.integers(min_value=1, max_value=1000),
+    st.integers(min_value=1, max_value=1000),
+    st.integers(min_value=0, max_value=1000),
+    st.floats(min_value=0, max_value=10, allow_nan=False),
+)
 @settings(deadline=None)
 def test_ccd(max_x, max_y, bias, read_noise):
     ccd = CCD(n_pix_x=max_x, n_pix_y=max_y)

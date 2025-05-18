@@ -1,8 +1,9 @@
-""" Optics module
+"""Optics module
 
 PyEchelle concept is to describe the optics of an instrument by applying a wavelength dependent affine transformation
  to the input plane and applying a PSF. This module implements the two basic classes that are needed to do so.
 """
+
 from __future__ import annotations
 
 import math
@@ -12,6 +13,7 @@ import numba
 import numpy as np
 from scipy.interpolate import CubicSpline
 import astropy.units as u
+
 
 def correct_phase_jumps(data):
     return (data + np.pi) % (2 * np.pi) - np.pi
@@ -199,7 +201,7 @@ class AffineTransformation:
     shear: float
     tx: float
     ty: float
-    wavelength: float | u.Quantity["length"] | None
+    wavelength: float | u.Quantity["length"] | None  # noqa: F821
 
     def __le__(self, other):
         return self.wavelength <= other.wavelength
@@ -271,9 +273,9 @@ class AffineTransformation:
             "You can only multiply an affine matrix with a tuple of length 2 (x,"
             "y coordinate) "
         )
-        assert (
-            len(other) == 2
-        ), "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
+        assert len(other) == 2, (
+            "You can only multiply an affine matrix with a tuple of length 2  (x,y coordinate)"
+        )
         x_new = (
             self.sx * math.cos(self.rot) * other[0]
             - self.sy * math.sin(self.rot + self.shear) * other[1]
@@ -390,7 +392,7 @@ class PSF:
 
     """
 
-    wavelength: float | u.Quantity["Length"]
+    wavelength: float | u.Quantity["Length"]  # noqa: F821
     data: np.ndarray
     sampling: float
 

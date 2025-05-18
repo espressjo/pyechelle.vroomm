@@ -1,4 +1,4 @@
-""" Slit transformation functions
+"""Slit transformation functions
 
 This module implements various coordinate transformations for implementing different slit shapes such as circular,
 octagonal etc.
@@ -36,6 +36,7 @@ A special case is the 'singlemode' slit, since here, no transformation is requir
     plt.show()
 
 """
+
 import math
 import random
 
@@ -55,7 +56,9 @@ def circular(x, y):
     """Circular transformation"""
     r = math.sqrt(x) / 2.0
     phi = y * math.pi * 2
-    return r * math.cos(phi) + 0.5, r * math.sin(phi) + 0.5
+    x = r * math.cos(phi) + 0.5
+    y = r * math.sin(phi) + 0.5
+    return x, y
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
@@ -76,7 +79,9 @@ def octagonal(x, y):
     sin_values = math.sin(arg_values)
     x_new = x * cos_values - y * sin_values
     y_new = x * sin_values + y * cos_values
-    return x_new / 2.0 + 0.5, y_new / 2.0 + 0.5
+    x = x_new / 2.0 + 0.5
+    y = y_new / 2.0 + 0.5
+    return x, y
 
 
 @njit(UniTuple(float64, 2)(float64, float64))
@@ -108,6 +113,7 @@ def singlemode(x, y):
     x = 0
     y = 0
     return x, y
+
 
 @cuda.jit(inline=True, device=True)
 def cuda_rectangular(x, y, rng_states, thread_id):

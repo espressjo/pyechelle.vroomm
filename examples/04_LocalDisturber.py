@@ -16,14 +16,16 @@ if __name__ == "__main__":
     spec = LocalDisturber(ZEMAX("MaroonX"), d_rot=0.01)
     sim = Simulator(spec)
     sim.set_fibers(1)
-    sim.set_sources(IdealEtalon(d=10.))
-    sim.set_exposure_time(10.)
-    sim.set_output(f'04_LocalDisturber.fits', overwrite=True)
+    sim.set_sources(IdealEtalon(d=10.0))
+    sim.set_exposure_time(10.0)
+    sim.set_output("04_LocalDisturber.fits", overwrite=True)
     sim.set_cuda(True)
 
     sim.run()
 
     from pyechelle.simulator import export_to_html
 
-    export_to_html(sim.spectrograph.get_ccd(1).data,
-                   f'docs/source/_static/plots/example_results/{__file__.split("/")[-1][:-3]}.html')
+    export_to_html(
+        sim.spectrograph.get_ccd(1).data,
+        f"docs/source/_static/plots/example_results/{__file__.split('/')[-1][:-3]}.html",
+    )

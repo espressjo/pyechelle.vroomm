@@ -1,95 +1,108 @@
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  UV_LINK_MODE: copy
-
-cache:
-  paths:
-    - .cache/pip
-    - .venv/
-    - ~/.cache/uv/  # Cache uv installations between runs
-
 stages:
+  - setup
   - testing
   - building
-  - deploying
 
-# templates
-.install-deps-template: &install-deps
-  before_script:
-    - pip install uv
-    - uv venv
-    - source .venv/bin/activate
-    # Install the package and all dependencies (including dev dependencies)
-    - uv pip install -e .
-    - uv sync --group dev
+variables:
+  BASE_LAYER: bookworm-slim
+  UV_LINK_MODE: copy
+  CACHE_PATH: "$CI_PROJECT_DIR/.cache"
+  UV_CACHE_DIR: "$CACHE_PATH/uv"
+  PIP_CACHE_DIR: "$CACHE_PATH/pip"
+  PYTHON_DEFAULT: "3.11"
 
-.test-template: &test
-  <<: *install-deps
+uv-install:
+  stage: setup
+  image: ghcr.io/astral-sh/uv:python$PYTHON_VERSION-$BASE_LAYER
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - UV_CACHE_DIR
+  script:
+    # YOUR UV COMMANDS
+    - export UV_PROJECT_ENVIRONMENT=venv$PYTHON_VERSION
+    - uv sync --python $PYTHON_VERSION
+    - uv cache prune --ci
+  parallel:
+    matrix:
+      - PYTHON_VERSION: [ "3.11", "3.12" ]
+
+test-python:
   stage: testing
+  needs:
+    - uv-install
   coverage: '/TOTAL.*\s+(\d+\%)/'
-  script: pytest --cov --cov-report html --cov-report term
+  script:
+    - uv run pytest --cov --cov-report html --cov-report term
   artifacts:
     paths:
       - tests/coverage
     when: always
     expire_in: 1 month
-
-test:
-  <<: *test
-  image: python:$PYTHON_VERSION
-  only:
-    - master
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
   parallel:
     matrix:
-      - PYTHON_VERSION: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+      - PYTHON_VERSION: [ "3.11", "3.12" ]
 
-#lint:
-#  <<: *install-deps
-#  stage: testing
-#  image: python:3.12
-#  script:
-#    - ruff check .
-#  needs: []
+lint:
+  stage: testing
+  needs:
+    - uv-install
+  script:
+    - uvx ruff check .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
 
 pages:
-  <<: *install-deps
-  image: python:3.9
   stage: building
+  needs:
+    - uv-install
   script:
-    - cd docs ; make html
+    - cd docs ; uv run make html
     - mv build/html/ ../public/
   artifacts:
     paths:
       - public
+      - $UV_CACHE_DIR
+      - venv$PYTHON_DEFAULT
+    expire_in: 3 months
   only:
     - master
-
+#
 build:
-  <<: *install-deps
-  image: python:3.9
   stage: building
+  needs:
+    - uv-install
   script:
-    - uv pip install build
-    - python -m build
+    - uv build
   artifacts:
     paths:
       - dist/*.whl
       - dist/*.tar.gz
-  only:
-    - master
-    - tags
-
-deploy:
-  stage: deploying
-  image: python:3.9
-  needs:
-    - build
-  before_script:
-    - pip install uv twine
-  script:
-    - twine upload --repository pypi dist/*
-  only:
-    - tags
-  environment:
-    name: pypi
-    url: https://pypi.org/project/pyechelle/
+      - venv/$PYTHON_DEFAULT
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_TAG
+#
+#deploy:
+#  stage: deploying
+#  needs:
+#    - build
+#  script:
+#    - uv tool run twine upload --repository pypi dist/*
+#  only:
+#    - tags
+#  environment:
+#    name: pypi
+#    url: https://pypi.org/project/pyechelle/
+#  id_tokens:
+#    PYPI_TOKEN:
+#      aud: https://pypi.org

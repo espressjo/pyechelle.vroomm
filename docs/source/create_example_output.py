@@ -30,7 +30,7 @@ Examples - python scripts
 =========================
 """
 
-for script in sorted(list(Path('examples').glob('*.py'))):
+for script in sorted(list(Path("examples").glob("*.py"))):
     if "__init__" not in str(script):
         subprocess.call(f"python {script}", shell=True)
         fits_path = Path(f"{Path(f'{script}').stem}.fits")
