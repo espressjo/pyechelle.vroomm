@@ -274,16 +274,16 @@ class Spectrograph:
 
     def get_spot_positions(
         self,
-        wavelengths: ArrayLike[float],
+        wavelengths: float | ArrayLike[float],
         order: int,
         fiber: int = 1,
         ccd_index: int = 1,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Get spot positions for given wavelengths
+    ) -> tuple[float, float] | tuple[np.ndarray, np.ndarray]:
+        """Get spot position(s) for given wavelength(s)
 
         This function returns an estimate of the spot positions on the CCD for given wavelengths.
         Note: This is an estimate only. There is no way to calculate the exact spot position a priori. However,
-        this function might be useful to e.g. generate a good initial guess for the wavelength calibration.
+        this function might be useful to e.g., generate a good initial guess for the wavelength calibration.
 
         Args:
             wavelengths: wavelengths [micron]
@@ -295,7 +295,8 @@ class Spectrograph:
             spot positions in x and y direction
         """
         x, y = [], []
-        for wl in wavelengths:
+        wls = [wavelengths] if np.isscalar(wavelengths) else wavelengths
+        for wl in wls:
             # get transformation matrices and multiply with center of field
             m = self.get_transformation(wl, order, fiber, ccd_index)
             xx, yy = m * (0.5, 0.5)
@@ -310,6 +311,8 @@ class Spectrograph:
             )
             x.append(xx + dx_psf - 0.5)
             y.append(yy + dy_psf - 0.5)
+        if np.isscalar(wavelengths):
+            return float(x[0]), float(y[0])
         return np.array(x), np.array(y)
 
     def __eq__(self, other: Spectrograph):
@@ -408,7 +411,7 @@ class SimpleSpectrograph(Spectrograph):
         fiber: int = 1,
         ccd_index: int = 1,
     ) -> AffineTransformation | list[AffineTransformation]:
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             return AffineTransformation(
                 0.0,
                 1.0,
@@ -604,7 +607,7 @@ class AtmosphericDispersion(Spectrograph):
         fiber: int = 1,
         ccd_index: int = 1,
     ) -> AffineTransformation | list[AffineTransformation]:
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             return AffineTransformation(
                 0.0,
                 1.0,
@@ -1379,7 +1382,7 @@ class InteractiveZEMAX(Spectrograph):
         self.logger.debug(
             f"Get transformation matrix for {wavelength=}, {order=}, {fiber=}"
         )
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             single_wavelength = True
             wavelength = [wavelength]
         else:
@@ -1446,7 +1449,7 @@ class InteractiveZEMAX(Spectrograph):
         self.logger.debug(f"Retrieve PSF at {wavelength=},{order=}, {fiber=}")
         self._zos_set_current_field(fiber)
         self._zos_set_current_order(order)
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             self._oss.SystemData.Wavelengths.GetWavelength(1).Wavelength = wavelength
             psf_data = zospy.analyses.psf.huygens_psf(
                 self._oss,
@@ -1546,7 +1549,7 @@ class LocalDisturber(Spectrograph):
         fiber: int = 1,
         ccd_index: int = 1,
     ) -> AffineTransformation | np.ndarray:
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             return (
                 self.spec.get_transformation(wavelength, order, fiber, ccd_index)
                 + self.disturber_matrix
@@ -1600,7 +1603,7 @@ class GlobalDisturber(Spectrograph):
         self.ref_y = reference_y
 
     def _get_transformation_matrix(self, dx, dy, wavelength):
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             return AffineTransformation(0.0, 1.0, 1.0, 0.0, dx, dy, wavelength)
         else:
             assert isinstance(wavelength, np.ndarray) or isinstance(wavelength, list)
@@ -1617,7 +1620,7 @@ class GlobalDisturber(Spectrograph):
             )
 
     def _get_disturbance_matrix(self, wavelength):
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             return AffineTransformation(
                 self.disturber_matrix.rot,
                 self.disturber_matrix.sx,
@@ -1658,7 +1661,7 @@ class GlobalDisturber(Spectrograph):
         if self.ref_y is not None:
             h = self.ref_y
 
-        if isinstance(wavelength, float):
+        if np.isscalar(wavelength):
             tm = self.spec.get_transformation(wavelength, order, fiber, ccd_index)
             xy = tm.tx, tm.ty
             # affine transformation to shift origin to center of image

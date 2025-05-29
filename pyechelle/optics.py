@@ -340,7 +340,7 @@ class TransformationSet:
                 CubicSpline(self.wl, self.tx),
                 CubicSpline(self.wl, self.ty),
             ]
-        if isinstance(wl, float):
+        if np.isscalar(wl):
             return AffineTransformation(*[af(wl) for af in self._spline_affine], wl)
         else:
             return np.array([af(wl) for af in self._spline_affine])
