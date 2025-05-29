@@ -12,12 +12,9 @@ import pyechelle.slit
 
 def extract_slit_code(slit_function: CUDADispatcher) -> str:
     source_code = inspect.getsource(slit_function)
-    # remove first two lines
-    source_code = source_code.split("\n")[2:]
-    # remove last line
-    source_code = source_code[:-2]
-    # remove indentation
-    source_code = inspect.cleandoc("\n".join(source_code))
+    source_code = source_code.split("\n")[2:]  # remove the decorator and the function definition line
+    source_code = source_code[:-2]  # remove the last two lines
+    source_code = inspect.cleandoc("\n".join(source_code))  # clean up indentation and whitespace
     return source_code
 
 
@@ -28,35 +25,36 @@ available_slits = available_cuda_slits = [
     if isinstance(f, CUDADispatcher) or isinstance(f, CPUDispatcher)
 ]
 
-# write kernels to file
-path = Path(__file__).parent.parent.joinpath("pyechelle/_kernels.py")
+if __name__ == "__main__":
+    # write kernels to file
+    path = Path(__file__).parent.parent.joinpath("pyechelle/_kernels.py")
 
-file_loader = FileSystemLoader("pyechelle/kernel_templates")
-env = Environment(loader=file_loader)
+    file_loader = FileSystemLoader("pyechelle/kernel_templates")
+    env = Environment(loader=file_loader)
 
-with open(path, "w") as f:
-    import_template = env.get_template("import_template.jinja")
-    f.write(import_template.render())
-    f.write("\n\n")
-    for slit in available_slits:
-        slitname = slit.func_code.co_name
-        for sourcetype in ["ListLike", "Continuous"]:
-            for photonnoise in [True, False]:
-                if "singlemode" in slitname:
-                    transformation_code = env.get_template(
-                        "singlemode_transform.jinja"
-                    ).render(source_type=sourcetype, slit_name=slitname)
-                else:
-                    slit_code = extract_slit_code(slit)
-                    transformation_code = env.get_template(
-                        "transformation_template.jinja"
-                    ).render(slit_code=slit_code, slit_name=slitname)
-                kernel_code = env.get_template("kernel_template.jinja").render(
-                    slit_name=slitname,
-                    source_type=sourcetype,
-                    photonnoise=photonnoise,
-                    transformation_code=transformation_code,
-                )
+    with open(path, "w") as f:
+        import_template = env.get_template("import_template.jinja")
+        f.write(import_template.render())
+        f.write("\n\n")
+        for slit in available_slits:
+            slitname = slit.func_code.co_name
+            for sourcetype in ["ListLike", "Continuous"]:
+                for photonnoise in [True, False]:
+                    if "singlemode" in slitname:
+                        transformation_code = env.get_template(
+                            "singlemode_transform.jinja"
+                        ).render(source_type=sourcetype, slit_name=slitname)
+                    else:
+                        slit_code = extract_slit_code(slit)
+                        transformation_code = env.get_template(
+                            "transformation_template.jinja"
+                        ).render(slit_code=slit_code, slit_name=slitname)
+                    kernel_code = env.get_template("kernel_template.jinja").render(
+                        slit_name=slitname,
+                        source_type=sourcetype,
+                        photonnoise=photonnoise,
+                        transformation_code=transformation_code,
+                    )
 
-                f.write(kernel_code)
-                f.write("\n\n")
+                    f.write(kernel_code)
+                    f.write("\n\n")

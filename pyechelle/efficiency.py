@@ -70,8 +70,8 @@ class SystemEfficiency(Efficiency):
         return e
 
     def get_efficiency_per_order(
-        self, wavelength: ArrayLike[float] | u.Quantity["length"], order: int
-    ):  # noqa: F821
+        self, wavelength: ArrayLike[float] | u.Quantity["length"], order: int # noqa: F821
+    ):
         e = np.ones_like(
             wavelength.to_value(u.micron)
             if isinstance(wavelength, u.Quantity)
@@ -89,7 +89,7 @@ class SystemEfficiency(Efficiency):
 class GratingEfficiency(Efficiency):
     def __init__(
         self,
-        alpha: float | u.Quantity["Angle"],
+        alpha: float | u.Quantity["Angle"], # noqa: F821
         blaze: float | u.Quantity["Angle"],  # noqa: F821
         gpmm: float | u.Quantity[1 / u.micron],
         peak_efficiency: float = 1.0,
@@ -104,8 +104,8 @@ class GratingEfficiency(Efficiency):
         self.peak_efficiency = peak_efficiency
 
     def calc_efficiency(
-        self, order: int | float, wl: ArrayLike[float] | u.Quantity["Length"]
-    ) -> ArrayLike[float]:  # noqa: F821
+        self, order: int | float, wl: ArrayLike[float] | u.Quantity["Length"] # noqa: F821
+    ) -> ArrayLike[float]:
         bb = np.nan_to_num(
             arcsin(
                 -sin(self.alpha.to_value(u.rad))

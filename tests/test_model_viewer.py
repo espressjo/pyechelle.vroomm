@@ -1,6 +1,6 @@
 import pytest
 
-from pyechelle import model_viewer, simulator, spectrograph
+from pyechelle import model_viewer, spectrograph
 
 
 def test_model_viewer(zemax_spectrograph):

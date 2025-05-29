@@ -2,6 +2,7 @@ stages:
   - setup
   - testing
   - building
+  - deploying
 
 variables:
   BASE_LAYER: bookworm-slim
@@ -9,100 +10,103 @@ variables:
   CACHE_PATH: "$CI_PROJECT_DIR/.cache"
   UV_CACHE_DIR: "$CACHE_PATH/uv"
   PIP_CACHE_DIR: "$CACHE_PATH/pip"
-  PYTHON_DEFAULT: "3.11"
+
+.uv-matrix: &uv-matrix
+  parallel:
+    matrix:
+      - PYTHON_VERSION: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
 
 uv-install:
   stage: setup
   image: ghcr.io/astral-sh/uv:python$PYTHON_VERSION-$BASE_LAYER
+  <<: *uv-matrix
   cache:
     - key:
         files:
           - uv.lock
       paths:
-        - UV_CACHE_DIR
+        - $UV_CACHE_DIR
   script:
-    # YOUR UV COMMANDS
     - export UV_PROJECT_ENVIRONMENT=venv$PYTHON_VERSION
     - uv sync --python $PYTHON_VERSION
     - uv cache prune --ci
-  parallel:
-    matrix:
-      - PYTHON_VERSION: [ "3.11", "3.12" ]
+  artifacts:
+    paths:
+      - venv$PYTHON_VERSION
+    expire_in: 1 week
 
 test-python:
   stage: testing
+  image: ghcr.io/astral-sh/uv:python$PYTHON_VERSION-$BASE_LAYER
+  <<: *uv-matrix
   needs:
-    - uv-install
-  coverage: '/TOTAL.*\s+(\d+\%)/'
+    - job: uv-install
+      artifacts: true
   script:
-    - uv run pytest --cov --cov-report html --cov-report term
+    - export UV_PROJECT_ENVIRONMENT=venv$PYTHON_VERSION
+    - uv run pytest --cov --cov-report=html --cov-report=term
+  coverage: '/TOTAL.*\s+(\d+\%)/'
   artifacts:
     paths:
-      - tests/coverage
-    when: always
+      - htmlcov/
     expire_in: 1 month
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_COMMIT_TAG
-  parallel:
-    matrix:
-      - PYTHON_VERSION: [ "3.11", "3.12" ]
 
 lint:
   stage: testing
+  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
   needs:
-    - uv-install
+    - job: uv-install
+      artifacts: true
   script:
     - uvx ruff check .
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_COMMIT_TAG
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_TAG'
 
-pages:
-  stage: building
-  needs:
-    - uv-install
-  script:
-    - cd docs ; uv run make html
-    - mv build/html/ ../public/
-  artifacts:
-    paths:
-      - public
-      - $UV_CACHE_DIR
-      - venv$PYTHON_DEFAULT
-    expire_in: 3 months
-  only:
-    - master
-#
 build:
   stage: building
+  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
   needs:
-    - uv-install
+    - job: uv-install
+      artifacts: true
   script:
     - uv build
   artifacts:
     paths:
       - dist/*.whl
       - dist/*.tar.gz
-      - venv/$PYTHON_DEFAULT
     expire_in: 1 week
   rules:
-    - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_COMMIT_TAG
-#
-#deploy:
-#  stage: deploying
-#  needs:
-#    - build
-#  script:
-#    - uv tool run twine upload --repository pypi dist/*
-#  only:
-#    - tags
-#  environment:
-#    name: pypi
-#    url: https://pypi.org/project/pyechelle/
-#  id_tokens:
-#    PYPI_TOKEN:
-#      aud: https://pypi.org
+
+pages:
+  stage: building
+  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
+  needs:
+    - job: uv-install
+      artifacts: true
+  script:
+    - cd docs
+    - uv run make html
+    - mv build/html ../public
+  artifacts:
+    paths:
+      - public
+    expire_in: 3 months
+  only:
+    - master
+
+deploy:
+  stage: deploying
+  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
+  needs:
+    - build
+  script:
+    - uv run -- python -m twine upload dist/* --non-interactive
+  rules:
+    - if: $CI_COMMIT_TAG
+  environment:
+    name: pypi
+    url: https://pypi.org/project/pyechelle/
+  id_tokens:
+    PYPI_TOKEN:
+      aud: https://pypi.org
