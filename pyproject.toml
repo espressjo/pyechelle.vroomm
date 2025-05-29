@@ -48,6 +48,7 @@ dev = [
     "setuptools<69.0.0,>=68.2.2",
     "pytest-timeout<3.0.0,>=2.2.0",
     "ruff<1.0.0,>=0.2.1",
+    "twine>=6.1.0",
 ]
 
 [tool.uv.build-backend]
