@@ -10,6 +10,7 @@ variables:
   CACHE_PATH: "$CI_PROJECT_DIR/.cache"
   UV_CACHE_DIR: "$CACHE_PATH/uv"
   PIP_CACHE_DIR: "$CACHE_PATH/pip"
+  UV_PROJECT_ENVIRONMENT: ".venv"  # consistent across jobs
 
 .uv-matrix: &uv-matrix
   parallel:
@@ -27,12 +28,11 @@ uv-install:
       paths:
         - $UV_CACHE_DIR
   script:
-    - export UV_PROJECT_ENVIRONMENT=venv$PYTHON_VERSION
     - uv sync --python $PYTHON_VERSION
     - uv cache prune --ci
   artifacts:
     paths:
-      - venv$PYTHON_VERSION
+      - .venv
     expire_in: 1 week
 
 test-python:
@@ -43,8 +43,8 @@ test-python:
     - job: uv-install
       artifacts: true
   script:
-    - export UV_PROJECT_ENVIRONMENT=venv$PYTHON_VERSION
     - uv run pytest --cov --cov-report=html --cov-report=term
+    - ls -la htmlcov/ || echo "htmlcov directory not found"
   coverage: '/TOTAL.*\s+(\d+\%)/'
   artifacts:
     paths:
@@ -85,6 +85,7 @@ pages:
     - job: uv-install
       artifacts: true
   script:
+    - apt-get update && apt-get install -y make
     - cd docs
     - uv run make html
     - mv build/html ../public
