@@ -25,7 +25,6 @@ from pyechelle.sources import Phoenix
 from pyechelle.spectrograph import ZEMAX
 
 sim = Simulator(ZEMAX("MaroonX"))
-sim.set_ccd(1)
 sim.set_fibers([2, 3, 4])
 sim.set_sources(Phoenix(t_eff=3500))
 sim.set_exposure_time(10.)

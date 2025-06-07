@@ -56,6 +56,12 @@ dev = [
 source-include = [
     "models/available_models.txt",
 ]
+source-exclude = [
+    ".cache",
+    ".cache/*",
+    "*/.cache",
+    "*/.cache/*"
+]
 module-root = ""
 
 [tool.pytest.ini_options]

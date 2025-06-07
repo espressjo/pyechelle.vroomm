@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2025-05-09
+## [0.4.0] - 2025-06-07
 
 This release brings a bunch of refactoring and new features - unfortunately also breaking changes.
 The numba CPU and CUDA kernels have been further optimized, which should lead to a speed improvement of up to 50%.
@@ -30,6 +30,7 @@ Also, the sources module has been reworked and should now handle physical units 
 - The source module and other parts of the code now accept, where applicable, input parameters with astropy units to
   avoid conversion errors.
 - set_ccd(1) is now the default for the `Simulator` class so it is not necessary to call it explicitly anymore.
+- switched to ASDCache for spectra that require NIST queries (e.g. ThAr, ThNe, ThXe)
 
 ### Fixed
 

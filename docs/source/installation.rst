@@ -22,14 +22,14 @@ Install from source
     git clone https://gitlab.com/Stuermer/pyechelle.git
 
 
-After that, the easiest way to install the package is to first install `Poetry <https://python-poetry.org/>`_ and use it inside the pyechelle directory to
+After that, the easiest way to install the package is to first install `uv <https://github.com/astral-sh/uv/>`_ and use it inside the pyechelle directory to
 automatically install the dependencies of PyEchelle:
 
 .. code-block:: bash
 
-    poetry install
+    uv sync
 
 
 Alternatively, you have to install the dependencies that are listed in pyproject.toml
-under **[tool.poetry.dependencies]** manually.
+under **[project]** manually.
 
