@@ -56,11 +56,6 @@ import synphot.units
 from joblib import Memory
 from numpy.typing import ArrayLike
 
-try:
-    from astroquery.nist import Nist
-except ImportError:
-    Nist = None
-
 path = pathlib.Path(__file__).parent.resolve()
 cache_path = path.joinpath(".cache")
 # create data directory if it doesn't exist:
@@ -68,12 +63,10 @@ pathlib.Path(cache_path).mkdir(parents=False, exist_ok=True)
 memory = Memory(cache_path, verbose=0)
 
 
-@memory.cache
 def pull_catalogue_lines(
     min_wl: float | u.Quantity["length"],
     max_wl: float | u.Quantity["length"],
     catalogue: str = "Th",
-    wavelength_type: str = "vacuum",
 ) -> tuple[u.Quantity[u.micron], np.ndarray]:
     """Reads NIST catalogue lines between min_wl and max_wl of catalogue.
 
@@ -81,42 +74,42 @@ def pull_catalogue_lines(
         min_wl: minimum wavelength bound [micron] or Quantity with length units
         max_wl: maximum wavelength bound [micron] or Quantity with length units
         catalogue: abbreviation of element, e.g. 'Th', 'Ar', etc.
-        wavelength_type: either 'var+air' or 'vacuum'
 
     Returns:
-        line catalogue wavelength and relative intensities. wavelength is in [micron] and dimensionless relative
+        line catalogue wavelength and relative intensities. Wavelength is in [micron] and dimensionless relative
         intensities.
 
     """
-    try:
-        min_wl = min_wl << u.micron
-        max_wl = max_wl << u.micron
-        table_lines = Nist.query(
-            min_wl,
-            max_wl,
-            linename=catalogue,
-            output_order="wavelength",
-            wavelength_type=wavelength_type,
-        )[["Ritz", "Rel."]]
-        # replace non-numeric numbers from Rel. column
-        df = table_lines.filled(0).to_pandas()
-        df["Rel."] = df["Rel."].str.replace(r"[^0-9.]", "", regex=True)
-        df["Rel."] = pd.to_numeric(df["Rel."], downcast="float", errors="coerce")
-        df["Ritz"] = pd.to_numeric(df["Ritz"], downcast="float", errors="coerce")
-        df.dropna(inplace=True)
-        idx = np.logical_and(df["Rel."] > 0, df["Ritz"] > 0)
-        # for some reason, SOMETIMES the Ritz column is not in microns, but in Angstroms. So we need to fix this if this is the case
-        # this should not be the case, since Nist.query should return the same unit as the input of min_wl and max_wl.
-        if (df["Ritz"].values[idx] > max_wl.value).any():
-            df["Ritz"] = df["Ritz"] / 10000.0
-        return df["Ritz"].values[idx] << u.micron, df["Rel."].values[idx]
+    from ASDCache import SpectraCache
 
+    # ASDCache needs wavelengths in nm, so we convert min_wl and max_wl to nm, but we keep the input as microns, since
+    # the rest of pyechelle works with microns.
+    # first check if min_wl and max_wl are Quantities, if not, convert them to Quantity and then to nm
+    min_wl = min_wl << u.micron
+    max_wl = max_wl << u.micron
+
+    try:
+        nist = SpectraCache()
+        linelist = nist.fetch(
+            catalogue, wl_range=(min_wl.to("nm").value, max_wl.to("nm").value)
+        )
+
+        # Keep only relevant columns
+        linelist = linelist[["obs_wl_vac(nm)", "ritz_wl_vac(nm)", "intens"]]
+        # Create 'wavelength' column using 'ritz_wl_vac(nm)' as the primary value
+        linelist["wavelength"] = linelist["ritz_wl_vac(nm)"].combine_first(
+            linelist["obs_wl_vac(nm)"]
+        )
+        # Sort by 'wavelength' and reset index
+        linelist = linelist.sort_values("wavelength").reset_index(drop=True)
     except Exception as e:
         print(e)
         print(
             f"Warning: Couldn't retrieve {catalogue} catalogue data between {min_wl} and {max_wl} micron"
         )
         return np.array([]) << u.micron, np.array([])
+    # ASDCache returns wavelengths in nm, so we need to convert them to microns
+    return linelist["wavelength"].values / 1000.0 << u.micron, linelist["intens"].values
 
 
 class Source:
@@ -730,6 +723,9 @@ class ArcLamp(Source):
             name: Name of the source.
         """
         super().__init__(name, list_like=True)
+        # Check if elements is a single string and convert it to a list
+        if isinstance(elements, str):
+            elements = [elements]
         if isinstance(scaling_factors, numbers.Number):
             scaling_factors = [scaling_factors] * len(elements)
         assert len(elements) == len(scaling_factors), (

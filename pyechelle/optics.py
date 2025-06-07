@@ -87,7 +87,7 @@ def _center_and_normalize_points(points):
         axis=0,
     )
 
-    points_h = np.row_stack([points.T, np.ones(n)])
+    points_h = np.vstack([points.T, np.ones(n)])
 
     new_points_h = (matrix @ points_h).T
 

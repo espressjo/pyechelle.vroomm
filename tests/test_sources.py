@@ -37,11 +37,17 @@ def test_sources(wl, bw):
 
 
 def test_arclamp():
-    source = sources.ArcLamp()
-    sd = source.get_counts(np.linspace(0.5, 0.7, 1000) * u.micron, 1 * u.s)
+    source = sources.ArcLamp("Th")
+    sd = source.get_counts(np.linspace(0.5, 0.505, 1000) * u.micron, 1 * u.s)
     assert isinstance(sd, np.ndarray) or isinstance(sd, tuple)
     assert sd[0].unit == u.micron
     assert sd[1].unit == u.ph
+    # check that e.g. line 504.574851 is in the output (a Ritz vacuum wavelength of Th)
+    assert np.isclose(
+        sd[0][np.argmin(np.abs(sd[0] - 504.574851 * u.nm))].to("nm").value, 504.574851
+    )
+    # check that the flux is not negative
+    assert np.all(sd[1] >= 0 * u.ph)
 
 
 def test_phoenix():
@@ -157,7 +163,7 @@ def test_synphot_source():
 
 
 def test_source_str():
-    # generate temporary fits file
+    # generate a temporary fits file
     hdu = fits.PrimaryHDU()
 
     for i, source_name in enumerate(available_sources):

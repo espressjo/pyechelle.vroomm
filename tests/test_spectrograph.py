@@ -1,98 +1,98 @@
 import numpy as np
+import pytest
 
-from pyechelle import simulator
 from pyechelle.spectrograph import (
     LocalDisturber,
     SimpleSpectrograph,
     GlobalDisturber,
-    ZEMAX,
     AtmosphericDispersion,
 )
 
 
-def test_zemax_spectrograph():
+@pytest.mark.xdist_group("exclusive")
+def test_zemax_spectrograph(MAROONX):
     # get spectrograph if not available
-    spec = ZEMAX(simulator.available_models[0])
-    for o in spec.get_orders():
-        min_wl, max_wl = spec.get_wavelength_range(order=o)
+    for o in MAROONX.get_orders():
+        min_wl, max_wl = MAROONX.get_wavelength_range(order=o)
         assert min_wl < max_wl
 
 
-def test_simple_spectrograph():
-    simple = SimpleSpectrograph()
-    for o in simple.get_orders(1, 1):
-        wl = np.linspace(*simple.get_wavelength_range(o, 1, 1), 100)
-        transformations = simple.get_transformation(wl, o, 1, 1)
+def test_simple_spectrograph(simple_spectrograph):
+    for o in simple_spectrograph.get_orders(1, 1):
+        wl = np.linspace(*simple_spectrograph.get_wavelength_range(o, 1, 1), 100)
+        transformations = simple_spectrograph.get_transformation(wl, o, 1, 1)
         tx = transformations[4]
         assert np.min(np.ediff1d(tx)) > 0.0
 
-def test_get_spot_positions():
-    simple = SimpleSpectrograph()
-    for o in simple.get_orders(1, 1):
-        wl = np.linspace(*simple.get_wavelength_range(o, 1, 1), 10)
-        spot_positions = simple.get_spot_positions(wl, o, 1, 1)
+
+def test_get_spot_positions(simple_spectrograph):
+    for o in simple_spectrograph.get_orders(1, 1):
+        wl = np.linspace(*simple_spectrograph.get_wavelength_range(o, 1, 1), 10)
+        spot_positions = simple_spectrograph.get_spot_positions(wl, o, 1, 1)
         # check that the result is a tuple with two arrays each 10 entries long
         assert isinstance(spot_positions, tuple), "Spot positions should be a tuple"
         assert len(spot_positions) == 2, "Spot positions should contain two arrays"
         assert spot_positions[0].shape == (10,), "X positions should have shape (N,)"
         assert spot_positions[1].shape == (10,), "Y positions should have shape (N,)"
 
-
     # also test for single wavelength
-    o = simple.get_orders(1, 1)[0]
-    wl_single = simple.get_wavelength_range(o, 1, 1)[0]
-    spot_positions_single = simple.get_spot_positions(wl_single, o, 1, 1)
+    o = simple_spectrograph.get_orders(1, 1)[0]
+    wl_single = simple_spectrograph.get_wavelength_range(o, 1, 1)[0]
+    spot_positions_single = simple_spectrograph.get_spot_positions(wl_single, o, 1, 1)
     assert isinstance(spot_positions_single, tuple), "Spot positions should be a tuple"
     assert len(spot_positions_single) == 2, "Spot positions should contain two arrays"
     # should be two float values
     assert np.isscalar(spot_positions_single[0]), "X position should be a scalar"
     assert np.isscalar(spot_positions_single[1]), "Y position should be a scalar"
 
+
 def test_comparing_spectrographs():
     simple1 = SimpleSpectrograph()
     simple2 = SimpleSpectrograph()
     assert simple1 == simple2, "Two SimpleSpectrograph instances should be equal"
 
-def test_psf_maps():
-    simple = SimpleSpectrograph()
-    order = simple.get_orders(1, 1)[0]
-    psf_maps = simple.get_psf(None, order, 1, 1)
+
+def test_psf_maps(simple_spectrograph):
+    order = simple_spectrograph.get_orders(1, 1)[0]
+    psf_maps = simple_spectrograph.get_psf(None, order, 1, 1)
     # compare to single psf
-    wl_start = simple.get_wavelength_range(order, 1, 1)[0]
-    psf_single = simple.get_psf(wl_start, order, 1, 1)
-    assert np.all(psf_maps[0].data == psf_single.data), "PSF maps should match single PSF for the first wavelength"
+    wl_start = simple_spectrograph.get_wavelength_range(order, 1, 1)[0]
+    psf_single = simple_spectrograph.get_psf(wl_start, order, 1, 1)
+    assert np.all(psf_maps[0].data == psf_single.data), (
+        "PSF maps should match single PSF for the first wavelength"
+    )
 
 
-def test_LocaDisturber():
-    spec = ZEMAX(simulator.available_models[0])
-    o = spec.get_orders()[0]
-    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.0
-    aff1 = spec.get_transformation(wl, o, 1, 1)
+@pytest.mark.xdist_group("exclusive")
+def test_LocaDisturber(MAROONX):
+    o = MAROONX.get_orders()[0]
+    wl = sum(MAROONX.get_wavelength_range(o, 1, 1)) / 2.0
+    aff1 = MAROONX.get_transformation(wl, o, 1, 1)
 
     # test tx
-    disturber = LocalDisturber(spec, d_tx=0.1)
+    disturber = LocalDisturber(MAROONX, d_tx=0.1)
     aff2 = disturber.get_transformation(wl, o, 1, 1)
     assert np.isclose(aff1.tx, aff2.tx - 0.1)
 
     # test ty
-    disturber = LocalDisturber(spec, d_ty=0.1)
+    disturber = LocalDisturber(MAROONX, d_ty=0.1)
     aff2 = disturber.get_transformation(wl, o, 1, 1)
     assert np.isclose(aff1.ty, aff2.ty - 0.1)
 
 
-def test_GlobalDisturber():
-    spec = ZEMAX(simulator.available_models[0])
-    o = spec.get_orders()[0]
-    wl = sum(spec.get_wavelength_range(o, 1, 1)) / 2.0
-    aff1 = spec.get_transformation(wl, o, 1, 1)
+@pytest.mark.xdist_group("exclusive")
+def test_GlobalDisturber(MAROONX):
+    o = MAROONX.get_orders()[0]
+    wl = sum(MAROONX.get_wavelength_range(o, 1, 1)) / 2.0
+    aff1 = MAROONX.get_transformation(wl, o, 1, 1)
 
     # test tx
-    disturber = GlobalDisturber(spec, tx=0.1)
+    disturber = GlobalDisturber(MAROONX, tx=0.1)
     aff2 = disturber.get_transformation(wl, o, 1, 1)
     assert np.isclose(aff1.tx, aff2.tx - 0.1)
 
     # test ty
-    disturber = GlobalDisturber(spec, ty=0.1)
+    disturber = GlobalDisturber(MAROONX, ty=0.1)
     aff2 = disturber.get_transformation(wl, o, 1, 1)
     assert np.isclose(aff1.ty, aff2.ty - 0.1)
 

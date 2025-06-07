@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime
-from pyechelle import simulator, spectrograph
+from pyechelle import spectrograph
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -11,12 +11,21 @@ def pytest_runtest_makereport(item, call):
     report.stop = call.stop
 
 
-@pytest.fixture(scope="session")
-def zemax_spectrograph():
+@pytest.fixture(scope="package")
+def MAROONX():
     """
     Creates a ZEMAX spectrograph instance that can be reused across all tests.
     """
-    spec = spectrograph.ZEMAX(simulator.available_models[0])
+    spec = spectrograph.ZEMAX("MaroonX")
+    return spec
+
+
+@pytest.fixture(scope="package")
+def simple_spectrograph():
+    """
+    Creates a ZEMAX spectrograph instance that can be reused across all tests.
+    """
+    spec = spectrograph.SimpleSpectrograph()
     return spec
 
 

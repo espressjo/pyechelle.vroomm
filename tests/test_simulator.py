@@ -1,16 +1,18 @@
 import pathlib
 
+import pytest
+
 from pyechelle import simulator, spectrograph
 from pyechelle.sources import Phoenix, ConstantPhotonFlux
 from pyechelle.telescope import Telescope
 
 
-def test_setup_simulator(zemax_spectrograph):
-    spec = zemax_spectrograph
-    sim = simulator.Simulator(spec)
+@pytest.mark.xdist_group("exclusive")
+def test_setup_simulator(MAROONX):
+    sim = simulator.Simulator(MAROONX)
     sim.set_ccd(1)
     sim.set_fibers([2])
-    sim.set_orders([spec.get_orders(2)[0]])
+    sim.set_orders([MAROONX.get_orders(2)[0]])
     sim.set_sources(Phoenix(t_eff=4200, log_g=4.0))
     sim.set_telescope(Telescope(d_primary=1.0, d_secondary=0.7))
     sim.set_cuda(True)

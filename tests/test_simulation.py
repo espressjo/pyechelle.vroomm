@@ -1,32 +1,27 @@
 import pathlib
 
+import pytest
 from astropy.io import fits
 
 from pyechelle import simulator
 
 
-def test_simulation(capsys, benchmark):
-    benchmark.pedantic(
-        simulator.main,
-        args=(
-            [
-                [
-                    "-s",
-                    "MaroonX",
-                    "--sources",
-                    "ConstantFlux",
-                    "-t",
-                    "0.01",
-                    "--orders",
-                    "100-102",
-                    "-o",
-                    "test.fits",
-                    "--overwrite",
-                ]
-            ]
-        ),
-        iterations=1,
-        rounds=1,
+@pytest.mark.xdist_group("exclusive")
+def test_simulation(capsys):
+    simulator.main(
+        [
+            "-s",
+            "MaroonX",
+            "--sources",
+            "ConstantFlux",
+            "-t",
+            "0.01",
+            "--orders",
+            "100-102",
+            "-o",
+            "test.fits",
+            "--overwrite",
+        ]
     )
     captured = capsys.readouterr()
     result = captured.out
@@ -37,28 +32,22 @@ def test_simulation(capsys, benchmark):
     pathlib.Path.cwd().joinpath("test.fits").unlink(missing_ok=True)
 
 
-def test_simulation_multicore(capsys, benchmark):
-    benchmark.pedantic(
-        simulator.main,
-        args=(
-            [
-                [
-                    "-s",
-                    "MaroonX",
-                    "--sources",
-                    "ConstantFlux",
-                    "-t",
-                    "0.01",
-                    "--orders",
-                    "100-102",
-                    "--max_cpu",
-                    "3",
-                    "--overwrite",
-                ]
-            ]
-        ),
-        iterations=1,
-        rounds=1,
+@pytest.mark.xdist_group("exclusive")
+def test_simulation_multicore(capsys):
+    simulator.main(
+        [
+            "-s",
+            "MaroonX",
+            "--sources",
+            "ConstantFlux",
+            "-t",
+            "0.01",
+            "--orders",
+            "100-102",
+            "--max_cpu",
+            "3",
+            "--overwrite",
+        ]
     )
     captured = capsys.readouterr()
     result = captured.out
@@ -67,6 +56,7 @@ def test_simulation_multicore(capsys, benchmark):
     pathlib.Path.cwd().joinpath("test.fits").unlink(missing_ok=True)
 
 
+@pytest.mark.xdist_group("exclusive")
 def test_benchmark():
     # import os
     # os.environ['NUMBA_DISABLE_JIT'] = '0'
