@@ -102,18 +102,18 @@ pages:
   only:
     - master
 
-deploy:
-  stage: deploying
-  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
-  needs:
-    - build
-  script:
-    - uv run -- python -m twine upload dist/* --non-interactive
-  rules:
-    - if: $CI_COMMIT_TAG
-  environment:
-    name: pypi
-    url: https://pypi.org/project/pyechelle/
-  id_tokens:
-    PYPI_TOKEN:
-      aud: https://pypi.org
+#deploy:
+#  stage: deploying
+#  image: ghcr.io/astral-sh/uv:python3.11-$BASE_LAYER
+#  needs:
+#    - build
+#  script:
+#    - uv run -- python -m twine upload dist/* --non-interactive
+#  rules:
+#    - if: $CI_COMMIT_TAG
+#  environment:
+#    name: pypi
+#    url: https://pypi.org/project/pyechelle/
+#  id_tokens:
+#    PYPI_TOKEN:
+#      aud: https://pypi.org
