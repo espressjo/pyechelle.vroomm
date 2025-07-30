@@ -239,11 +239,12 @@ class Atmosphere(Efficiency):
             kwargs.update(sky_calc_kwargs)
         sky = skycalc_ipy.SkyCalc()
         sky.update(kwargs)  # set sky arguments
-        wmin = np.min(wavelength) * 1000.0
-        wmax = np.max(wavelength) * 1000.0
-        sky.update({"wmin": wmin, "wmax": wmax})
-
+        wmin = np.min(wavelength).to(u.nanometer)
+        wmax = np.max(wavelength).to(u.nanometer)
+        
+        sky.update({"wmin": wmin.value, "wmax": wmax.value})
         tbl = sky.get_sky_spectrum()
+        
         # extrapolate is needed because tbl['lam'].data might not contain exact wavelength limits,
         # since we are in constant resolution mode ("wgrid_mode": "fixed_spectral_resolution")
         ip = interp1d(
