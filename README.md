@@ -1,3 +1,6 @@
+This project is a fork of https://gitlab.com/Stuermer/pyechelle.
+All credit goes to the original authors for their excellent work.
+
 # PyEchelle
 
 PyEchelle is a simulation tool, to generate realistic 2D spectra, in particular cross-dispersed echelle spectra.
